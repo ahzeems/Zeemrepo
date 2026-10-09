@@ -67,9 +67,11 @@ records hold scope and evidence. Sessions and superseded decisions are history.
    added to the allowlist in `.claude/skills/wiki-memory/references/note-schema.md` in a commit
    of its own, before the note that uses it. The pre-commit hook refuses a mixed index, and
    `npm run wiki:compliance` refuses a branch whose history mixes them or lacks the subject. A
-   merge of `main` may resolve conflicts in wiki and other files at once; every hunk it adds must
-   remove a conflict marker and keep only lines from the two sides, so a line written during the
-   merge or an unrelated edit is still refused. Commit such a line afterwards, on its own.
+   merge of `main` may resolve conflicts in wiki and other files at once; every file it changes must be
+   one git reported as a content conflict, and every hunk must remove the conflict markers and keep
+   only lines from the two sides, so a line written during the merge, an unrelated edit, a deleted
+   file or a mode change is still refused. Commit such a change afterwards, on its own. Octopus
+   merges are refused: git cannot remerge them, so they cannot be judged.
 
 8. **Land through a pull request.** Follow [[Land a change]]: `npm run pr`, the `check` and
    `guards` status checks, and the owner's merge on GitHub. Fixing a missed update later is an

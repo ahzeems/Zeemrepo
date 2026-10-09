@@ -43,8 +43,10 @@ Conventional commits (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`). Stage
 
 ## Open the pull request
 
-`npm run pr` refuses unless the branch contains `origin/main`, runs `npm run check`, pushes the
-branch and opens or updates its PR with a title and body taken from the commits. Then set them:
+`npm run pr` refuses on main or a detached HEAD, a dirty tree, or a branch that lacks `origin/main`
+or its own commits; then it runs `npm run check`, checks that `gh` is logged in, pushes the
+branch, and opens the PR (title and body from the commits) or reports the one already open. Then
+set the title and body:
 
 ```bash
 npm run pr

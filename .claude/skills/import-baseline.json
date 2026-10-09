@@ -79,7 +79,7 @@
           "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
         },
         {
-          "sha256": "3121acca2dffef332406df03b7f9e1868c538da3ae15f939993eee76bf53e039",
+          "sha256": "614352dda3359b88edef011ea9c9058086ad345a992ce31815279f316134b496",
           "approval": {
             "record": "docs/migration/skill-stocktake.md",
             "quote": "Approve both (Recommended)"

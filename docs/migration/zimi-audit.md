@@ -48,9 +48,9 @@ This audit covers Zimi (`ahzeems/Zimi`, `main` @ `9fb36b2`, 614 commits), read-o
 | 2 | One writer per checkout; separate worktrees for parallel sessions (AGENTS:26) | prose | keep | `rules/zeem/branch-and-merge.md` |
 | 3 | Merge main into the branch; no rebase of published history, no force-push (AGENTS:27) | hook (pre-push) | keep | branch-guard |
 | 4 | A remote branch may be deleted only once merged into `origin/main` (branch-guard:83) | hook | keep | branch-guard; written into the rule too, since Zimi only had it in code |
-| 5 | Land only through `npm run gate` (AGENTS:386, ADR-0008) | gate + pre-push | keep (D8: confirm before Phase 6) | `scripts/git/gate.ts` |
-| 6 | Gate needs a clean tree, a review note with 0 Blockers, and a passing check on the merge result (gate.ts:195) | gate | keep | gate.ts |
-| 7 | Every first-parent main commit carries evidence (`.evidence-policy.json`) | audit (manual) | fix: reset `since` to the first commit landed through the gate | `config/evidence-policy.json` |
+| 5 | Land only through `npm run gate`; agents merge and push main themselves (AGENTS:386, ADR-0008) | gate + pre-push | **replace (owner decision 2026-10-09):** nothing is ever pushed to main; every change lands by pull request, and only the owner merges on GitHub | GitHub ruleset + CI `check` + pre-push guard + `.claude/settings.json` deny rules; ADR-0008 rewritten |
+| 6 | Gate needs a clean tree, a review note with 0 Blockers, and a passing check on the merge result (gate.ts:195) | gate | fix: becomes `npm run pr` (`pr-ready.ts`): same preconditions, then push the branch and open or update the PR; never merges. Review notes become a PR review from `/ecc:review-pr`. | `scripts/git/pr-ready.ts` |
+| 7 | Every first-parent main commit carries evidence (`.evidence-policy.json`) | audit (manual) | fix: git notes don't travel with fetch; `audit.ts` now flags any main commit that isn't a merged PR | `scripts/git/audit.ts` |
 | 8 | Run `worktree:guard` before removing a checkout (AGENTS:82) | prose | keep | `scripts/git/worktree-guard.ts` |
 | 9 | Conventional commits; stage files explicitly | prose | ECC | `rules/ecc/common/git-workflow.md` |
 | 10 | `codex/` branch prefix | prose | drop | none (Codex-only) |

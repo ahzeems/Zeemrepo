@@ -12,7 +12,7 @@ const OID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i;
 const isZero = (oid: string): boolean => /^0+$/.test(oid);
 
 export function commitRefusals(headRef: string | null): string[] {
-  if (headRef === null) return ["Commits need a named feature branch, not a detached HEAD."];
+  if (headRef === null) return ["Commits need a named feature branch, not a detached HEAD. In a rebase or cherry-pick, finish it on a branch; published history is merged, never rebased."];
   return headRef === MAIN ? ["Do not commit on main. Branch first, then open a pull request with npm run pr; the owner merges it."] : [];
 }
 

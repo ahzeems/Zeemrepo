@@ -27,12 +27,23 @@ await test("the audit walks main's first-parent history from the configured star
   t.after(() => repo.cleanup());
   const start = repo.commit("start");
   const landed = repo.commit("Merge pull request #2 from o/feat");
+  repo.write("config/landing-audit.json", JSON.stringify({ since: start, repo: "o/r" }));
   repo.commit("fix: direct push");
   repo.git(["update-ref", "refs/remotes/origin/main", "HEAD"]);
-  repo.write("config/landing-audit.json", JSON.stringify({ since: start }));
+  repo.write("config/landing-audit.json", JSON.stringify({ since: "0".repeat(40), repo: "o/r" }));
   const err: string[] = [];
   const code = main([], { cwd: repo.dir, output: { write: () => undefined, warn: (line) => err.push(line) }, merged: (pr, sha) => pr === 2 && sha === landed });
   assert.equal(code, 1);
   assert.match(err.join("\n"), /\[no-pr\] fix: direct push/);
   assert.doesNotMatch(err.join("\n"), /#2/);
+});
+
+await test("the audit reads its start point from origin/main and needs a full commit id", async (t) => {
+  const { createRepo } = await import("../test-support/repo-fixture.ts");
+  const { main } = await import("./landing-audit.ts");
+  const repo = createRepo("landing-audit-config-");
+  t.after(() => repo.cleanup());
+  repo.write("config/landing-audit.json", JSON.stringify({ since: "916259b", repo: "o/r" }));
+  repo.git(["update-ref", "refs/remotes/origin/main", repo.commit("start")]);
+  assert.throws(() => main([], { cwd: repo.dir, output: { write: () => undefined, warn: () => undefined }, merged: () => true }), /full "since" commit id/);
 });

@@ -1,6 +1,5 @@
-# Runs on every pull request and on main. The change's own lint, types and tests run from the
-# change; the repository guards run from main's copy, so a pull request cannot weaken the
-# guards that judge it. Actions are pinned to commit SHAs.
+# Runs the change's own npm run check: lint, types, tests and its own copy of the guards.
+# The authoritative guards run from main in guards.yml, which a pull request cannot edit.
 name: check
 
 on:
@@ -13,7 +12,7 @@ permissions:
 
 concurrency:
   group: check-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
@@ -23,45 +22,16 @@ jobs:
       - name: Check out the change
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          path: change
           fetch-depth: 0
-          persist-credentials: false
-
-      - name: Check out main's guards
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: main
-          path: trusted
           persist-credentials: false
 
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version-file: change/.nvmrc
+          node-version-file: .nvmrc
 
-      - name: Install the change's dependencies
-        working-directory: change
+      - name: Install dependencies
         run: npm ci
 
-      - name: Install the guards' dependencies
-        working-directory: trusted
-        run: npm ci
-
-      - name: Lint, typecheck and test the change
-        working-directory: change
-        run: |
-          npm run lint
-          npm run typecheck
-          npm test
-
-      - name: Run main's guards against the change
-        working-directory: change
-        run: |
-          set -eu
-          guards=../trusted/scripts
-          node "$guards/wiki/wiki-lint.ts" --root .
-          node "$guards/skills/skill-lint.ts" --root .
-          node "$guards/governance/governance-guard.ts" --root .
-          node "$guards/wiki/wiki-compliance.ts"
-          node "$guards/changes/changelog-guard.ts"
-          node "$guards/changes/repo-memory-guard.ts"
+      - name: Run every check
+        run: npm run check

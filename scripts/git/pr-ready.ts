@@ -7,7 +7,10 @@
 import { spawnSync } from "node:child_process";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
 
-export type Run = (command: string, args: readonly string[]) => { status: number | null; stdout: string };
+// inherit streams the command's output to the terminal (npm run check can run for a minute
+// and its failure explains itself); env adds variables for that command.
+export type RunOptions = { inherit?: boolean; env?: Record<string, string> };
+export type Run = (command: string, args: readonly string[], options?: RunOptions) => { status: number | null; stdout: string };
 export type Options = { cwd?: string; output?: Output; run?: Run };
 
 const USAGE = `Usage: node scripts/git/pr-ready.ts [--dry-run]
@@ -16,15 +19,18 @@ pushes it and opens or reports its pull request. Never merges. --dry-run stops b
 Exit: 0 ready, 1 refused, 2 a step could not run.`;
 
 function spawnRunner(cwd: string | undefined): Run {
-  return (command, args) => {
-    const result = spawnSync(command, args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] });
+  return (command, args, options = {}) => {
+    const result = spawnSync(command, args, {
+      cwd, encoding: "utf8", env: { ...process.env, ...options.env },
+      stdio: options.inherit === true ? "inherit" : ["ignore", "pipe", "inherit"],
+    });
     if (result.error) throw result.error;
-    return { status: result.status, stdout: result.stdout };
+    return { status: result.status, stdout: result.stdout ?? "" };
   };
 }
 
-function must(run: Run, command: string, args: readonly string[]): string {
-  const result = run(command, args);
+function must(run: Run, command: string, args: readonly string[], options?: RunOptions): string {
+  const result = run(command, args, options);
   if (result.status !== 0) throw new Error(`${command} ${args.join(" ")} failed (exit ${String(result.status)})`);
   return result.stdout.trim();
 }
@@ -39,12 +45,18 @@ function readiness(run: Run): { branch: string } | { refusal: string } {
   const contains = run("git", ["merge-base", "--is-ancestor", "refs/remotes/origin/main", "HEAD"]);
   if (contains.status === 1) return { refusal: "The branch is behind main: merge origin/main into this branch (never rebase published history), then rerun." };
   if (contains.status !== 0) throw new Error("cannot compare this branch with origin/main");
-  if (run("npm", ["run", "check"]).status !== 0) return { refusal: "npm run check failed. Fix it before opening the pull request." };
+  if (must(run, "git", ["rev-list", "--count", "refs/remotes/origin/main..HEAD"]) === "0") return { refusal: "The branch has no commits that are not on main; there is nothing to open a pull request for." };
+  if (run("npm", ["run", "check"], { inherit: true }).status !== 0) return { refusal: "npm run check failed (output above). Fix it before opening the pull request." };
   return { branch };
 }
 
-function publish(run: Run, branch: string): string {
-  must(run, "git", ["push", "--set-upstream", "origin", branch]);
+// gh is checked before the push, so a missing login never leaves a branch published with no PR.
+// The pre-push hook would rerun npm run check; it skips that for the commit just checked here.
+function publish(run: Run, branch: string): string | { refusal: string } {
+  const auth = run("gh", ["auth", "status"]);
+  if (auth.status !== 0) return { refusal: "gh is not logged in. Run gh auth login, then rerun." };
+  const head = must(run, "git", ["rev-parse", "HEAD"]);
+  must(run, "git", ["push", "--set-upstream", "origin", branch], { env: { PR_READY_CHECKED: head } });
   const view = run("gh", ["pr", "view", branch, "--json", "url,state"]);
   if (view.status === 0) {
     const parsed: unknown = JSON.parse(view.stdout);
@@ -73,7 +85,12 @@ export function main(args: readonly string[], options: Options = {}): number {
     output.write(`pr-ready: ${ready.branch} is ready; dry run, nothing pushed.`);
     return EXIT_OK;
   }
-  output.write(`pr-ready: pull request ${publish(run, ready.branch)} is open. Only the owner merges; this tool never does.`);
+  const published = publish(run, ready.branch);
+  if (typeof published !== "string") {
+    output.warn(`pr-ready: ${published.refusal}`);
+    return EXIT_REFUSED;
+  }
+  output.write(`pr-ready: pull request ${published} is open. Only the owner merges; this tool never does.`);
   return EXIT_OK;
 }
 

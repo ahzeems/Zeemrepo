@@ -1,11 +1,9 @@
 // npm run audit: does every commit on main's first-parent history since the PR-only rule
 // began correspond to a pull request the owner merged? Read-only. Zimi's audit walked git
 // notes, which do not travel with fetch; this asks GitHub, which records every merge.
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
-import { gitLines, type GitOptions } from "../lib/git.ts";
+import { git, gitLines, type GitOptions } from "../lib/git.ts";
 import { isRecord } from "../lib/record.ts";
 
 export type Landing = { sha: string; subject: string };
@@ -29,20 +27,28 @@ export function classifyLandings(commits: readonly Landing[], merged: MergedChec
   });
 }
 
-// GitHub's own record: the PR is merged and its merge commit is this commit.
-function githubMerged(cwd: string | undefined): MergedCheck {
+// GitHub's own record: the PR is merged and its merge commit is this commit. gh failing
+// (not installed, not logged in, offline) is an error, never a verdict about the landing.
+function githubMerged(cwd: string | undefined, repo: string): MergedCheck {
   return (pr, sha) => {
-    const result = spawnSync("gh", ["pr", "view", String(pr), "--json", "state,mergeCommit"], { cwd, encoding: "utf8" });
-    if (result.error || result.status !== 0) return false;
+    const result = spawnSync("gh", ["pr", "view", String(pr), "--repo", repo, "--json", "state,mergeCommit"], { cwd, encoding: "utf8" });
+    if (result.error) throw new Error(`gh could not run: ${result.error.message}`);
+    if (result.status !== 0) {
+      if (/could not resolve to a pullrequest|no pull requests found/i.test(result.stderr)) return false;
+      throw new Error(`gh pr view ${pr} failed: ${result.stderr.trim()}`);
+    }
     const parsed: unknown = JSON.parse(result.stdout);
     return isRecord(parsed) && parsed.state === "MERGED" && isRecord(parsed.mergeCommit) && parsed.mergeCommit.oid === sha;
   };
 }
 
-function since(root: string): string {
-  const parsed: unknown = JSON.parse(readFileSync(join(root, CONFIG), "utf8"));
-  if (!isRecord(parsed) || typeof parsed.since !== "string" || !/^[a-f0-9]{7,40}$/.test(parsed.since)) throw new Error(`${CONFIG} needs a "since" commit`);
-  return parsed.since;
+// Read from origin/main, not the working tree, so a local edit cannot move the start point.
+function auditConfig(options: GitOptions): { since: string; repo: string } {
+  const parsed: unknown = JSON.parse(git(["show", `refs/remotes/origin/main:${CONFIG}`], options));
+  const full = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
+  if (!isRecord(parsed) || typeof parsed.since !== "string" || !full.test(parsed.since)) throw new Error(`${CONFIG} needs a full "since" commit id`);
+  if (typeof parsed.repo !== "string" || !/^[\w.-]+\/[\w.-]+$/.test(parsed.repo)) throw new Error(`${CONFIG} needs "repo" as owner/name`);
+  return { since: parsed.since, repo: parsed.repo };
 }
 
 export function main(args: readonly string[], options: Options = {}): number {
@@ -56,10 +62,11 @@ export function main(args: readonly string[], options: Options = {}): number {
     return EXIT_ERROR;
   }
   const gitOptions: GitOptions = options.cwd === undefined ? {} : { cwd: options.cwd };
-  const first = since(options.cwd ?? process.cwd());
+  const config = auditConfig(gitOptions);
+  const first = config.since;
   const commits = gitLines(["log", "--first-parent", "--format=%H%x09%s", `${first}..refs/remotes/origin/main`], gitOptions)
     .map((line) => { const [sha = "", ...subject] = line.split("\t"); return { sha, subject: subject.join("\t") }; });
-  const verdicts = classifyLandings(commits, options.merged ?? githubMerged(options.cwd));
+  const verdicts = classifyLandings(commits, options.merged ?? githubMerged(options.cwd, config.repo));
   const bad = verdicts.filter((entry) => entry.verdict !== "ok");
   for (const entry of bad) output.warn(`  x ${entry.sha.slice(0, 12)} [${entry.verdict}] ${entry.subject}`);
   if (bad.length === 0) output.write(`landing-audit: ${verdicts.length} commit(s) on main since ${first.slice(0, 12)} all landed by merged pull request`);

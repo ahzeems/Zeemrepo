@@ -29,9 +29,18 @@ export function main(args: readonly string[], options: Options = {}): number {
     output.warn("worktree-guard: pass no arguments, or --json. See --help.");
     return EXIT_ERROR;
   }
-  const listing = git(["worktree", "list", "--porcelain", "-z"], options.cwd === undefined ? {} : { cwd: options.cwd });
-  const risks = parseWorktrees(`${listing}\0`).filter((worktree) => !worktree.bare).map((worktree) => inspect(worktree.path))
+  let risks: Risk[];
+  try {
+    // git ends -z porcelain with NUL NUL, which git() leaves intact (it strips newlines only).
+    const listing = git(["worktree", "list", "--porcelain", "-z"], options.cwd === undefined ? {} : { cwd: options.cwd });
+    risks = parseWorktrees(listing).filter((worktree) => !worktree.bare).map((worktree) => inspect(worktree.path))
     .filter((risk) => risk.uncommitted > 0 || risk.unpushed > 0);
+  } catch (error) {
+    // A --json consumer gets JSON even when the inspection itself fails.
+    if (args[0] !== "--json") throw error;
+    output.write(JSON.stringify({ safe: false, risks: [], error: error instanceof Error ? error.message : String(error) }));
+    return EXIT_ERROR;
+  }
   if (args[0] === "--json") output.write(JSON.stringify({ safe: risks.length === 0, risks }));
   else if (risks.length === 0) output.write("worktree-guard: every worktree is committed and pushed");
   else {

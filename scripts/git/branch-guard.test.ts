@@ -36,6 +36,25 @@ await test("push mode reads git's pre-push lines and checks real ancestry", (t) 
   assert.match(refused.err, /pull request/);
 });
 
+await test("push mode judges every ref in one push", (t) => {
+  const fixture = repo(t);
+  const base = fixture.commit("base");
+  fixture.git(["update-ref", "refs/remotes/origin/main", base]);
+  fixture.git(["switch", "--quiet", "-c", "feat/x"]);
+  const head = fixture.commit("work");
+  const zero = "0".repeat(40);
+  const result = run(fixture, ["push"], `refs/heads/feat/x ${head} refs/heads/feat/x ${base}\nrefs/tags/v1 ${head} refs/tags/v1 ${zero}\nrefs/heads/feat/x ${head} refs/heads/main ${base}\n`);
+  assert.equal(result.code, EXIT_REFUSED);
+  assert.equal(result.err.split("\n").length, 1, "only the main update is refused");
+});
+
+await test("commit mode refuses a detached HEAD in a real checkout", (t) => {
+  const fixture = repo(t);
+  const base = fixture.commit("base");
+  fixture.git(["switch", "--quiet", "--detach", base]);
+  assert.match(run(fixture, ["commit"]).err, /detached HEAD/);
+});
+
 await test("parsePushInput splits lines and ignores blanks", () => {
   assert.deepEqual(parsePushInput("a b c d\n\n"), [{ localRef: "a", localOid: "b", remoteRef: "c", remoteOid: "d" }]);
   assert.deepEqual(parsePushInput("a b c\n"), [{ localRef: "a", localOid: "b", remoteRef: "c", remoteOid: "" }]);

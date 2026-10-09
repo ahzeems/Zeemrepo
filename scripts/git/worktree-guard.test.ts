@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, type Output } from "../lib/cli.ts";
@@ -31,6 +33,15 @@ await test("worktree guard", async (t) => {
     const result = run(repo.dir);
     assert.equal(result.code, EXIT_REFUSED);
     assert.match(result.err, /feat: 1 uncommitted file\(s\)/);
+  });
+
+  await t.test("--json reports an inspection failure as JSON with exit 2", () => {
+    const outside = mkdtempSync(join(tmpdir(), "worktree-guard-nogit-"));
+    const result = run(outside, ["--json"]);
+    rmSync(outside, { recursive: true, force: true });
+    assert.equal(result.code, EXIT_ERROR);
+    const parsed: unknown = JSON.parse(result.out);
+    assert.ok(typeof parsed === "object" && parsed !== null && "error" in parsed);
   });
 
   await t.test("--json and arguments", () => {

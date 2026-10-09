@@ -19,14 +19,14 @@ export function parsePushInput(input: string): PushUpdate[] {
   });
 }
 
-// Missing objects and divergent history both read as "not an ancestor", so the push is
-// refused rather than allowed when this checkout cannot tell.
+// A missing object (git answered, but cannot tell) reads as "not an ancestor", so the push is
+// refused. Git failing to run at all is an error (exit 2), not a refusal with a wrong reason.
 function ancestry(options: GitOptions) {
   return (ancestor: string, descendant: string): boolean => {
     try {
       return isAncestor(ancestor, descendant, options);
     } catch (error) {
-      if (error instanceof GitError) return false;
+      if (error instanceof GitError && error.status !== null) return false;
       throw error;
     }
   };

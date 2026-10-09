@@ -26,11 +26,14 @@ function fixture(t: TestContext): RepoFixture {
 }
 
 // npm and gh are faked; git runs for real against the fixture and its bare remote.
-function runner(repo: RepoFixture, outcomes: { check?: number; prView?: string } = {}): { run: Run; calls: Call[] } {
-  const calls: Call[] = [];
-  const run: Run = (command, args) => {
-    calls.push({ command, args });
+type Outcomes = { check?: number; prView?: string; ghAuth?: number };
+
+function runner(repo: RepoFixture, outcomes: Outcomes = {}): { run: Run; calls: (Call & { inherit: boolean; env: Record<string, string> })[] } {
+  const calls: (Call & { inherit: boolean; env: Record<string, string> })[] = [];
+  const run: Run = (command, args, options = {}) => {
+    calls.push({ command, args, inherit: options.inherit === true, env: options.env ?? {} });
     if (command === "npm") return { status: outcomes.check ?? 0, stdout: "" };
+    if (command === "gh" && args[0] === "auth") return { status: outcomes.ghAuth ?? 0, stdout: "" };
     if (command === "gh" && args[1] === "view") return outcomes.prView === undefined ? { status: 1, stdout: "" } : { status: 0, stdout: outcomes.prView };
     if (command === "gh" && args[1] === "create") return { status: 0, stdout: "https://github.com/o/r/pull/7\n" };
     if (command === "git") {
@@ -56,8 +59,11 @@ await test("a ready branch is checked, pushed and gets a PR, and nothing merges"
   assert.equal(result.code, EXIT_OK, result.err);
   assert.match(result.out, /https:\/\/github\.com\/o\/r\/pull\/7/);
   assert.match(result.out, /the owner merges/);
-  assert.ok(calls.some((call) => call.command === "npm" && call.args.join(" ") === "run check"));
-  assert.ok(calls.some((call) => call.command === "git" && call.args.join(" ") === "push --set-upstream origin feat/x"));
+  const check = calls.find((call) => call.command === "npm" && call.args.join(" ") === "run check");
+  assert.ok(check?.inherit, "npm run check streams its output to the terminal");
+  const push = calls.find((call) => call.command === "git" && call.args.join(" ") === "push --set-upstream origin feat/x");
+  assert.ok(push, "pushes the branch");
+  assert.equal(push.env.PR_READY_CHECKED, repo.git(["rev-parse", "HEAD"]), "tells the pre-push hook this commit was just checked");
   assert.ok(!calls.some((call) => call.args.includes("merge") && call.command === "gh"), "never merges");
 });
 
@@ -68,6 +74,22 @@ await test("an existing open PR is reported, not duplicated", (t) => {
   assert.equal(result.code, EXIT_OK, result.err);
   assert.match(result.out, /pull\/3/);
   assert.ok(!calls.some((call) => call.command === "gh" && call.args[1] === "create"));
+});
+
+await test("a closed or merged PR for the branch does not count as open", (t) => {
+  const repo = fixture(t);
+  const { run, calls } = runner(repo, { prView: JSON.stringify({ url: "https://github.com/o/r/pull/3", state: "CLOSED" }) });
+  assert.equal(go(repo, run).code, EXIT_OK);
+  assert.ok(calls.some((call) => call.command === "gh" && call.args[1] === "create"));
+});
+
+await test("gh is checked before anything is pushed", (t) => {
+  const repo = fixture(t);
+  const { run, calls } = runner(repo, { ghAuth: 1 });
+  const result = go(repo, run);
+  assert.equal(result.code, EXIT_REFUSED);
+  assert.match(result.err, /gh auth login/);
+  assert.ok(!calls.some((call) => call.args[0] === "push"));
 });
 
 await test("--dry-run checks but does not push or open a PR", (t) => {
@@ -100,6 +122,13 @@ await test("refusals stop before pushing", async (t) => {
     const result = go(repo, runner(repo).run);
     assert.equal(result.code, EXIT_REFUSED);
     assert.match(result.err, /merge origin\/main into this branch/);
+  });
+  await t.test("nothing to merge", (t) => {
+    const repo = fixture(t);
+    repo.git(["switch", "--quiet", "-c", "feat/empty", "refs/remotes/origin/main"]);
+    const result = go(repo, runner(repo).run);
+    assert.equal(result.code, EXIT_REFUSED);
+    assert.match(result.err, /no commits that are not on main/);
   });
   await t.test("failing checks", (t) => {
     const repo = fixture(t);

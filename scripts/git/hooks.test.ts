@@ -21,16 +21,41 @@ await test("pre-commit refuses commits on main and mixed wiki staging before any
 
 await test("pre-push guards the ref updates, then runs the full check", () => {
   const lines = hook("pre-push").split("\n").filter((line) => line && !line.startsWith("#"));
-  assert.deepEqual(lines.slice(1), ["node scripts/git/branch-guard.ts push", "npm run --silent check"]);
+  assert.deepEqual(lines.slice(1), [
+    "node scripts/git/branch-guard.ts push",
+    'if [ "${PR_READY_CHECKED:-}" = "$(git rev-parse HEAD)" ]; then exit 0; fi',
+    "npm run --silent check",
+  ]);
 });
 
-await test("CI runs every guard from main's copy against the change", () => {
-  const workflow = readFileSync(join(root, ".github/workflows/check.yml"), "utf8");
+await test("guards run from main against the change, never running the change's code", () => {
+  const workflow = readFileSync(join(root, ".github/workflows/guards.yml"), "utf8");
+  assert.match(workflow, /^on:\n {2}pull_request_target:\n/m, "the workflow itself comes from main");
+  assert.match(workflow, /permissions:\n {2}contents: read/);
   for (const guard of ["wiki/wiki-lint.ts\" --root .", "skills/skill-lint.ts\" --root .", "governance/governance-guard.ts\" --root .", "wiki/wiki-compliance.ts\"", "changes/changelog-guard.ts\"", "changes/repo-memory-guard.ts\""]) {
     assert.ok(workflow.includes(`node "$guards/${guard}`), guard);
   }
-  assert.match(workflow, /ref: main\n\s+path: trusted/);
-  assert.doesNotMatch(workflow, /uses: [^@\n]+@v\d/, "actions are pinned to commit SHAs");
+  assert.match(workflow, /npm ci --ignore-scripts/);
+  const runLines = workflow.split("\n").filter((line) => /^\s+(run:|node |npm )/.test(line));
+  assert.ok(!runLines.some((line) => /npm (ci|test|run)(?! ci --ignore-scripts)/.test(line) && !line.includes("--ignore-scripts")), "no change code runs");
+  assert.match(workflow, /node-version-file: trusted\/\.nvmrc/);
+});
+
+await test("workflows pin every action to a commit SHA and never persist credentials", () => {
+  for (const name of ["guards.yml", "check.yml"]) {
+    const workflow = readFileSync(join(root, ".github/workflows", name), "utf8");
+    assert.doesNotMatch(workflow, /uses: [^@\n]+@v\d/, `${name}: actions are pinned to commit SHAs`);
+    const checkouts = workflow.match(/uses: actions\/checkout@/g) ?? [];
+    const persisted = workflow.match(/persist-credentials: false/g) ?? [];
+    assert.equal(persisted.length, checkouts.length, `${name}: every checkout drops its credentials`);
+  }
+});
+
+await test("Claude Code runs the merge-blocking hook and pins ECC to a release", () => {
+  const parsed: unknown = JSON.parse(readFileSync(join(root, ".claude/settings.json"), "utf8"));
+  const text = JSON.stringify(parsed);
+  assert.ok(text.includes("scripts/claude/block-pr-merge.ts"), "PreToolUse hook registered");
+  assert.ok(text.includes('"ref":"v2.2.3"'), "ECC marketplace pinned to a tag");
 });
 
 await test("Claude Code is denied merging and pushing main", () => {

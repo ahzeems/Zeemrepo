@@ -19,12 +19,16 @@ await test("pre-commit refuses commits on main and mixed wiki staging before any
   assert.deepEqual(lines.slice(1, 3), ["node scripts/git/branch-guard.ts commit", "node scripts/wiki/wiki-compliance.ts --staged"]);
 });
 
-await test("pre-push guards the ref updates, then runs the full check", () => {
+await test("pre-push guards the ref updates, then runs the full check and refuses if it changed git state", () => {
   const lines = hook("pre-push").split("\n").filter((line) => line && !line.startsWith("#"));
   assert.deepEqual(lines.slice(1), [
     "node scripts/git/branch-guard.ts push",
     'if [ "${PR_READY_CHECKED:-}" = "$(git rev-parse HEAD)" ]; then exit 0; fi',
-    "npm run --silent check",
+    "before=$(node scripts/git/git-state.ts snapshot)",
+    "status=0",
+    "npm run --silent check || status=$?",
+    'printf \'%s\\n\' "$before" | node scripts/git/git-state.ts verify',
+    'exit "$status"',
   ]);
 });
 

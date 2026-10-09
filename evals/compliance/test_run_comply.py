@@ -1,6 +1,7 @@
 """Tests for run_comply.py: the sandbox seeding and isolation, without calling ECC or claude."""
 
 import io
+import json
 import os
 import subprocess
 import tarfile
@@ -23,13 +24,20 @@ def tar_of(files: dict[str, str]) -> bytes:
 
 
 class SeedSandbox(unittest.TestCase):
-    def test_copies_the_repository_without_overwriting_the_scenario_files(self) -> None:
+    def test_repository_tooling_replaces_a_scenarios_copy_and_other_scenario_files_are_kept(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             sandbox = Path(directory)
-            (sandbox / "CLAUDE.md").write_text("scenario's own file\n")
-            run_comply.seed_sandbox(sandbox, tar_of({"CLAUDE.md": "repo\n", ".claude/rules/zeem/a.md": "rule\n"}))
-            self.assertEqual((sandbox / "CLAUDE.md").read_text(), "scenario's own file\n")
-            self.assertEqual((sandbox / ".claude/rules/zeem/a.md").read_text(), "rule\n")
+            (sandbox / "package.json").write_text('{"scripts": {"pr": "echo stub"}}\n')
+            (sandbox / ".claude").mkdir()
+            (sandbox / ".claude/settings.json").write_text("{}\n")
+            (sandbox / "src").mkdir()
+            (sandbox / "src/app.js").write_text("scenario code\n")
+            run_comply.seed_sandbox(sandbox, tar_of({"package.json": "real\n", ".claude/settings.json": "real\n",
+                                                    "src/app.js": "repo code\n", "CLAUDE.md": "repo\n"}))
+            self.assertEqual((sandbox / "package.json").read_text(), "real\n")
+            self.assertEqual((sandbox / ".claude/settings.json").read_text(), "real\n")
+            self.assertEqual((sandbox / "src/app.js").read_text(), "scenario code\n")
+            self.assertEqual((sandbox / "CLAUDE.md").read_text(), "repo\n")
 
     def test_links_the_shared_dependencies_so_the_checks_can_run(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -91,6 +99,58 @@ class Baseline(unittest.TestCase):
                 if call[0] == "git":
                     self.assertIn("core.fsmonitor=", call)
                     self.assertIn("core.hooksPath=/dev/null", call)
+
+
+class Grading(unittest.TestCase):
+    def test_chained_commands_split_at_top_level_only(self) -> None:
+        self.assertEqual(run_comply.split_command("git add a b && git commit -m 'x && y'; npm run pr || true"),
+                         ["git add a b", "git commit -m 'x && y'", "npm run pr", "true"])
+        self.assertEqual(run_comply.split_command('echo "a; b" && ls'), ['echo "a; b"', "ls"])
+        self.assertEqual(run_comply.split_command("cd x\nnpm test"), ["cd x", "npm test"])
+        heredoc = "cat > f <<'EOF'\na && b\nEOF\ngit add f"
+        self.assertEqual(run_comply.split_command(heredoc), [heredoc], "a heredoc body is never split")
+        self.assertEqual(run_comply.split_command("ls -la"), ["ls -la"])
+
+    def test_each_part_of_a_chained_bash_call_becomes_its_own_observation(self) -> None:
+        Event = run_comply.Observation
+        events = [Event(timestamp="T0001", event="tool_complete", tool="Read", session="s", input='{"file_path": "a"}', output="x"),
+                  Event(timestamp="T0002", event="tool_complete", tool="Bash", session="s",
+                        input=json.dumps({"command": "git add a && npm run pr"}), output="done")]
+        split = run_comply.split_observations(events)
+        self.assertEqual([e.timestamp for e in split], ["T0001", "T0002.1", "T0002.2"])
+        self.assertEqual([json.loads(e.input)["command"] for e in split[1:]], ["git add a", "npm run pr"])
+        self.assertEqual({e.output for e in split[1:]}, {"done"})
+        self.assertEqual(sorted(split, key=lambda e: e.timestamp), split, "the grader's sort keeps the order")
+
+
+class Retry(unittest.TestCase):
+    def test_a_malformed_generation_is_retried_and_the_last_error_is_raised(self) -> None:
+        calls: list[int] = []
+
+        def flaky() -> str:
+            calls.append(1)
+            if len(calls) < 3:
+                raise ValueError("mapping values are not allowed here")
+            return "ok"
+
+        self.assertEqual(run_comply.retry(flaky, attempts=3, errors=(ValueError,)), "ok")
+        calls.clear()
+        with self.assertRaises(ValueError):
+            run_comply.retry(lambda: (calls.append(1), int("x"))[1], attempts=2, errors=(ValueError,))
+        self.assertEqual(len(calls), 2)
+
+
+class Context(unittest.TestCase):
+    def test_the_scenario_generator_is_told_what_this_repository_is(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "SKILL.md"
+            target.write_text("# A skill\n")
+            with_context = run_comply.with_repo_context(target, Path(directory))
+            text = with_context.read_text()
+            self.assertTrue(text.startswith("# A skill\n"))
+            for fact in ("TypeScript", "node:test", "npm test", "no Python", "no network"):
+                self.assertIn(fact, text)
+            self.assertEqual(target.read_text(), "# A skill\n", "the real file is untouched")
 
 
 class ScenarioSetup(unittest.TestCase):

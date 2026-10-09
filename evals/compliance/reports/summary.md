@@ -61,12 +61,17 @@ detail matters more than the totals.
 - One label per tool call undercounts chained commands; strict ordering turns one early miss into a
   zero.
 
-## Follow-ups (for the owner to decide)
+## Follow-ups
 
-1. Harness, before trusting any total: let repository tooling win over scenario files
-   (`package.json`, `.claude/`), and tell the scenario generator the repository's language and test
-   runner so scenarios fit it; then re-run.
-2. Grading: split chained commands before classification, or ask agents for one action per call in
-   the scenario prompt, so a step done inside a chained command is credited.
-3. write-guard: decide whether "prove the gap" stays a separate first step or becomes the first
-   failing test; the runs do not settle it.
+Fixed in the harness after this run (not yet measured; these reports predate them):
+- repository tooling (`package.json`, `CLAUDE.md`, `.claude/`, `scripts/`, `config/`, hooks)
+  replaces a scenario's copy;
+- the scenario generator is told the repository's language, test runner and limits (a check after
+  the fix produced a TypeScript guard scenario with `node:test` and no push);
+- chained Bash calls are split into one observation per command before grading;
+- `printf` setups write a leading `---` as text, and a generation with malformed YAML is retried.
+
+Still for the owner to decide:
+1. Re-run the three targets on the fixed harness before trusting any total.
+2. write-guard: whether "prove the gap" stays a separate first step or becomes the first failing
+   test.

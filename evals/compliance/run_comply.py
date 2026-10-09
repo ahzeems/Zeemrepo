@@ -27,6 +27,8 @@ import sys
 import tarfile
 import tempfile
 from collections.abc import Callable, Mapping, Sequence
+import dataclasses
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -183,13 +185,26 @@ def repo_snapshot(repo: Path) -> bytes:
     ).stdout
 
 
+# The repository's own tooling replaces a scenario's copy, so the rules are measured against the real
+# checks (a scenario's package.json once stubbed out npm run pr); other scenario files are kept.
+TOOLING_FILES = {"package.json", "package-lock.json", "tsconfig.json", "eslint.config.ts", ".nvmrc", ".gitattributes", "CLAUDE.md"}
+TOOLING_DIRS = (".claude/", ".githooks/", ".github/", "scripts/", "config/")
+
+
+def is_tooling(name: str) -> bool:
+    return name in TOOLING_FILES or name.startswith(TOOLING_DIRS)
+
+
 def seed_sandbox(sandbox: Path, snapshot: bytes, deps: Path | None = None) -> None:
-    """Extract the snapshot into the sandbox, keeping files the scenario already created, and link deps."""
+    """Extract the snapshot into the sandbox: repository tooling replaces a scenario's copy, other
+    files the scenario created are kept; then link deps."""
     root = sandbox.resolve()
     with tarfile.open(fileobj=io.BytesIO(snapshot)) as archive:
         for member in archive.getmembers():
             target = (root / member.name).resolve()
-            if member.issym() or member.islnk() or not target.is_relative_to(root) or target == root or target.exists():
+            if member.issym() or member.islnk() or not target.is_relative_to(root) or target == root:
+                continue
+            if target.exists() and not (member.isfile() and target.is_file() and is_tooling(member.name)):
                 continue
             archive.extract(member, root, filter="data")
     if deps is not None and not (root / "node_modules").exists():
@@ -239,6 +254,100 @@ def require_confinement(which: Callable[[], str | None], works: Callable[[], boo
     if which() is None or not works():
         print("run_comply: bubblewrap (bwrap) is missing or cannot run here; refusing to run unconfined.", file=sys.stderr)
         raise SystemExit(2)
+
+
+@dataclass(frozen=True)
+class Observation:
+    """The fields of ECC's ObservationEvent, for tests; the real events are ECC's own frozen dataclass."""
+    timestamp: str
+    event: str
+    tool: str
+    session: str
+    input: str
+    output: str
+
+
+SEPARATORS = ("&&", "||", ";", "\n")
+
+
+def split_command(command: str) -> list[str]:
+    """Top-level parts of a shell command chained with && || ; or newlines. Quoted text is kept whole,
+    and a command holding a heredoc is never split, because its body may contain separators."""
+    if "<<" in command:
+        return [command]
+    parts: list[str] = []
+    current = ""
+    quote: str | None = None
+    index = 0
+    while index < len(command):
+        char = command[index]
+        if quote is not None:
+            quote = None if char == quote else quote
+        elif char in "'\"":
+            quote = char
+        else:
+            separator = next((sep for sep in SEPARATORS if command.startswith(sep, index)), None)
+            if separator is not None:
+                parts.append(current)
+                current = ""
+                index += len(separator)
+                continue
+        current += char
+        index += 1
+    parts.append(current)
+    return [part.strip() for part in parts if part.strip()]
+
+
+def split_observations(events: Sequence[object]) -> list[object]:
+    """One observation per part of a chained Bash call, so the grader can credit each step; ECC gives
+    each tool call a single label. Pieces of T0004 become T0004.1, T0004.2, keeping the order."""
+    result: list[object] = []
+    for event in events:
+        try:
+            command = json.loads(getattr(event, "input")).get("command") if getattr(event, "tool") == "Bash" else None
+        except (ValueError, AttributeError):
+            command = None
+        parts = split_command(command) if isinstance(command, str) else []
+        if len(parts) < 2:
+            result.append(event)
+            continue
+        stamp = getattr(event, "timestamp")
+        result += [dataclasses.replace(event, timestamp=f"{stamp}.{n}", input=json.dumps({"command": part}))  # type: ignore[type-var]
+                   for n, part in enumerate(parts, start=1)]
+    return result
+
+
+REPO_CONTEXT = """
+
+## Scenario environment (added by run_comply.py, not part of the file under test)
+
+The sandbox is a copy of this repository: TypeScript run directly by Node, tests with node:test
+through `npm test`, every guard through `npm run check`, wiki notes with YAML frontmatter (type,
+title, summary, tags, dates, agent, status). Its package.json, CLAUDE.md, .claude/, scripts/ and
+config/ replace any scenario copies. There is no Python, no pip and no network for packages, so
+write scenarios in TypeScript or JavaScript with node:test. Setup commands should only create the
+files the task needs and commit locally; do not push or create remotes.
+"""
+
+
+def retry(call: Callable[[], object], *, attempts: int, errors: tuple[type[BaseException], ...]) -> object:
+    """`call()`, retried on `errors` up to `attempts` times; the last error is raised."""
+    for attempt in range(1, attempts + 1):
+        try:
+            return call()
+        except errors:
+            if attempt == attempts:
+                raise
+            print(f"run_comply: generation failed, retrying ({attempt}/{attempts - 1})", file=sys.stderr)
+    raise AssertionError("unreachable")
+
+
+def with_repo_context(target: Path, work: Path) -> Path:
+    """A copy of `target` with the repository's environment appended, for the scenario generator only."""
+    work.mkdir(parents=True, exist_ok=True)
+    copy = Path(tempfile.mkdtemp(prefix="context-", dir=work)) / target.name  # never the file itself
+    copy.write_text(target.read_text() + REPO_CONTEXT)
+    return copy
 
 
 def ecc_arguments(target: Path, *, model: str, gen_model: str, dry_run: bool) -> list[str]:
@@ -329,7 +438,19 @@ def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Pa
 
     runner._setup_sandbox = setup_with_repository
     run_scenario = runner.run_scenario
-    ecc_run.run_scenario = lambda scenario, model: run_scenario(scenario, model=model, timeout=SCENARIO_TIMEOUT)
+
+    def run_and_split(scenario: object, model: str) -> object:
+        run = run_scenario(scenario, model=model, timeout=SCENARIO_TIMEOUT)
+        return dataclasses.replace(run, observations=tuple(split_observations(run.observations)))
+
+    ecc_run.run_scenario = run_and_split
+    generate_scenarios = ecc_run.generate_scenarios
+    import yaml  # ECC's own dependency, in the venv
+
+    # The generator model sometimes returns YAML that does not parse (an unquoted colon); retry it.
+    ecc_run.generate_scenarios = lambda skill, spec_yaml, model: retry(
+        lambda: generate_scenarios(with_repo_context(Path(skill), work / "context"), spec_yaml, model=model),
+        attempts=3, errors=(yaml.YAMLError, KeyError, TypeError))
     os.chdir(REPO)
     sys.argv = ["skill-comply", *ecc_arguments(args.target, model=args.model, gen_model=args.gen_model, dry_run=args.dry_run)]
     ecc_run.main()

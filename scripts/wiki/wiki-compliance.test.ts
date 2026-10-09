@@ -117,6 +117,28 @@ await test("history check", async (t) => {
     assert.equal(repo.check().code, EXIT_REFUSED);
   });
 
+  await t.test("a resolution that also deletes a line beside the conflict is mixed", (t) => {
+    const repo = branch(t);
+    repo.write("scripts/a.ts", "// keep\nexport const a = 1;\n");
+    repo.write("wiki/Home.md", "# Wiki\n");
+    repo.git(["update-ref", "refs/remotes/origin/main", repo.commit("base with a neighbour line")]);
+    repo.write("scripts/a.ts", "// keep\nexport const a = 2;\n");
+    repo.commit("feat: branch a");
+    repo.write("wiki/Home.md", "# Branch\n");
+    repo.commit("docs(wiki): branch home");
+    repo.git(["switch", "--quiet", "-c", "main-moved", "refs/remotes/origin/main"]);
+    repo.write("scripts/a.ts", "// keep\nexport const a = 3;\n");
+    repo.write("wiki/Home.md", "# Main\n");
+    repo.git(["update-ref", "refs/remotes/origin/main", repo.commit("main moved both")]);
+    repo.git(["switch", "--quiet", "feature"]);
+    assert.throws(() => repo.git(["merge", "--quiet", "--no-edit", "main-moved"]), "both files conflict");
+    repo.write("scripts/a.ts", "export const a = 3;\n");
+    repo.write("wiki/Home.md", "# Main\n");
+    repo.git(["add", "scripts/a.ts", "wiki/Home.md"]);
+    repo.git(["commit", "--quiet", "--no-edit"]);
+    assert.equal(repo.check().code, EXIT_REFUSED, "the neighbour line was deleted during the merge");
+  });
+
   await t.test("a user's diff3 setting cannot turn a resolution to the base text into a pass", (t) => {
     const repo = conflictingMerge(t);
     repo.write("scripts/a.ts", "export const a = 1;\n");

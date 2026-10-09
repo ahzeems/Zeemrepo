@@ -3,42 +3,87 @@
 // scrubbing it would commit to, switch or reconfigure the hooked repository (Zimi lost a
 // branch tip and core.bare that way). The hook snapshots this state before
 // `npm run check` and refuses the push if the check changed it. It detects; it cannot undo.
+// Covered: HEAD, the checked-out branch, core.bare, local and per-worktree config, every ref,
+// the index and the working tree. Not covered: global config, hooks, the object store.
+// The snapshot holds hashes, never config values, and messages redact config subsections
+// (they can hold URLs with tokens), so neither the shell variable nor stderr leaks secrets.
 //   snapshot: prints the state as one JSON line
 //   verify:   reads a snapshot on stdin and refuses if the state differs
-import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
-import { git, tryGit, type GitOptions } from "../lib/git.ts";
+import { GitError, git, type GitOptions } from "../lib/git.ts";
 import { isRecord } from "../lib/record.ts";
 
 export type Options = { cwd?: string; output?: Output; stdin?: string };
 
-type GitState = { head: string | null; branch: string | null; bare: string | null; config: [string, string][] };
+type Config = Record<string, string>;
+export type GitState = {
+  head: string | null; branch: string | null; bare: string | null;
+  config: Config; worktreeConfig: Config | null; refs: string; index: string; tree: string;
+};
 
 const USAGE = `Usage: node scripts/git/git-state.ts <snapshot|verify>
 verify reads a snapshot on stdin. Exit: 0 unchanged, 1 changed, 2 the check could not run.`;
 
-// `config -z` prints "key\nvalue" records separated by NUL, so values may hold newlines.
-function localConfig(options: GitOptions): [string, string][] {
-  const listing = tryGit(["config", "--local", "--list", "-z"], options) ?? "";
-  return listing.split("\0").filter((entry) => entry.length > 0).map((entry): [string, string] => {
-    const split = entry.indexOf("\n");
-    return split === -1 ? [entry, ""] : [entry.slice(0, split), entry.slice(split + 1)];
-  }).filter(([key]) => key !== "core.bare").sort(([a], [b]) => a.localeCompare(b));
+const digest = (text: string): string => createHash("sha256").update(text).digest("hex");
+
+// Exit 1 is git's "not there" for these queries; anything else (a corrupt config or HEAD)
+// is an error, so a broken repository stops the push instead of looking unchanged.
+function absentOnOne(args: readonly string[], options: GitOptions): string | null {
+  try {
+    return git(args, options);
+  } catch (error) {
+    if (error instanceof GitError && error.status === 1) return null;
+    throw error;
+  }
 }
+
+// `config -z` prints "key\nvalue" records separated by NUL, so values may hold newlines.
+// Entries are grouped under their redacted key and each group hashed in file order, so the
+// snapshot holds neither values nor subsections; core.bare is tracked on its own.
+function parseConfig(listing: string): Config {
+  const groups = new Map<string, string[][]>();
+  for (const entry of listing.split("\0").filter((record) => record.length > 0)) {
+    const split = entry.indexOf("\n");
+    const key = split === -1 ? entry : entry.slice(0, split);
+    if (key === "core.bare") continue;
+    const name = redactKey(key);
+    groups.set(name, [...(groups.get(name) ?? []), [key, split === -1 ? "" : entry.slice(split + 1)]]);
+  }
+  return Object.fromEntries([...groups].map(([name, entries]) => [name, digest(JSON.stringify(entries))]));
+}
+
+// Read the file directly: with extensions.worktreeConfig set but no file yet,
+// `git config --worktree` exits 128.
+function worktreeConfig(options: GitOptions): Config | null {
+  const path = resolve(options.cwd ?? ".", git(["rev-parse", "--git-path", "config.worktree"], options));
+  return existsSync(path) ? parseConfig(git(["config", "--file", path, "--list", "-z"], options)) : null;
+}
+
+// A repository flipped to core.bare=true has no work tree for status or ls-files to read;
+// the core.bare change itself is the refusal, so those two read as "bare".
+const BARE = "bare";
 
 export function readState(options: GitOptions = {}): GitState {
   git(["rev-parse", "--git-dir"], options);
+  const bare = absentOnOne(["config", "--local", "--get", "core.bare"], options);
+  const workTree = bare !== "true";
   return {
-    head: tryGit(["rev-parse", "--verify", "--quiet", "HEAD"], options),
-    branch: tryGit(["symbolic-ref", "--quiet", "HEAD"], options),
-    bare: tryGit(["config", "--local", "--get", "core.bare"], options),
-    config: localConfig(options),
+    head: absentOnOne(["rev-parse", "--verify", "--quiet", "HEAD"], options),
+    branch: absentOnOne(["symbolic-ref", "--quiet", "HEAD"], options),
+    bare,
+    config: parseConfig(git(["config", "--local", "--list", "-z"], options)),
+    worktreeConfig: worktreeConfig(options),
+    refs: digest(git(["for-each-ref", "--format=%(refname) %(objectname)"], options)),
+    index: workTree ? digest(git(["ls-files", "--stage", "-z"], options)) : BARE,
+    tree: workTree ? digest(git(["status", "--porcelain=v1", "-z", "--untracked-files=all"], options)) : BARE,
   };
 }
 
 const nullableString = (value: unknown): value is string | null => value === null || typeof value === "string";
-const isPair = (value: unknown): value is [string, string] =>
-  Array.isArray(value) && value.length === 2 && typeof value[0] === "string" && typeof value[1] === "string";
+const isConfig = (value: unknown): value is Config => isRecord(value) && Object.values(value).every((entry) => typeof entry === "string");
 
 function parseState(text: string): GitState | null {
   let value: unknown;
@@ -47,28 +92,38 @@ function parseState(text: string): GitState | null {
   } catch {
     return null;
   }
-  if (!isRecord(value) || !nullableString(value.head) || !nullableString(value.branch) || !nullableString(value.bare)) return null;
-  if (!Array.isArray(value.config) || !value.config.every(isPair)) return null;
-  return { head: value.head, branch: value.branch, bare: value.bare, config: value.config.filter(isPair) };
+  if (!isRecord(value)) return null;
+  const { head, branch, bare, config, worktreeConfig: perWorktree, refs, index, tree } = value;
+  if (!nullableString(head) || !nullableString(branch) || !nullableString(bare) || !isConfig(config)) return null;
+  if (!(perWorktree === null || isConfig(perWorktree))) return null;
+  if (typeof refs !== "string" || typeof index !== "string" || typeof tree !== "string") return null;
+  return { head, branch, bare, config, worktreeConfig: perWorktree, refs, index, tree };
 }
 
-function keysOf(config: readonly [string, string][]): Map<string, string[]> {
-  const keys = new Map<string, string[]>();
-  for (const [key, value] of config) keys.set(key, [...(keys.get(key) ?? []), value]);
-  return keys;
+// section.subsection.variable -> section.<...>.variable: a subsection can be a URL with a token.
+export function redactKey(key: string): string {
+  const first = key.indexOf(".");
+  const last = key.lastIndexOf(".");
+  return first === last ? key : `${key.slice(0, first)}.<...>${key.slice(last)}`;
 }
 
-// Key names only: a changed value may be an email or a token.
+function configChanges(label: string, before: Config | null, after: Config | null): string[] {
+  const was = before ?? {};
+  const now = after ?? {};
+  const names = [...new Set([...Object.keys(was), ...Object.keys(now)])].filter((name) => was[name] !== now[name]).sort();
+  return names.length === 0 ? [] : [`${label} changed: ${names.join(", ")}`];
+}
+
 export function stateChanges(before: GitState, after: GitState): string[] {
   const changes: string[] = [];
   if (before.head !== after.head) changes.push(`HEAD moved from ${before.head ?? "(none)"} to ${after.head ?? "(none)"}`);
   if (before.branch !== after.branch) changes.push(`the checked-out branch changed from ${before.branch ?? "(detached)"} to ${after.branch ?? "(detached)"}`);
   if (before.bare !== after.bare) changes.push(`core.bare changed from ${before.bare ?? "(unset)"} to ${after.bare ?? "(unset)"}`);
-  const was = keysOf(before.config);
-  const now = keysOf(after.config);
-  const keys = [...new Set([...was.keys(), ...now.keys()])].sort();
-  const changed = keys.filter((key) => JSON.stringify(was.get(key)) !== JSON.stringify(now.get(key)));
-  if (changed.length > 0) changes.push(`local git config changed: ${changed.join(", ")}`);
+  changes.push(...configChanges("local git config", before.config, after.config));
+  changes.push(...configChanges("per-worktree git config", before.worktreeConfig, after.worktreeConfig));
+  if (before.refs !== after.refs) changes.push("refs changed (a branch, tag, stash or remote-tracking ref was created, moved or deleted)");
+  if (before.index !== after.index) changes.push("the index changed");
+  if (before.tree !== after.tree) changes.push("the working tree changed");
   return changes;
 }
 

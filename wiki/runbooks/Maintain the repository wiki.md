@@ -68,8 +68,8 @@ records hold scope and evidence. Sessions and superseded decisions are history.
    of its own, before the note that uses it. The pre-commit hook refuses a mixed index, and
    `npm run wiki:compliance` refuses a branch whose history mixes them or lacks the subject. A
    merge of `main` may resolve conflicts in wiki and other files at once; every file it changes must be
-   one git reported as a content conflict, and every hunk must remove the conflict markers, delete nothing outside
-   them and keep only lines from the two sides, so a line written during the merge, an unrelated edit, a deleted
+   one git reported as a content conflict, and every hunk must remove a whole conflict marker set, delete nothing
+   outside it and keep only lines from the two sides, so a line written during the merge, an unrelated edit, a deleted
    file or a mode change is still refused. Commit such a change afterwards, on its own. Octopus
    merges are refused: git cannot remerge them, so they cannot be judged.
 

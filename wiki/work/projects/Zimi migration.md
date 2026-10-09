@@ -9,11 +9,12 @@ agent: claude-code
 status: in-progress
 owner: human
 priority: P1
-next_action: "Phase 6: git guards, PR tooling (never merges), CI and hooks."
+next_action: "Phase 7: distill rules into .claude/rules/zeem, CLAUDE.md, and port lessons and decisions."
 idea: "[[Migrate Zimi into Zeemrepo]]"
 evidence:
   - "VERIFIED: PRs #1-#5 merged by the owner (audit, toolchain, shared library, wiki system, skills)."
   - "VERIFIED: Phase 5 npm run check passes: lint, typecheck, 422 tests, wiki:lint, skills:lint, governance:check, wiki:compliance, changelog:guard, memory:guard."
+  - "VERIFIED: Phase 6 npm run check passes with the branch guard, worktree guard, npm run pr, landing audit, hooks and CI workflow (496 tests)."
   - "OWNER DECISION: nothing is pushed to main; work lands by pull request and only the owner merges (2026-10-09)."
 ---
 

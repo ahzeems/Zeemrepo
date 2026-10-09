@@ -26,5 +26,6 @@ files and `package-lock.json`, unless the path is workflow-critical. Workflow-cr
 `.githooks/`, `.github/`, `scripts/`, `config/`, any `.claude/` folder, `CLAUDE.md`,
 `README.md`, and root tooling files. The single source is `scripts/lib/change-policy.ts`.
 
-Guards are code on the branch they judge, so a branch could weaken them; running them from
-main's copy in CI closes that gap (Phase 6).
+The `check` workflow in CI runs these guards from main's copy against each pull request, so a
+branch cannot weaken the guards that judge it. Locally the pre-push hook runs `npm run check`.
+The steps from branch to merge are in [[Land a change]].

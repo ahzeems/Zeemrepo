@@ -50,7 +50,9 @@ In Zeemrepo this is built into the shared helpers:
   that inject config or rewrite history. `scripts/lib/git.test.ts` covers this in "an explicit
   cwd wins over an inherited GIT_DIR (hook environment)".
 
-No check scans test files for a `git` spawned with the inherited environment; a source scan for
-that pattern would be brittle. Review new fixture code for it.
+`scripts/toolchain/fixture-env.test.ts` now reads the syntax tree of all test code and fails any
+`child_process` call that does not pass `env: cleanGitEnv`, and the pre-push hook refuses a push
+whose check changed the repository's git state
+([[Hook-run checks must preserve Git state]]).
 
 Ported from Zimi `wiki/lessons/Git hooks route child Git commands to the hooked repository.md` at 9fb36b2.

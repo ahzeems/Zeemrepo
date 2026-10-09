@@ -4,7 +4,7 @@
 // switch it off by deleting that file; there is no switch to delete here.
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
 import { git, gitLines, gitPaths, mergeBase, refExists, type GitOptions } from "../lib/git.ts";
-import { commitViolations, stagedMix, type Commit, type Violation } from "./wiki-compliance-validation.ts";
+import { commitViolations, isConflictResolution, stagedMix, type Commit, type Violation } from "./wiki-compliance-validation.ts";
 
 export type Options = { cwd?: string; output?: Output };
 
@@ -23,19 +23,18 @@ const SPLIT_ADVICE = "Commit the wiki/ files alone and the rest separately; to m
 // nothing, while conflict resolutions and changes slipped in during a merge are listed.
 // (--cc is not enough: it lists files whose hunks came from both sides even when git merged
 // them cleanly.) Requires git 2.36 or later.
-function commitFiles(sha: string, options: GitOptions): string[] {
+function readCommit(sha: string, options: GitOptions): Commit {
   const parents = git(["rev-list", "--parents", "-n", "1", sha], options).split(" ").length - 1;
   const diff = parents > 1 ? ["--remerge-diff"] : ["--no-renames"];
-  return gitPaths(["show", ...diff, "--name-only", "--format=", sha], options);
+  const files = gitPaths(["show", ...diff, "--name-only", "--format=", sha], options);
+  const subject = git(["log", "-1", "--format=%s", sha], options);
+  if (parents < 2) return { sha, subject, files };
+  return { sha, subject, files, resolutionOnly: isConflictResolution(git(["show", "--remerge-diff", "--format=", sha], options)) };
 }
 
 function branchCommits(options: GitOptions): Commit[] {
   const base = mergeBase(options);
-  return gitLines(["rev-list", `${base}..HEAD`], options).map((sha) => ({
-    sha,
-    subject: git(["log", "-1", "--format=%s", sha], options),
-    files: commitFiles(sha, options),
-  }));
+  return gitLines(["rev-list", `${base}..HEAD`], options).map((sha) => readCommit(sha, options));
 }
 
 // Concluding a merge stages the other side's changes, which always mixes wiki with code, so

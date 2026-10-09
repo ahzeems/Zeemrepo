@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { commitViolations, stagedMix } from "./wiki-compliance-validation.ts";
+import { commitViolations, isConflictResolution, stagedMix } from "./wiki-compliance-validation.ts";
 
 const commit = (subject: string, files: string[]) => ({ sha: "a".repeat(40), subject, files });
 
@@ -52,4 +52,22 @@ await test("a docs(wiki) subject on a commit with no wiki files is refused as mi
   const [violation] = commitViolations([commit("docs(wiki): record", ["scripts/a.ts"])]);
   assert.equal(violation?.kind, "subject");
   assert.match(violation?.detail ?? "", /no wiki files/);
+});
+
+await test("a merge that only resolves conflicts may span wiki and other files (owner decision)", () => {
+  const merge = { ...commit("Merge main into feature", ["CHANGELOG.md", "wiki/work/projects/X.md"]), resolutionOnly: true };
+  assert.deepEqual(commitViolations([merge]), []);
+  assert.deepEqual(commitViolations([{ ...merge, files: ["wiki/work/projects/X.md"] }]), [], "nor does it need a docs(wiki) subject");
+  const [violation] = commitViolations([{ ...merge, resolutionOnly: false }]);
+  assert.equal(violation?.kind, "mixed");
+});
+
+await test("a remerge patch counts as a resolution only if every hunk removes conflict markers", () => {
+  const resolved = "diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1,5 +1,2 @@\n-<<<<<<< abc (ours)\n-one\n-=======\n-two\n->>>>>>> def (theirs)\n+one\n+two\n";
+  const slipped = "diff --git a/y b/y\n--- a/y\n+++ b/y\n@@ -1 +1 @@\n-old\n+new\n";
+  assert.equal(isConflictResolution(resolved), true);
+  assert.equal(isConflictResolution(resolved + slipped), false, "an unrelated hunk beside a resolution");
+  assert.equal(isConflictResolution(slipped), false);
+  assert.equal(isConflictResolution(""), false, "nothing to judge is not a resolution");
+  assert.equal(isConflictResolution("diff --git a/z b/z\nremerge CONFLICT (modify/delete): z deleted in theirs\n"), false, "a file with no hunks");
 });

@@ -3,7 +3,8 @@ import { WIKI_DIR } from "../lib/paths.ts";
 // The wiki commit rule: wiki files are committed alone, with a conventional `docs(wiki):`
 // subject. Zimi first had this in prose only and it was broken anyway, because prose does
 // not run. Pure and read-only; the CLI lives in wiki-compliance.ts.
-export type Commit = { sha: string; subject: string; files: readonly string[] };
+// resolutionOnly: a merge whose own changes (its --remerge-diff) only resolve conflicts.
+export type Commit = { sha: string; subject: string; files: readonly string[]; resolutionOnly?: boolean };
 export type Violation = { sha: string; subject: string; kind: "mixed" | "subject"; detail: string };
 
 const WIKI_SUBJECT = /^docs\(wiki\)!?: \S/;
@@ -28,6 +29,7 @@ export function stagedMix(files: readonly string[]): { wiki: string[]; other: st
 
 export function commitViolations(commits: readonly Commit[]): Violation[] {
   return commits.flatMap((commit): Violation[] => {
+    if (commit.resolutionOnly === true) return [];
     const { wiki, other } = splitPaths(commit.files);
     if (wiki.length === 0) {
       if (!WIKI_SUBJECT.test(commit.subject)) return [];
@@ -39,5 +41,19 @@ export function commitViolations(commits: readonly Commit[]): Violation[] {
     }
     if (WIKI_SUBJECT.test(commit.subject)) return [];
     return [{ sha: commit.sha, subject: commit.subject, kind: "subject", detail: 'a wiki-only commit needs a subject beginning "docs(wiki): "' }];
+  });
+}
+
+// OWNER DECISION, 2026-10-09: a merge may resolve conflicts in wiki and other files at once,
+// because two open pull requests usually conflict on CHANGELOG.md and a work record together;
+// an unrelated edit still makes it mixed. A hunk of the merge's --remerge-diff counts as a
+// resolution only when it removes a conflict marker; a file with no hunk does not count.
+const MARKER = /^-(?:<{7}|={7}|>{7})(?: |$)/m;
+
+export function isConflictResolution(patch: string): boolean {
+  const files = patch.split(/^diff --git /m).slice(1);
+  return files.length > 0 && files.every((file) => {
+    const hunks = file.split(/^@@ /m).slice(1);
+    return hunks.length > 0 && hunks.every((hunk) => MARKER.test(hunk));
   });
 }

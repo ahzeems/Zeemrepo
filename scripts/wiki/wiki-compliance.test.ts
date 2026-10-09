@@ -81,6 +81,44 @@ await test("history check", async (t) => {
     assert.match(result.err, /\[mixed\]/);
   });
 
+  // Two open pull requests usually conflict on CHANGELOG.md and a work record at once.
+  const conflictingMerge = (t: TestContext): ReturnType<typeof branch> => {
+    const repo = branch(t);
+    repo.write("scripts/c.ts", "export const c = 1;\n");
+    repo.commit("feat: add c");
+    repo.write("scripts/a.ts", "export const a = 2;\n");
+    repo.commit("feat: branch a");
+    repo.write("wiki/Home.md", "# Branch\n");
+    repo.commit("docs(wiki): branch home");
+    repo.git(["switch", "--quiet", "-c", "main-moved", "refs/remotes/origin/main"]);
+    repo.write("scripts/a.ts", "export const a = 3;\n");
+    repo.write("wiki/Home.md", "# Main\n");
+    repo.git(["update-ref", "refs/remotes/origin/main", repo.commit("main moved both")]);
+    repo.git(["switch", "--quiet", "feature"]);
+    assert.throws(() => repo.git(["merge", "--quiet", "--no-edit", "main-moved"]), "both files conflict");
+    repo.write("scripts/a.ts", "export const a = 3;\nexport const b = 2;\n");
+    repo.write("wiki/Home.md", "# Main\n# Branch\n");
+    return repo;
+  };
+
+  await t.test("a merge that only resolves conflicts in wiki and other files passes", (t) => {
+    const repo = conflictingMerge(t);
+    repo.git(["add", "scripts/a.ts", "wiki/Home.md"]);
+    repo.git(["commit", "--quiet", "--no-edit"]);
+    const result = repo.check();
+    assert.equal(result.code, EXIT_OK, result.err);
+  });
+
+  await t.test("a conflict-resolving merge that also slips in an unrelated edit is still mixed", (t) => {
+    const repo = conflictingMerge(t);
+    repo.write("scripts/c.ts", "export const c = 99;\n");
+    repo.git(["add", "scripts/a.ts", "wiki/Home.md", "scripts/c.ts"]);
+    repo.git(["commit", "--quiet", "--no-edit"]);
+    const result = repo.check();
+    assert.equal(result.code, EXIT_REFUSED);
+    assert.match(result.err, /\[mixed\]/);
+  });
+
   await t.test("a clean merge of main, where both sides touched the same files, is not judged", (t) => {
     const repo = branch(t);
     repo.write("scripts/a.ts", "export const a = 1;\n\n\n\n\n\n// branch\n");

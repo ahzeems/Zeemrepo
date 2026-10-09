@@ -1,0 +1,8 @@
+# Text is stored as LF. Without this an editor on Windows writes CRLF and every Markdown
+# file shows as modified.
+* text=auto eol=lf
+
+# After the rule above on purpose: `text` is unconditional where `text=auto` is a
+# heuristic, so a hook or shell script with an unusual byte is still LF.
+*.sh text eol=lf
+.githooks/* text eol=lf

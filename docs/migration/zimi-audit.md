@@ -90,7 +90,7 @@ This audit covers Zimi (`ahzeems/Zimi`, `main` @ `9fb36b2`, 614 commits), read-o
 |---|---|---|---|---|
 | 33 | One skill library; no copies or projections | prose | keep: `.claude/skills/` only | |
 | 34 | Third-party imports are byte-preserved and hashed in `import-baseline.json` | check | keep; re-baseline once after the stocktake | `scripts/skills/` |
-| 35 | Description ≤160 characters, body ≤6000; names match directories; cited paths resolve; skill reachable from a route file | check | keep; route file = `CLAUDE.md` | `config/skill-standards.json` |
+| 35 | Description ≤160 characters, body ≤6000; names match directories; cited paths resolve; skill reachable from a route file | check | keep, except the route-file check: dropped in Phase 4, because Claude Code finds skills by their descriptions | `config/skill-standards.json` |
 | 36 | User-only skills are confirmed in three places (frontmatter, `openai.yaml`, `opencode.json`) | check | fix: native `disable-model-invocation` + one `userOnly` list (D6) | skill-validation |
 | 37 | A denied skill stops work; reading a file does not get around a denial | prose | keep | `rules/zeem/skills.md` |
 | 38 | Read unslop before any prose | OpenCode injection only | keep; measure with skill-comply | unslop skill |

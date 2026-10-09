@@ -41,7 +41,10 @@ branch must record (changelog, work record, operating docs) is `wiki/reference/C
 | `config/` | Guard configuration: governance claims, skill standards, landing audit |
 | `wiki/` | Shared memory: notes, decisions, lessons, runbooks and work records (`wiki-memory` skill) |
 | `.claude/skills/` | Repository skills migrated from Zimi; provenance in `import-baseline.json` |
+| `CLAUDE.md` | The constitution: three non-negotiables and where each rule lives |
+| `.claude/rules/zeem/` | This repository's rules, distilled from Zimi; they override ECC where they disagree |
 | `.claude/rules/ecc/` | ECC rules, vendored unchanged |
+| `.claude/agents/` | Read-only `finder` and `verifier` review agents |
 | `.github/workflows/` | `check` (the change's own checks) and `guards` (main's guards, `pull_request_target`) |
 | `CHANGELOG.md` | One entry per branch |
 

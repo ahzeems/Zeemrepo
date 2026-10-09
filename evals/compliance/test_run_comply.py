@@ -192,6 +192,9 @@ class Grading(unittest.TestCase):
             return json.dumps({"type": "user", "message": {"content": [block]}})
 
         stream = "\n".join([use(0), result(0, None), use(1), result(1, True), use(2), result(2, False), use(3), "not json"])
+        repeated = "\n".join([use(0), result(0, False), use(0), result(0, True), use(5), result(5, False),
+                               json.dumps({"type": "system", "message": "hi"}), json.dumps([1])])
+        self.assertEqual(run_comply.successful_calls(repeated), {"T0000", "T0002"}, "numbered per tool_use block, as ECC does")
         self.assertEqual(run_comply.successful_calls(stream), {"T0002"}, "no flag, an error, or no result is not a success")
 
     def test_a_refused_or_unfinished_call_is_not_split(self) -> None:
@@ -201,6 +204,21 @@ class Grading(unittest.TestCase):
         self.assertEqual(run_comply.split_observations([refused], succeeded={"T0001"}), [refused])
         self.assertEqual(len(run_comply.split_observations([refused], succeeded={"T0007"})), 3)
         for whole in ("exit 0; git commit -m x", "npm test && exit 0 && git push", "eval 'a' && b", "source x && b", ". x && b", "kill $$ && b"):
+            self.assertEqual(run_comply.split_command(whole), [whole], whole)
+
+    def test_a_backgrounded_call_is_not_split_because_it_has_not_finished(self) -> None:
+        Event = run_comply.Observation
+        background = Event("T0002", "tool_complete", "Bash", "s",
+                           json.dumps({"command": "npm run check && git commit -m x && npm run pr", "run_in_background": True}),
+                           "Command running in background with ID: b1")
+        self.assertEqual(run_comply.split_observations([background], succeeded={"T0002"}), [background])
+
+    def test_quoted_text_does_not_keep_a_chain_whole(self) -> None:
+        self.assertEqual(run_comply.split_command('git add a && git commit -m "feat(evals): notes for review #12" && npm run pr'),
+                         ["git add a", 'git commit -m "feat(evals): notes for review #12"', "npm run pr"])
+        self.assertEqual(run_comply.split_command("git add . && find . -name x"), ["git add .", "find . -name x"])
+        for whole in ('git commit -m "$(cat m)" && git push', "echo 'a' && . ./env && b", 'echo "x" && if true; then a; fi',
+                      "echo 'unterminated && b"):
             self.assertEqual(run_comply.split_command(whole), [whole], whole)
 
     def test_a_failed_call_is_not_split_so_steps_that_never_ran_get_no_credit(self) -> None:

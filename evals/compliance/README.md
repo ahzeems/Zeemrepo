@@ -38,9 +38,10 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
   command before grading, because ECC labels each tool call with a single step. It splits only a
   call whose result in the session stream says `is_error: false` (ECC drops that flag, so the
   wrapper reads it alongside ECC's parser); a call that failed, was denied or blocked by a hook,
-  timed out or has no result stays whole, as do a mixed chain (`a && b; c` exits 0 even when `b`
-  never ran) and anything conditional, backgrounded or nested (`||`, `&`, `exec`, `exit`, `source`,
-  `eval`, `kill`, `if`/`for`, subshells, `$(...)`, heredocs, comments, backslashes). This keeps
+  timed out, has no result or ran in the background (`run_in_background`) stays whole, as do a
+  mixed chain (`a && b; c` exits 0 even when `b` never ran) and anything conditional, backgrounded
+  or nested (`||`, `&`, `exec`, `exit`, `source`/`.`, `eval`, `kill`, `if`/`for`, subshells,
+  comments, outside quotes; `$(...)`, backticks, heredocs and backslashes anywhere). This keeps
   splitting from crediting a step that never ran; the grader can still mislabel a whole call;
 - replaces any symlink a scenario planted on a tooling path (the file or a directory above it), so
   the real file is written in place and never through the link;

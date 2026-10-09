@@ -293,9 +293,12 @@ class Observation:
 # or that nests commands ($(...), backticks, subshells, heredocs) stays whole, as do comments and
 # backslash escapes, because a wrong split could credit a step that never ran.
 SEPARATORS = ("&&", ";", "\n")
-# A lone & (background; not 2>&1, &> or |&), and exec, exit, source, eval, kill and coproc, also
-# change which parts run.
-UNSPLITTABLE = re.compile(r"<<|\|\||\$\(|`|\\|#|[(){}]|(?<![&>|])&(?![&>])|(?:^|[\s;&])(?:if|then|else|elif|fi|for|while|until|do|done|case|esac|exec|exit|return|source|\.|eval|kill|coproc)(?=\s|;|$)")
+# Checked on the whole command, quotes included: these run or escape even inside double quotes.
+UNSPLITTABLE_ANYWHERE = re.compile(r"<<|\$\(|`|\\")
+# Checked outside quotes only, so a commit message such as "feat(evals): notes for review" does not
+# count. A lone & (background; not 2>&1, &> or |&), and exec, exit, source, `.`, eval, kill and
+# coproc in command position, also change which parts run.
+UNSPLITTABLE = re.compile(r"\|\||#|[(){}]|(?<![&>|])&(?![&>])|(?:^|[\s;&])(?:if|then|else|elif|fi|for|while|until|do|done|case|esac|exec|exit|return|source|eval|kill|coproc)(?=\s|;|$)|(?:^|[;&\n])\s*\.(?=\s)")
 # Claude Code's Bash tool starts the output of a failed call with its exit code.
 FAILED_OUTPUT = re.compile(r"^\s*Exit code [1-9]")
 
@@ -304,23 +307,28 @@ def successful_calls(stdout: str) -> set[str]:
     """Timestamps, numbered as ECC's _parse_stream_json numbers them, of the tool calls whose result
     says `is_error: false`. ECC drops that flag, and a call that was denied, blocked by a hook or
     timed out does not start its output with an exit code; a call with no result is not a success."""
-    order: dict[str, int] = {}
+    pending: dict[object, int] = {}
+    count = 0
     succeeded: set[str] = set()
     for line in stdout.strip().splitlines():
         try:
             message = json.loads(line)
         except ValueError:
             continue
-        if not isinstance(message, dict):
+        body = message.get("message") if isinstance(message, dict) else None
+        if not isinstance(body, dict):
             continue
-        content = (message.get("message") or {}).get("content", [])
+        content = body.get("content", [])
         for block in content if isinstance(content, list) else []:
             if not isinstance(block, dict):
                 continue
             if message.get("type") == "assistant" and block.get("type") == "tool_use":
-                order[block.get("id", "")] = len(order)
-            elif message.get("type") == "user" and block.get("tool_use_id", "") in order and block.get("is_error") is False:
-                succeeded.add(f"T{order[block['tool_use_id']]:04d}")
+                pending[block.get("id", "")] = count
+                count += 1
+            elif message.get("type") == "user" and block.get("tool_use_id", "") in pending:
+                order = pending.pop(block.get("tool_use_id", ""))
+                if block.get("is_error") is False:
+                    succeeded.add(f"T{order:04d}")
     return succeeded
 
 
@@ -328,10 +336,11 @@ def split_command(command: str) -> list[str]:
     """Top-level parts of a uniform shell chain, quoted text kept whole. Either every separator is &&
     (each part ran only if the one before succeeded) or every one is ; or a newline (each part ran);
     a mix stays whole, because `a && b; c` exits 0 when a fails, hiding that b never ran. Anything
-    else (see UNSPLITTABLE) is returned as one part too."""
-    if UNSPLITTABLE.search(command):
+    else (see UNSPLITTABLE_ANYWHERE, and UNSPLITTABLE outside quotes) is returned as one part too."""
+    if UNSPLITTABLE_ANYWHERE.search(command):
         return [command]
     parts: list[str] = []
+    unquoted = ""
     used: set[str] = set()
     current = ""
     quote: str | None = None
@@ -344,6 +353,7 @@ def split_command(command: str) -> list[str]:
             quote = char
         else:
             separator = next((sep for sep in SEPARATORS if command.startswith(sep, index)), None)
+            unquoted += separator or char
             if separator is not None:
                 used.add("&&" if separator == "&&" else ";")
                 parts.append(current)
@@ -352,7 +362,7 @@ def split_command(command: str) -> list[str]:
                 continue
         current += char
         index += 1
-    if quote is not None or len(used) > 1:
+    if quote is not None or len(used) > 1 or UNSPLITTABLE.search(unquoted):
         return [command]
     parts.append(current)
     return [part.strip() for part in parts if part.strip()]
@@ -380,7 +390,8 @@ def split_observations(events: Sequence[object], succeeded: set[str]) -> list[ob
         output = getattr(event, "output", "")
         parts = split_command(str(fields["command"])) if fields is not None else []
         stamp = getattr(event, "timestamp")
-        if len(parts) < 2 or stamp not in succeeded or not isinstance(output, str) or FAILED_OUTPUT.match(output):
+        backgrounded = fields is not None and bool(fields.get("run_in_background"))
+        if len(parts) < 2 or backgrounded or stamp not in succeeded or not isinstance(output, str) or FAILED_OUTPUT.match(output):
             result.append(event)
             continue
         result += [dataclasses.replace(event, timestamp=f"{stamp}.{n:03d}", input=json.dumps({**fields, "command": part}))  # type: ignore[type-var]

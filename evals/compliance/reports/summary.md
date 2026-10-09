@@ -70,8 +70,8 @@ Fixed in the harness after this run (not yet measured; these reports predate the
   generation after the fix, inspected but not saved, produced a TypeScript guard scenario with
   `node:test` and no push);
 - uniform chained Bash calls whose result says `is_error: false` are split into one observation
-  per command before grading (failed, denied, unfinished, mixed, conditional or nested calls stay
-  whole);
+  per command before grading (failed, denied, unfinished, backgrounded, mixed, conditional or nested
+  calls stay whole);
 - `printf` setups write a leading `---` as text, and a generation with malformed YAML is retried.
 
 Still for the owner to decide:

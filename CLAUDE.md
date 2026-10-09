@@ -26,8 +26,8 @@ Each rule has one home. Read the file before acting in its area.
 | Skills | `.claude/rules/zeem/skills.md` |
 | General engineering (vendored ECC) | `.claude/rules/ecc/` |
 
-Where a `zeem` rule and an ECC rule or skill disagree, the `zeem` rule wins. Each `zeem` file lists its
-overrides under "Overrides of ECC".
+Where a `zeem` rule and an ECC rule or skill disagree, the `zeem` rule wins. A `zeem` file that overrides
+ECC says so under "Overrides of ECC".
 
 ## Working here
 

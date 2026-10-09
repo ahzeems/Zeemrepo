@@ -27,7 +27,7 @@ Read [the feature map](references/feature-map.md) for the recipe of each feature
 touches. Use the affected entries; a full audit covers every entry. Discovery or dry runs prove
 only their stated boundary, not authenticated model behavior, GUI rendering, or full installation.
 
-- Run `npm run check` on the pinned tree, and once CI is configured read the PR's CI checks
+- Run `npm run check` on the pinned tree, and read the PR's required checks, `check` and `guards`
   (`gh pr checks <n>`). Compare their inputs with step 1's snapshot.
 - For a change to workflow or process, search the declared surfaces (.claude/skills/,
   .claude/rules/, wiki/) for the rule the change replaced. A criterion is not met while one

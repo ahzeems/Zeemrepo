@@ -35,6 +35,20 @@ await test("worktree guard", async (t) => {
     assert.match(result.err, /feat: 1 uncommitted file\(s\)/);
   });
 
+  await t.test("a bare repository's own record is skipped, not inspected as a checkout", () => {
+    const bare = mkdtempSync(join(tmpdir(), "worktree-guard-bare-"));
+    try {
+      repo.git(["clone", "--quiet", "--bare", repo.dir, join(bare, "repo.git")]);
+      const linked = join(bare, "main");
+      repo.git(["-C", join(bare, "repo.git"), "worktree", "add", "--quiet", linked, "main"]);
+      repo.git(["-C", linked, "update-ref", "refs/remotes/origin/main", base]);
+      const result = run(linked);
+      assert.equal(result.code, EXIT_OK, result.err);
+    } finally {
+      rmSync(bare, { recursive: true, force: true });
+    }
+  });
+
   await t.test("--json reports an inspection failure as JSON with exit 2", () => {
     const outside = mkdtempSync(join(tmpdir(), "worktree-guard-nogit-"));
     const result = run(outside, ["--json"]);

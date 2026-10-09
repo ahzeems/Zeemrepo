@@ -8,8 +8,9 @@ How work reaches `main`. Decisions: `wiki/decisions/ADR-0008 Owner merges pull r
 - Never push to `main`, never merge a pull request, never approve one. Every change lands by a GitHub pull
   request that only the owner merges. A GitHub ruleset, a pre-push hook, `.claude/settings.json` deny rules
   and `scripts/claude/block-pr-merge.ts` back this up; none of them is a reason to probe for gaps.
-- Finish with `npm run pr`: it runs `npm run check` on the merge with `origin/main`, pushes the branch and
-  opens or updates the PR. Report the branch as ready for the owner's review, never as approved.
+- Finish with `npm run pr`: it refuses unless the branch contains `origin/main`, runs `npm run check`,
+  pushes the branch and opens or updates the PR. Report the branch as ready for the owner's review, never
+  as approved.
 - Reviews report findings; they never approve or merge.
 
 ## Branches and checkouts
@@ -20,7 +21,7 @@ How work reaches `main`. Decisions: `wiki/decisions/ADR-0008 Owner merges pull r
 - Keep a published branch current by merging `main` into it. Never rebase or force-push published history.
 - Stage files by name. Never `git add -A` or `git add .` from a tree you have not fully inspected.
 - Never discard, absorb or clean up another session's uncommitted work or worktree. Delete a remote branch
-  only after it is merged into `origin/main`.
+  only after it is merged into `origin/main` and the owner has authorized it (`owner-authority.md`).
 - Do not work as root. Inspect `git config --get core.hooksPath` before `npm run hooks:install`.
 - Regenerate a generated file (such as `package-lock.json`) from its source; never hand-merge it.
 

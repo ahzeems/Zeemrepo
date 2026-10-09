@@ -118,7 +118,7 @@ keep unknown causes explicit. Before done, record nonempty root_cause, fix_ref,
 regression_evidence, prevention, and the usual evidence list. Fix references may identify
 a commit, pull request, or a verified environment resolution. Name an existing prevention
 check, or state none with a reason and the actual manual control. Link substantial build
-work through an approved plan/ticket. The Issues view reads these canonical records.
+work through an approved plan/ticket. An Obsidian Base over these records is optional; none ships yet.
 
 ## Allowed agents
 

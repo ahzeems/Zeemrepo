@@ -32,10 +32,14 @@ under 50 lines, files under 800, nesting at most 4; OWNER DECISION, 2026-10-09: 
 ## Boundaries and side effects
 
 - Validate at real boundaries: user input, external APIs, the network, file and git content. Do not add
-  defensive checks against your own code or guarantees the language or Node already makes. This narrows ECC's
-  "validate all input" to where input actually enters.
+  defensive checks against your own code or guarantees the language or Node already makes.
 - Repository CLIs validate every input and refuse before any side effect, reporting every refusal reason.
   Exit codes come from `scripts/lib/cli.ts`: 0 ok, 1 refused, 2 the tool failed.
 - Comments are off by default. Write one only for a reason the code cannot show: a hidden constraint, a
   workaround, an invariant.
 - Match each language's naming: camelCase in TypeScript, kebab-case file names and CLI flags.
+
+## Overrides of ECC
+
+- **Input validation.** ECC's `coding-style.md` says to validate all input. Here that means where input enters
+  (the boundaries above), not at every internal call.

@@ -40,8 +40,8 @@ separate reviewer context.md`. Steps: `wiki/runbooks/Verify a repository change.
 
 ## Overrides of ECC
 
-- **Coverage.** ECC's testing rule asks for 80% overall. Here `npm test` enforces 80% lines and functions
-  and 70% branches. Raise a threshold only in `package.json`.
+- **Coverage.** ECC's testing rule asks for 80% overall. Here `npm test` enforces the thresholds in
+  `package.json` (lines and functions at 80%, branches at 70%); change them only there.
 - **E2E tests.** This repository has no UI. Its end-to-end tests are CLI runs against real temporary git
   repositories (`scripts/test-support/repo-fixture.ts`) plus the broken-fixture controls.
 - **TDD.** ECC's test-first workflow is mandatory, with no exceptions (OWNER DECISION, 2026-10-09).

@@ -115,13 +115,16 @@ This audit covers Zimi (`ahzeems/Zimi`, `main` @ `9fb36b2`, 614 commits), read-o
 ### G. Agent behaviour
 | # | Rule | Enforcement | Verdict | Target |
 |---|---|---|---|---|
-| 48 | Report path, worktree, branch, HEAD and clean state before acting; stop at the bare root | prose | fix: the bare-root premise is **false** (`core.bare=false`); keep only "identify the checkout" | `rules/zeem/branch-and-merge.md`, rewritten ADR-0021 |
+| 48 | Report path, worktree, branch, HEAD and clean state before acting; stop at the bare root | prose | fix: the bare-root premise is **stale** (`core.bare=false` at the audit; see the correction under Contradictions); keep only "identify the checkout" | `rules/zeem/branch-and-merge.md`, rewritten ADR-0021 |
 | 49 | Don't work as root | prose | keep | `rules/zeem/branch-and-merge.md` |
 | 50 | Subagents only when a skill prescribes them | prose | ECC | `rules/ecc/common/agents.md` |
 | 51 | `skill-reader` profile limited to Read, Grep and Glob, mirroring the OpenCode twin | test | drop: the profile belonged to the eval runtime | none |
 
 ### Contradictions and drift found
-1. **Bare-root premise.** "Root is bare storage" appears in AGENTS.md, INTENT.md, README.md and ADR-0021. In fact `core.bare=false` and `main` is checked out at the root.
+1. **Bare-root premise.** "Root is bare storage" appears in AGENTS.md, INTENT.md, README.md and ADR-0021. At the audit `core.bare=false` and `main` is checked out at the root.
+   *Correction (Phase 7 port review):* the premise was true when written. Zimi's root was bare (`core.bare=true`) on
+   2026-10-06 and became an ordinary work tree by 2026-10-08 (Zimi ADR-0024, after 9fb36b2). The fault was a layout
+   assumption written as a permanent rule, not a rule that was never true.
 2. **`.githooks/` classification.** `changelog-validation.ts:5` exempts it, while `repo-memory-validation.ts:43` lists it as workflow-critical.
 3. **Merge wording in code.** "Owner merges" wording survives in `changelog-validation.ts`, which contradicts ADR-0008. `governance:check` can't see it because it scans `.md` only.
 4. **Pull-request wording.** The docs say "PR" (AGENTS:69,401), but the gate merges locally and no PR is ever opened.

@@ -16,6 +16,10 @@ enforced by `npm run skills:lint`.
   separately from changes to the method, and compare against the full source before accepting a restoration.
 - A skill cites only paths that exist and checks that something runs. A step that names a check nothing runs
   reports false green.
-- When a repository skill and an ECC skill overlap, the repository skill wins for this repository's
-  workflow (wiki, branches, change records); ECC wins for general engineering practice.
 - Agents may draft or revise skills; the owner approves by merging the PR.
+
+## Overrides of ECC
+
+- **Overlapping skills.** When a repository skill and an ECC skill cover the same ground, the repository skill
+  wins for this repository's workflow (wiki, branches, change records); ECC wins for general engineering
+  practice.

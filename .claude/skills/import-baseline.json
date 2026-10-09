@@ -1,0 +1,188 @@
+{
+  "hashNormalization": "UTF-8, LF line endings, no BOM",
+  "purpose": "Provenance for third-party and owner-approved skill text. installedSha256 is the text accepted at import (Zimi 9fb36b2); each later change is an appended revision citing a record that holds the owner's approval. Landed entries are append-only (npm run skills:lint).",
+  "skills": [
+    {
+      "name": "branch-review",
+      "source": "Zimi .agents/skills/branch-review/SKILL.md at 9fb36b2",
+      "sourceSha256": "496ba36e63e4199f49f2874b54ddbcdd01a051d198eb9f7eecdbb9f9e2ec24da",
+      "installedSha256": "b914a0060a5e3674e369ac7e65f10b026ce6e239431b5d40f0504d1393d2646d",
+      "revisions": [
+        {
+          "sha256": "dabd9f6ceeb6d6aacbe8568901c6b95e752d9390829bf232833a798bc4da93dd",
+          "approval": {
+            "record": "docs/migration/skill-stocktake.md",
+            "quote": "Authorize, incl. 2-space indent (Recommended)"
+          },
+          "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
+        }
+      ]
+    },
+    {
+      "name": "bro",
+      "source": "Zimi .agents/skills/bro/SKILL.md at 9fb36b2",
+      "sourceSha256": "a40a2bcc9637c90dcf6777da90ad93434b7fe3eb1affc5b0b47a9123f3eed43a",
+      "installedSha256": "a40a2bcc9637c90dcf6777da90ad93434b7fe3eb1affc5b0b47a9123f3eed43a"
+    },
+    {
+      "name": "domain-modeling",
+      "source": "Zimi .agents/skills/domain-modeling/SKILL.md at 9fb36b2; upstream mattpocock/skills@3cca18b (MIT, see THIRD-PARTY-NOTICES.md)",
+      "sourceSha256": "df8401c829e62378b233efc77c4c3ce1c4e8743ea973a81588278d3b5cdf7c0b",
+      "installedSha256": "df8401c829e62378b233efc77c4c3ce1c4e8743ea973a81588278d3b5cdf7c0b",
+      "revisions": [
+        {
+          "sha256": "3b7c408d86ea8b5fe4985347de5f5c27fe9fedf7d1952580cba1846b49c588d9",
+          "approval": {
+            "record": "docs/migration/skill-stocktake.md",
+            "quote": "Approve as proposed (Recommended)"
+          },
+          "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
+        }
+      ]
+    },
+    {
+      "name": "find-deepenings",
+      "source": "Zimi .agents/skills/find-deepenings/SKILL.md at 9fb36b2; upstream mattpocock/skills@3cca18b (MIT, see THIRD-PARTY-NOTICES.md)",
+      "sourceSha256": "c0aa9825b5e8dc7f27295053e352c8044d38bd98b2b5cf805f0a58d9a68394ed",
+      "installedSha256": "c0aa9825b5e8dc7f27295053e352c8044d38bd98b2b5cf805f0a58d9a68394ed",
+      "revisions": [
+        {
+          "sha256": "61cc3e6d5697324292523bd4f7d56b8c9be856ad782a34f35a7de1eec1610e47",
+          "approval": {
+            "record": "docs/migration/skill-stocktake.md",
+            "quote": "Keep the 3 Pocock edits"
+          },
+          "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
+        }
+      ]
+    },
+    {
+      "name": "manage-branch",
+      "source": "Zimi .agents/skills/manage-branch/SKILL.md at 9fb36b2",
+      "sourceSha256": "6a58071cb6479466d6d3f8e084b1ed5eabaf513de3cd3b3d906de1bc1ccd2f32",
+      "installedSha256": "ea4d778fcabdf0af3bfd2ecf122b2431a3915908d994d0c0fd9c7e3dcd2f7814",
+      "revisions": [
+        {
+          "sha256": "52f2a08e5fbf10cd9e96d5f7cd24eb820ab0bf7ce3a12ef534c2a85599f4dbf2",
+          "approval": {
+            "record": "docs/migration/skill-stocktake.md",
+            "quote": "Authorize, incl. 2-space indent (Recommended)"
+          },
+          "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
+        }
+      ]
+    },
+    {
+      "name": "plan-tickets",
+      "source": "Zimi .agents/skills/plan-tickets/SKILL.md at 9fb36b2; upstream mattpocock/skills@3cca18b (MIT, see THIRD-PARTY-NOTICES.md)",
+      "sourceSha256": "eb278bcfd7373a8c38fa82b4c32268e67abde688c3ec6d8fc9d43373b12a1283",
+      "installedSha256": "eb278bcfd7373a8c38fa82b4c32268e67abde688c3ec6d8fc9d43373b12a1283",
+      "revisions": [
+        {
+          "sha256": "4b2d77fa882a70aa6083b2e1edc275d3c1bde0e9670d0bc73098b45bf8ff6a5f",
+          "approval": {
+            "record": "docs/migration/skill-stocktake.md",
+            "quote": "Keep the 3 Pocock edits"
+          },
+          "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
+        }
+      ]
+    },
+    {
+      "name": "resolve-conflicts",
+      "source": "Zimi .agents/skills/resolve-conflicts/SKILL.md at 9fb36b2; upstream mattpocock/skills@3cca18b (MIT, see THIRD-PARTY-NOTICES.md)",
+      "sourceSha256": "f9edb85992a6eaff0929ab05300b306fb5d12eb6f9049b6d260b6635d1c10044",
+      "installedSha256": "561c20a42c6a212e8e15d0756f9fca40f7d5f48473e1ba4e0f1adcd1a4773d44",
+      "revisions": [
+        {
+          "sha256": "3fd5971e20f6b3f55f559f952d39c657755ab6f9417644f34eb30835a5f5fdec",
+          "approval": {
+            "record": "docs/migration/skill-stocktake.md",
+            "quote": "Authorize, incl. 2-space indent (Recommended)"
+          },
+          "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
+        }
+      ]
+    },
+    {
+      "name": "teach",
+      "source": "Zimi .agents/skills/teach/SKILL.md at 9fb36b2",
+      "sourceSha256": "bd286e5a6290673be2cd28aef7af2ec7f1fb138e6bce156ea657368c7e7fc8a4",
+      "installedSha256": "976f7232bcaa2972784495fb6689caccb4f7b34c281c17c7d40c7f997335f603",
+      "revisions": [
+        {
+          "sha256": "3c175513daa14ff0cb0c0dcf383b4c0f79458c060926bd2aa77dde42a9d48886",
+          "approval": {
+            "record": "docs/migration/skill-stocktake.md",
+            "quote": "Authorize all (Recommended)"
+          },
+          "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
+        }
+      ]
+    },
+    {
+      "name": "technical-writing",
+      "source": "Zimi .agents/skills/technical-writing/SKILL.md at 9fb36b2",
+      "sourceSha256": "a44e6d19a73214cedb9355ceebeea49d8f23e68e329355047ea1235b1b6d6680",
+      "installedSha256": "a44e6d19a73214cedb9355ceebeea49d8f23e68e329355047ea1235b1b6d6680",
+      "revisions": [
+        {
+          "sha256": "66ab10979de3edac9ac1a207ea6b24a9e912a0b7cb4f174e12a9c90376ee7355",
+          "approval": {
+            "record": "docs/migration/skill-stocktake.md",
+            "quote": "Authorize, incl. 2-space indent (Recommended)"
+          },
+          "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
+        }
+      ]
+    },
+    {
+      "name": "wayfinder",
+      "source": "Zimi .agents/skills/wayfinder/SKILL.md at 9fb36b2; upstream mattpocock/skills@3cca18b (MIT, see THIRD-PARTY-NOTICES.md)",
+      "sourceSha256": "64217288076759e4b11234165616f478bc69a6a8c378905efd63c3d0f31aeb8a",
+      "installedSha256": "64217288076759e4b11234165616f478bc69a6a8c378905efd63c3d0f31aeb8a",
+      "revisions": [
+        {
+          "sha256": "9012b8047506322f316675e492b4fa5f11b1f8b30a3b6aebecb7a95daadee3da",
+          "approval": {
+            "record": "docs/migration/skill-stocktake.md",
+            "quote": "Keep the 3 Pocock edits"
+          },
+          "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
+        }
+      ]
+    },
+    {
+      "name": "write-plan",
+      "source": "Zimi .agents/skills/write-plan/SKILL.md at 9fb36b2; upstream mattpocock/skills@3cca18b (MIT, see THIRD-PARTY-NOTICES.md)",
+      "sourceSha256": "a9ea4388805beadc60afe2f4b41f28e8f6f783a13fabd5c97e5ca8af9d59dbec",
+      "installedSha256": "a9ea4388805beadc60afe2f4b41f28e8f6f783a13fabd5c97e5ca8af9d59dbec",
+      "revisions": [
+        {
+          "sha256": "d3a6108cbab69b6abe725cf6b03da9b95d4ff68fc35a461262ca65b311875723",
+          "approval": {
+            "record": "docs/migration/skill-stocktake.md",
+            "quote": "Approve as proposed (Recommended)"
+          },
+          "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
+        }
+      ]
+    },
+    {
+      "name": "write-skill",
+      "source": "Zimi .agents/skills/write-skill/SKILL.md at 9fb36b2",
+      "sourceSha256": "681237f2a0289ca617066c81d0ca56513b1acf2ee390b92bf416956a1fa82f48",
+      "installedSha256": "ba14281c62b24ff099f0a05540c9aa974c0ff320dc51b445a206cab0c72cd344",
+      "revisions": [
+        {
+          "sha256": "9522fd737c0fdc94be7da067a0c1f31e8007c5d1839570fca137445ce9d5c174",
+          "approval": {
+            "record": "docs/migration/skill-stocktake.md",
+            "quote": "Authorize, incl. 2-space indent (Recommended)"
+          },
+          "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
+        }
+      ]
+    }
+  ]
+}

@@ -39,3 +39,38 @@ link only when it helps retrieval; do not repeat metadata links throughout prose
 broad related lists. General guidance belongs to the repo, not to every project.
 Follow the source and check its date before relying on it. Graph proximity does not
 prove accuracy or grant authority. Preserve historical bodies and update current guidance.
+
+## Diagrams
+
+Use a diagram only when a reader needs to see relationships, ordered exchanges or branches;
+otherwise a short paragraph or table is better.
+
+- Answer one question per diagram: a flowchart for stages and branches, a sequence diagram for
+  ordered exchanges, a relationship diagram for components and stores. Split a crowded one.
+- Write a fenced `mermaid` block in the note that owns the explanation, with short quoted labels
+  and real repository terms. Update an existing diagram rather than adding a second copy.
+- Trace every node and arrow to a cited source. Never draw a proposed, failed or unobserved path
+  as a working edge, and do not imply a check runs automatically unless code proves it.
+- Add a caption saying what the arrows mean and what the diagram leaves out.
+- `npm run wiki:lint` does not validate Mermaid. Report rendering as unverified unless you viewed
+  it. Do not install diagram software or add dependencies for this.
+
+## Research notes
+
+A research note (`wiki/work/research/`, sections Question, Sources, Findings, Implications)
+records what was learned from outside sources so a reader can check and disagree with it. Gather
+with ECC's `deep-research` or `research-ops`; this section is about what gets recorded.
+
+- Fix the question before searching, and search the vault first: update the existing note when
+  the question is the same.
+- A finding is new or newly settled, has a primary source (release, repository, specification,
+  paper, pricing page), and survives "compared to what?". A roundup article or a search snippet
+  is a lead, never the source. An announced intention is not a capability; a vendor's benchmark
+  of its own product is evidence about the claim, not the product.
+- Record each source with its URL, what it is, and the date you read it.
+- One source is a report; two independent sources, neither citing the other, make a finding.
+- Label each finding `VERIFIED:`, `INFERRED:` or `UNKNOWN:`. A forecast is at most `INFERRED:`.
+- Keep contradictions visible: record both sides and say which you believe and why.
+- Never record a number without its measurement conditions, or copy a source at length.
+- List the sources that failed to load or sat behind a login; the next pass needs to know.
+- Implications say what would change here, or explicitly nothing.

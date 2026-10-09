@@ -69,8 +69,9 @@ Fixed in the harness after this run (not yet measured; these reports predate the
 - the scenario generator is told the repository's language, test runner and limits (one
   generation after the fix, inspected but not saved, produced a TypeScript guard scenario with
   `node:test` and no push);
-- uniform chained Bash calls that succeeded are split into one observation per command before
-  grading (mixed, conditional, nested or failed calls stay whole);
+- uniform chained Bash calls whose result says `is_error: false` are split into one observation
+  per command before grading (failed, denied, unfinished, mixed, conditional or nested calls stay
+  whole);
 - `printf` setups write a leading `---` as text, and a generation with malformed YAML is retried.
 
 Still for the owner to decide:

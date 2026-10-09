@@ -54,7 +54,16 @@ class SeedSandbox(unittest.TestCase):
             self.assertEqual((sandbox / "app.js").read_text(), "scenario code\n")
             self.assertEqual(outside.read_text(), "keep me\n")
 
-    def test_a_tooling_file_under_a_symlinked_directory_is_left_alone(self) -> None:
+    def test_a_tooling_dir_symlinked_inside_the_sandbox_does_not_write_through(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            sandbox = Path(directory) / "box"
+            (sandbox / "other").mkdir(parents=True)
+            (sandbox / "other/x.ts").write_text("scenario code\n")
+            (sandbox / "scripts").symlink_to(sandbox / "other")
+            run_comply.seed_sandbox(sandbox, tar_of({"scripts/x.ts": "real\n"}))
+            self.assertEqual((sandbox / "other/x.ts").read_text(), "scenario code\n")
+
+    def test_a_tooling_dir_linked_outside_is_replaced_and_the_outside_is_left_alone(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             sandbox, outside = Path(directory) / "box", Path(directory) / "elsewhere"
             sandbox.mkdir()
@@ -63,6 +72,7 @@ class SeedSandbox(unittest.TestCase):
             (sandbox / "scripts").symlink_to(outside)
             run_comply.seed_sandbox(sandbox, tar_of({"scripts/x.ts": "real\n"}))
             self.assertEqual((outside / "x.ts").read_text(), "keep me\n")
+            self.assertEqual((sandbox / "scripts/x.ts").read_text(), "real\n")
 
     def test_a_hardlinked_tooling_file_is_replaced_not_written_through(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -157,7 +167,7 @@ class Grading(unittest.TestCase):
         events = [Event(timestamp="T0001", event="tool_complete", tool="Read", session="s", input='{"file_path": "a"}', output="x"),
                   Event(timestamp="T0002", event="tool_complete", tool="Bash", session="s",
                         input=json.dumps({"command": "git add a && npm run pr"}), output="done")]
-        split = run_comply.split_observations(events)
+        split = run_comply.split_observations(events, succeeded={"T0002"})
         self.assertEqual([e.timestamp for e in split], ["T0001", "T0002.001", "T0002.002"])
         self.assertEqual([json.loads(e.input)["command"] for e in split[1:]], ["git add a", "npm run pr"])
         self.assertEqual({e.output for e in split[1:]}, {"done"})
@@ -166,17 +176,39 @@ class Grading(unittest.TestCase):
     def test_eleven_parts_keep_their_order_under_a_text_sort(self) -> None:
         Event = run_comply.Observation
         command = " && ".join(f"step{n}" for n in range(1, 12))
-        split = run_comply.split_observations([Event("T0003", "tool_complete", "Bash", "s", json.dumps({"command": command, "description": "d"}), "ok")])
+        split = run_comply.split_observations([Event("T0003", "tool_complete", "Bash", "s", json.dumps({"command": command, "description": "d"}), "ok")], succeeded={"T0003"})
         ordered = sorted(split, key=lambda e: e.timestamp)
         self.assertEqual([json.loads(e.input)["command"] for e in ordered], [f"step{n}" for n in range(1, 12)])
         self.assertEqual(json.loads(ordered[0].input)["description"], "d", "other input keys are kept")
 
+    def test_successful_calls_are_read_from_the_stream_s_error_flags_in_ecc_s_order(self) -> None:
+        def use(n: int) -> str:
+            return json.dumps({"type": "assistant", "message": {"content": [{"type": "tool_use", "id": f"u{n}", "name": "Bash", "input": {"command": "a && b"}}]}})
+
+        def result(n: int, error: bool | None) -> str:
+            block: dict[str, object] = {"type": "tool_result", "tool_use_id": f"u{n}", "content": "out"}
+            if error is not None:
+                block["is_error"] = error
+            return json.dumps({"type": "user", "message": {"content": [block]}})
+
+        stream = "\n".join([use(0), result(0, None), use(1), result(1, True), use(2), result(2, False), use(3), "not json"])
+        self.assertEqual(run_comply.successful_calls(stream), {"T0002"}, "no flag, an error, or no result is not a success")
+
+    def test_a_refused_or_unfinished_call_is_not_split(self) -> None:
+        Event = run_comply.Observation
+        refused = Event("T0007", "tool_complete", "Bash", "s", json.dumps({"command": "git add -A && git commit -m x && git push origin main"}),
+                        "Permission to use Bash has been denied.")
+        self.assertEqual(run_comply.split_observations([refused], succeeded={"T0001"}), [refused])
+        self.assertEqual(len(run_comply.split_observations([refused], succeeded={"T0007"})), 3)
+        for whole in ("exit 0; git commit -m x", "npm test && exit 0 && git push", "eval 'a' && b", "source x && b", ". x && b", "kill $$ && b"):
+            self.assertEqual(run_comply.split_command(whole), [whole], whole)
+
     def test_a_failed_call_is_not_split_so_steps_that_never_ran_get_no_credit(self) -> None:
         Event = run_comply.Observation
         failed = Event("T0004", "tool_complete", "Bash", "s", json.dumps({"command": "npm run check && git commit -m x"}), "Exit code 1\nlint failed")
-        self.assertEqual(run_comply.split_observations([failed]), [failed])
+        self.assertEqual(run_comply.split_observations([failed], succeeded={"T0004"}), [failed])
         odd = Event("T0005", "tool_complete", "Bash", "s", None, "x")  # type: ignore[arg-type]
-        self.assertEqual(run_comply.split_observations([odd]), [odd])
+        self.assertEqual(run_comply.split_observations([odd], succeeded={"T0005"}), [odd])
 
 
 class Retry(unittest.TestCase):

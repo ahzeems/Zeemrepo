@@ -196,6 +196,19 @@ def is_tooling(name: str) -> bool:
     return name in TOOLING_FILES or name.startswith(TOOLING_DIRS)
 
 
+def unlink_planted_links(root: Path, name: str) -> None:
+    """Remove each symlink the scenario planted on the way to tooling path `name` (a linked directory
+    or the file itself), so the real file is written in place and never through a link. Walking down
+    from the sandbox root, every link removed sits in a real directory inside the sandbox."""
+    path = root
+    for part in Path(name).parts:
+        path = path / part
+        if path.is_symlink():
+            path.unlink()
+        elif not path.exists():
+            return
+
+
 def seed_sandbox(sandbox: Path, snapshot: bytes, deps: Path | None = None) -> None:
     """Extract the snapshot into the sandbox: repository tooling replaces a scenario's copy, other
     files the scenario created are kept; then link deps."""
@@ -206,10 +219,8 @@ def seed_sandbox(sandbox: Path, snapshot: bytes, deps: Path | None = None) -> No
                 continue
             path = root / member.name
             tooling = member.isfile() and is_tooling(member.name)
-            # A symlink the scenario planted at a tooling path is removed, so the real file goes there
-            # and not through the link; only when the link itself sits inside the sandbox.
-            if tooling and path.is_symlink() and path.parent.resolve().is_relative_to(root):
-                path.unlink()
+            if tooling:
+                unlink_planted_links(root, member.name)
             target = path.resolve()
             if not target.is_relative_to(root) or target == root:
                 continue
@@ -282,10 +293,35 @@ class Observation:
 # or that nests commands ($(...), backticks, subshells, heredocs) stays whole, as do comments and
 # backslash escapes, because a wrong split could credit a step that never ran.
 SEPARATORS = ("&&", ";", "\n")
-# A lone & (background; not 2>&1, &> or |&) and exec also change which parts run.
-UNSPLITTABLE = re.compile(r"<<|\|\||\$\(|`|\\|#|[(){}]|(?<![&>|])&(?![&>])|(?:^|[\s;&])(?:if|then|else|elif|fi|for|while|until|do|done|case|esac|exec)(?=\s|;|$)")
+# A lone & (background; not 2>&1, &> or |&), and exec, exit, source, eval, kill and coproc, also
+# change which parts run.
+UNSPLITTABLE = re.compile(r"<<|\|\||\$\(|`|\\|#|[(){}]|(?<![&>|])&(?![&>])|(?:^|[\s;&])(?:if|then|else|elif|fi|for|while|until|do|done|case|esac|exec|exit|return|source|\.|eval|kill|coproc)(?=\s|;|$)")
 # Claude Code's Bash tool starts the output of a failed call with its exit code.
 FAILED_OUTPUT = re.compile(r"^\s*Exit code [1-9]")
+
+
+def successful_calls(stdout: str) -> set[str]:
+    """Timestamps, numbered as ECC's _parse_stream_json numbers them, of the tool calls whose result
+    says `is_error: false`. ECC drops that flag, and a call that was denied, blocked by a hook or
+    timed out does not start its output with an exit code; a call with no result is not a success."""
+    order: dict[str, int] = {}
+    succeeded: set[str] = set()
+    for line in stdout.strip().splitlines():
+        try:
+            message = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(message, dict):
+            continue
+        content = (message.get("message") or {}).get("content", [])
+        for block in content if isinstance(content, list) else []:
+            if not isinstance(block, dict):
+                continue
+            if message.get("type") == "assistant" and block.get("type") == "tool_use":
+                order[block.get("id", "")] = len(order)
+            elif message.get("type") == "user" and block.get("tool_use_id", "") in order and block.get("is_error") is False:
+                succeeded.add(f"T{order[block['tool_use_id']]:04d}")
+    return succeeded
 
 
 def split_command(command: str) -> list[str]:
@@ -333,19 +369,20 @@ def bash_input(event: object) -> dict[str, object] | None:
     return parsed if isinstance(parsed, dict) and isinstance(parsed.get("command"), str) else None
 
 
-def split_observations(events: Sequence[object]) -> list[object]:
-    """One observation per part of a plain chained Bash call that succeeded, so the grader can credit
-    each step (ECC gives each tool call a single label). A failed call stays whole, since its later
-    parts may never have run. Pieces of T0004 become T0004.001, T0004.002, which sort in order."""
+def split_observations(events: Sequence[object], succeeded: set[str]) -> list[object]:
+    """One observation per part of a plain chained Bash call that succeeded (its timestamp is in
+    `succeeded`, see successful_calls), so the grader can credit each step (ECC gives each tool call a
+    single label). Any other call stays whole, since its later parts may never have run. Pieces of
+    T0004 become T0004.001, T0004.002, which sort in order."""
     result: list[object] = []
     for event in events:
         fields = bash_input(event)
         output = getattr(event, "output", "")
         parts = split_command(str(fields["command"])) if fields is not None else []
-        if len(parts) < 2 or not isinstance(output, str) or FAILED_OUTPUT.match(output):
+        stamp = getattr(event, "timestamp")
+        if len(parts) < 2 or stamp not in succeeded or not isinstance(output, str) or FAILED_OUTPUT.match(output):
             result.append(event)
             continue
-        stamp = getattr(event, "timestamp")
         result += [dataclasses.replace(event, timestamp=f"{stamp}.{n:03d}", input=json.dumps({**fields, "command": part}))  # type: ignore[type-var]
                    for n, part in enumerate(parts, start=1)]
     return result
@@ -473,9 +510,20 @@ def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Pa
     runner._setup_sandbox = setup_with_repository
     run_scenario = runner.run_scenario
 
+    parse_stream_json = runner._parse_stream_json
+    succeeded: set[str] = set()
+
+    def parse_and_note_successes(stdout: str) -> list[object]:
+        succeeded.clear()
+        succeeded.update(successful_calls(stdout))
+        return parse_stream_json(stdout)
+
+    runner._parse_stream_json = parse_and_note_successes
+
     def run_and_split(scenario: object, model: str) -> object:
+        succeeded.clear()
         run = run_scenario(scenario, model=model, timeout=SCENARIO_TIMEOUT)
-        return dataclasses.replace(run, observations=tuple(split_observations(run.observations)))
+        return dataclasses.replace(run, observations=tuple(split_observations(run.observations, set(succeeded))))
 
     ecc_run.run_scenario = run_and_split
     generate_scenarios = ecc_run.generate_scenarios

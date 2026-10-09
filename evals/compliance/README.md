@@ -34,11 +34,16 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
   else, including `mcp-proxy.anthropic.com` (the owner's claude.ai connectors: mail, drive, docs),
   the internet and this machine's loopback services; it caps connections and drops clients that
   stall, and each run prints the hosts it allowed and refused;
-- splits a uniform chained Bash call that succeeded (all `&&`, or all `;` and newlines) into one
-  observation per command before grading, because ECC labels each tool call with a single step; a
-  failed call, a mixed chain (`a && b; c` exits 0 even when `b` never ran), and anything
-  conditional, backgrounded or nested (`||`, `&`, `exec`, `if`/`for`, subshells, `$(...)`, heredocs,
-  comments, backslashes) stays whole, so a step that never ran is not credited;
+- splits a uniform chained Bash call (all `&&`, or all `;` and newlines) into one observation per
+  command before grading, because ECC labels each tool call with a single step. It splits only a
+  call whose result in the session stream says `is_error: false` (ECC drops that flag, so the
+  wrapper reads it alongside ECC's parser); a call that failed, was denied or blocked by a hook,
+  timed out or has no result stays whole, as do a mixed chain (`a && b; c` exits 0 even when `b`
+  never ran) and anything conditional, backgrounded or nested (`||`, `&`, `exec`, `exit`, `source`,
+  `eval`, `kill`, `if`/`for`, subshells, `$(...)`, heredocs, comments, backslashes). This keeps
+  splitting from crediting a step that never ran; the grader can still mislabel a whole call;
+- replaces any symlink a scenario planted on a tooling path (the file or a directory above it), so
+  the real file is written in place and never through the link;
 - writes each report to `reports/<path-derived name>.md`, for example `rules-zeem-branch-and-merge.md`.
 
 **Accepted exposure.** The scenario agent can read Claude's login token, because claude needs it,

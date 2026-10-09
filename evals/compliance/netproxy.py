@@ -2,7 +2,7 @@
 
 Each confined process gets its own network namespace, so it has no network at all. The one way out
 is a CONNECT proxy on the host, listening on a unix socket bound into the sandbox, that tunnels only
-HTTPS to the Anthropic API. Inside, `python3 netproxy.py forward SOCK PORT -- command...` serves that
+HTTPS to the Anthropic API and its login-refresh host (see ANTHROPIC). Inside, `python3 netproxy.py forward SOCK PORT -- command...` serves that
 socket as 127.0.0.1:PORT for HTTPS_PROXY, runs the command, and exits with its status.
 
 Standard library only: the forwarder runs under the read-only system Python inside the sandbox.

@@ -276,17 +276,19 @@ def main(argv: list[str]) -> None:
     # Everything the run creates (login copies, the proxy socket, the gh config) lives here and is
     # removed at the end, however the run ends. /tmp keeps the socket path short.
     work = Path(tempfile.mkdtemp(prefix="run-comply-", dir="/tmp"))
-    proxy: netproxy.Proxy | None = None
+    started: list[netproxy.Proxy] = []  # filled as soon as the proxy starts, so it closes on any failure
     try:
-        proxy = run_confined(args, snapshot, deps, work)
+        run_confined(args, snapshot, deps, work, started)
     finally:
-        if proxy is not None:
+        for proxy in started:
+            for host, port, permitted in sorted(proxy.seen):
+                print(f"run_comply: network {'allowed' if permitted else 'REFUSED'} {host}:{port}", file=sys.stderr)
             proxy.close()
         remove_tree(work)
 
 
-def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Path) -> netproxy.Proxy:
-    """Isolate the environment, start the proxy, confine ECC's subprocesses and run it; returns the proxy."""
+def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Path, started: list[netproxy.Proxy]) -> None:
+    """Isolate the environment, start the proxy (recorded in `started`), confine ECC's subprocesses and run it."""
     (work / "gh").mkdir()
     caller_env = dict(os.environ)
     os.environ.clear()
@@ -301,7 +303,7 @@ def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Pa
     (work / "calls").mkdir()
     (work / "net").mkdir()
     shutil.copy2(Path(__file__).with_name("netproxy.py"), work / "net" / "netproxy.py")
-    proxy = netproxy.start_proxy(work / "net" / "proxy.sock", lambda host, port: netproxy.allowed(host, port, netproxy.ANTHROPIC))
+    started.append(netproxy.start_proxy(work / "net" / "proxy.sock", lambda host, port: netproxy.allowed(host, port, netproxy.ANTHROPIC)))
     network = Network(directory=work / "net", python=Path(shutil.which("python3") or "python3").resolve(), port=FORWARD_PORT)
     os.environ.update(proxy_env(FORWARD_PORT))
 
@@ -326,9 +328,6 @@ def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Pa
     os.chdir(REPO)
     sys.argv = ["skill-comply", *ecc_arguments(args.target, model=args.model, gen_model=args.gen_model, dry_run=args.dry_run)]
     ecc_run.main()
-    for host, port, permitted in sorted(proxy.seen):
-        print(f"run_comply: network {'allowed' if permitted else 'REFUSED'} {host}:{port}", file=sys.stderr)
-    return proxy
 
 
 if __name__ == "__main__":

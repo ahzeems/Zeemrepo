@@ -17,7 +17,8 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
   config per call holding only the login (deleted when the run ends), the installed plugins
   read-only, and write access only to the working directory; it refuses to start if `bwrap` is
   missing or a trivial confined command fails;
-- passes an allowlisted environment (path, home, locale, terminal and Anthropic auth only), an
+- passes an allowlisted environment (path, home, user, shell, locale, terminal, time zone and
+  Anthropic auth only), an
   empty `gh` config, no global git config and a fixed sandbox author;
 - gives every confined process its own empty network namespace with no resolver; the only way out
   is a proxy on the host (`netproxy.py`, reached through a unix socket bound into the sandbox) that

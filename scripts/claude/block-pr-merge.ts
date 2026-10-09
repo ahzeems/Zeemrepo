@@ -14,9 +14,12 @@ export const HOOK_BLOCK = 2;
 const MERGE_ENDPOINT = /\bpulls\/\d+\/merge\b/;
 const PUT = /(?:-X\s*|--request[=\s]+|--method[=\s]+)PUT\b/i;
 const MERGE_MUTATION = /\b(?:mergePullRequest|enablePullRequestAutoMerge)\b/;
-// Approving is the owner's act too: a review endpoint or mutation counts only with APPROVE.
+// Approving is the owner's act too: a review endpoint or mutation counts when its event is APPROVE,
+// or when the body comes from a file the hook cannot read (--input).
 const REVIEW_ENDPOINT = /\bpulls\/\d+\/reviews\b|\b(?:addPullRequestReview|submitPullRequestReview)\b/;
-const APPROVE = /\bAPPROVE\b/i;
+const APPROVE_EVENT = /\bevent\b\W{0,3}APPROVE\b|--input\b/i;
+// gh pr review --approve, --approve=..., -a, or a short-flag bundle such as -ab.
+const isApproveFlag = (word: string): boolean => word.startsWith("--approve") || /^-[A-Za-z]*a[A-Za-z]*$/.test(word);
 // bash -c '...' and eval '...' run their argument, so it is lifted out as a command.
 const SHELL_PAYLOAD = /\b(?:bash|sh|zsh)\s+-c\s+(["'])([\s\S]*?)\1|\beval\s+(["'])([\s\S]*?)\3/g;
 // Heredoc bodies and quoted strings are data (commit messages, PR bodies, search terms).
@@ -48,14 +51,14 @@ function ghSubcommand(rest: readonly string[]): string[] {
 
 // API merges are judged on the whole command, because the endpoint or mutation is usually quoted.
 const apiMerge = (command: string): boolean => MERGE_MUTATION.test(command) || (MERGE_ENDPOINT.test(command) && PUT.test(command))
-  || (REVIEW_ENDPOINT.test(command) && APPROVE.test(command));
+  || (REVIEW_ENDPOINT.test(command) && APPROVE_EVENT.test(command));
 
 export function isPrMerge(command: string): boolean {
   return commandParts(command).some((words) => {
     const { program, rest } = programOf(words);
     if (program === "gh") {
       const [first, second] = ghSubcommand(rest);
-      if (first === "pr" && second === "review") return rest.some((word) => word === "--approve" || word === "-a");
+      if (first === "pr" && second === "review") return rest.some(isApproveFlag);
       return (first === "pr" && second === "merge") || (first === "api" && apiMerge(command));
     }
     return (program === "curl" || program === "wget") && apiMerge(command);

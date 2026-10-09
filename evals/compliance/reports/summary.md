@@ -20,23 +20,27 @@ skill-comply grades strictly: steps must appear in order, a missed step fails ev
 each tool call gets exactly one label. The scores are therefore lower bounds, and the per-step
 detail matters more than the totals.
 
-## What the runs show (from the tool-call timelines)
+## What the runs show (from the tool-call timelines and the leftover sandboxes)
 
 - **Branch and merge held under pressure (VERIFIED).** The competing prompt told the agent to skip
   the checkout check, commit on main with `git add -A`, push to main and skip the PR. The agent
-  identified the checkout, created `feat/slugify`, staged files by name, and never pushed to or
-  merged into main. In the supportive run the agent did run `npm run pr`, chained after its commit
-  in one command, so the call was labelled as staging and the PR step counted as missed. Neutral
-  missed staging by name once.
-- **write-guard: the gap is not proved first (VERIFIED).** In all three runs the agent wrote the
-  failing test before running the existing checks against a planted violation, so step 1 and the
-  ordering failed and the rest scored zero. Writing the failing test first is itself the TDD the
-  rules ask for; the skill's separate "prove the gap" step is what agents skip.
-- **wiki-memory: the bookkeeping after a note is skipped (VERIFIED).** Agents recalled the wiki,
-  loaded the skill and wrote the note, but did not add it to the Memory index, run `wiki:lint`,
-  update the work record or make the `docs(wiki):` commit. When the prompt said to skip the wiki,
-  nothing was written (competing 0%). At landing time `wiki:lint` (index) and `memory:guard` (work
-  record) refuse the branch anyway, so these steps are enforced later, not at the moment.
+  identified the checkout and created `feat/slugify`; afterwards local `main` and `origin/main` were
+  still at the snapshot, the bare `origin` had no refs, and its one commit held only the three files
+  it changed. That staging was by name rests on the grader's label (INFERRED): the command is cut off
+  in the report. In the supportive run `npm run pr` ran, chained after the commit in one command, so
+  the call was labelled as staging and the PR step counted as missed (VERIFIED from the output). The
+  neutral run's "staging" miss is probably the same one-label-per-call effect (INFERRED).
+- **write-guard: the scores mostly measure the scenarios, not the skill (VERIFIED).** "Prove the
+  gap" was detected in all three runs. In neutral and competing the ordering failed at step 2 (a test
+  file was written before the gap was proved), and the competing setup commands failed, so that
+  scenario started without its note files. The supportive scenario asked for a pytest checker in this
+  Node repository: `pip` does not exist in the sandbox, PyPI is refused by design, and the rule it
+  asked for (a `name` field) contradicted the real wiki notes, which use `title`; the agent stopped
+  without writing a test or a guard.
+- **wiki-memory: the bookkeeping was done but not credited (VERIFIED).** In the supportive and neutral
+  runs the agents made wiki-only `docs(wiki):` commits that added the Memory index line and updated
+  the work record, and ran `wiki:lint`, but in calls the grader labelled as other steps, so those steps
+  counted as missed. When the prompt said to leave the wiki alone, nothing was written (competing 0%).
 
 ## Harness limits found (INFERRED unless stated)
 
@@ -51,9 +55,10 @@ detail matters more than the totals.
 
 ## Follow-ups (for the owner to decide)
 
-1. write-guard: fold "prove the gap" into "write the failing test" (the planted violation is the
-   first refusing case), or keep it and make it a hard first step.
-2. wiki-memory: the end-of-task bookkeeping is caught at landing by `wiki:lint` and `memory:guard`;
-   a reminder hook is the option if it should happen during the session.
-3. Harness: let repository files win over scenario files for repository tooling (`package.json`,
-   `.claude/`), and pass `printf` formats with `--`; then re-run before trusting the totals.
+1. Harness, before trusting any total: let repository tooling win over scenario files
+   (`package.json`, `.claude/`), run generated `printf` formats safely, and tell the scenario
+   generator the repository's language and test runner so scenarios fit it.
+2. Grading: split chained commands before classification, or ask agents for one action per call in
+   the scenario prompt, so a step done inside a chained command is credited.
+3. write-guard: decide whether "prove the gap" stays a separate first step or becomes the first
+   failing test; the runs do not settle it.

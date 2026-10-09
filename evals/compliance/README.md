@@ -11,16 +11,19 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
   (never `reports/` or `seeds.md`, so neither earlier scores nor the expected behaviours leak in),
   links one read-only copy of `node_modules`, and commits it as `main` with `origin/main` set, so
   `npm run check` passes there as it does here;
-- runs every process ECC starts (setup commands, scenario runs, generation and classification)
-  under bubblewrap built as an allowlist: an empty home, a private `/tmp`, pid namespace and
-  session, read-only `/usr`, `/etc`, `/opt` and `/home/linuxbrew`, a private Claude config holding
-  only the login, the installed plugins read-only, and write access only to the working directory;
+- runs every process ECC starts (setup commands, the baseline commit, scenario runs, generation and
+  classification) under bubblewrap built as an allowlist: an empty home, a private `/tmp`, pid
+  namespace and session, read-only `/usr`, `/etc`, `/opt` and `/home/linuxbrew`, a fresh Claude
+  config per call holding only the login (deleted when the run ends), the installed plugins
+  read-only, and write access only to the working directory; it refuses to start if `bwrap` is
+  missing or a trivial confined command fails;
 - passes an allowlisted environment (path, home, locale, terminal and Anthropic auth only), an
   empty `gh` config, no global git config and a fixed sandbox author;
 - writes each report to `reports/<path-derived name>.md`, for example `rules-zeem-branch-and-merge.md`.
 
 **Accepted exposure.** The scenario agent can read Claude's login token (claude needs it) and has
-network access (claude needs the API). It cannot see other credentials, this repository, other
+network access (claude needs the API), including loopback services on this machine; one `curl`
+could send the token elsewhere. It cannot see other credentials, this repository, other
 checkouts, the parent session's sockets or the real home directory, and nothing it writes outside
 its working directory survives the run. bubblewrap must be installed (`bwrap`).
 

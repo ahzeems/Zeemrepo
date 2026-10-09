@@ -112,13 +112,14 @@ class ConfinedSubprocess:
         return getattr(subprocess, name)
 
 
-def private_claude_home(source: Path, target: Path) -> Path:
-    """A fresh Claude config directory holding only the login, so nothing of the real one is exposed."""
-    target.mkdir(parents=True, exist_ok=True)
+def fresh_claude_home(source: Path, base: Path) -> Path:
+    """A new Claude config directory per call holding only the login, so no call can plant for the next."""
+    base.mkdir(parents=True, exist_ok=True)
+    target = Path(tempfile.mkdtemp(prefix="claude-home-", dir=base))
     credentials = source / ".credentials.json"
     if credentials.is_file():
         shutil.copy2(credentials, target / ".credentials.json")
-    (target / "plugins").mkdir(exist_ok=True)
+    (target / "plugins").mkdir()
     return target
 
 
@@ -153,17 +154,28 @@ def seed_sandbox(sandbox: Path, snapshot: bytes, deps: Path | None = None) -> No
         (root / "node_modules").symlink_to(deps, target_is_directory=True)
 
 
-def commit_baseline(sandbox: Path, env: Mapping[str, str]) -> None:
-    """Commit the seeded tree as main, with origin/main at it, so the branch guards have a base."""
-    def git(*args: str) -> None:
-        subprocess.run(["git", *args], cwd=sandbox, env=dict(env), check=True, capture_output=True)
+# Setup commands come from the generated scenario and may have configured .git (an fsmonitor or
+# hooks path runs code), so every baseline step is confined and those settings are switched off.
+DISARMED = ["-c", "core.fsmonitor=", "-c", "core.hooksPath=/dev/null"]
 
-    with (sandbox / ".git" / "info" / "exclude").open("a") as exclude:
-        exclude.write("node_modules\n")
-    git("add", "--all")
-    git("commit", "--quiet", "--allow-empty", "--no-verify", "-m", "Zeemrepo snapshot")
-    git("branch", "-M", "main")
-    git("update-ref", "refs/remotes/origin/main", "HEAD")
+
+def commit_baseline(sandbox: Path, run: Callable[..., object]) -> None:
+    """Commit the seeded tree as main, with origin/main at it, so the branch guards have a base."""
+    def step(*args: str) -> None:
+        run(list(args), cwd=sandbox, check=True, capture_output=True)
+
+    step("sh", "-c", "mkdir -p .git/info && printf 'node_modules\\n' >> .git/info/exclude")
+    step("git", *DISARMED, "add", "--all")
+    step("git", *DISARMED, "commit", "--quiet", "--allow-empty", "--no-verify", "-m", "Zeemrepo snapshot")
+    step("git", *DISARMED, "branch", "-M", "main")
+    step("git", *DISARMED, "update-ref", "refs/remotes/origin/main", "HEAD")
+
+
+def require_confinement(which: Callable[[], str | None], works: Callable[[], bool]) -> None:
+    """Refuse to run anything unless bubblewrap is installed and a trivial confined command succeeds."""
+    if which() is None or not works():
+        print("run_comply: bubblewrap (bwrap) is missing or cannot run here; refusing to run unconfined.", file=sys.stderr)
+        raise SystemExit(2)
 
 
 def ecc_arguments(target: Path, *, model: str, gen_model: str, dry_run: bool) -> list[str]:
@@ -210,11 +222,16 @@ def main(argv: list[str]) -> None:
     from scripts import classifier, scenario_generator, spec_generator
 
     work = Path(tempfile.mkdtemp(prefix="run-comply-"))
-    layout = Layout(home=Path.home(), claude_home=private_claude_home(Path.home() / ".claude", work / "claude-home"),
-                    claude_binary=Path(shutil.which("claude") or "claude").resolve(),
-                    plugins=Path.home() / ".claude" / "plugins", deps=deps)
+    claude_binary = Path(shutil.which("claude") or "claude").resolve()
     (work / "calls").mkdir()
-    confined = ConfinedSubprocess(subprocess.run, lambda command, cwd: confine(command, cwd=cwd, layout=layout), work / "calls")
+
+    def wrap(command: list[str], cwd: Path) -> list[str]:
+        layout = Layout(home=Path.home(), claude_home=fresh_claude_home(Path.home() / ".claude", work),
+                        claude_binary=claude_binary, plugins=Path.home() / ".claude" / "plugins", deps=deps)
+        return confine(command, cwd=cwd, layout=layout)
+
+    confined = ConfinedSubprocess(subprocess.run, wrap, work / "calls")
+    require_confinement(lambda: shutil.which("bwrap"), lambda: confined.run(["true"]).returncode == 0)
     for module in (runner, classifier, scenario_generator, spec_generator):
         module.subprocess = confined
 
@@ -223,11 +240,14 @@ def main(argv: list[str]) -> None:
     def setup_with_repository(sandbox_dir: Path, scenario: object) -> None:
         original(sandbox_dir, scenario)
         seed_sandbox(sandbox_dir, snapshot, deps)
-        commit_baseline(sandbox_dir, os.environ)
+        commit_baseline(sandbox_dir, confined.run)
 
     runner._setup_sandbox = setup_with_repository
     sys.argv = ["skill-comply", *ecc_arguments(args.target, model=args.model, gen_model=args.gen_model, dry_run=args.dry_run)]
-    ecc_run.main()
+    try:
+        ecc_run.main()
+    finally:
+        shutil.rmtree(work, ignore_errors=True)  # the per-call login copies go with it
 
 
 if __name__ == "__main__":

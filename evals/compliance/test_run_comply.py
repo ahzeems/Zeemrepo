@@ -71,14 +71,36 @@ class Baseline(unittest.TestCase):
             sandbox.mkdir()
             deps.mkdir()
             env = run_comply.isolated_env(dict(os.environ), Path(directory) / "gh")
-            subprocess.run(["git", "init", "--quiet"], cwd=sandbox, check=True, env=env)
+            run = lambda args, **kw: subprocess.run(args, env=env, **kw)
+            run(["git", "init", "--quiet"], cwd=sandbox, check=True)
             run_comply.seed_sandbox(sandbox, tar_of({"CLAUDE.md": "c\n"}), deps=deps)
-            run_comply.commit_baseline(sandbox, env)
+            run_comply.commit_baseline(sandbox, run)
             git = lambda *args: subprocess.run(["git", *args], cwd=sandbox, env=env, check=True, capture_output=True, text=True).stdout.strip()
             self.assertEqual(git("symbolic-ref", "--short", "HEAD"), "main")
             self.assertEqual(git("rev-parse", "HEAD"), git("rev-parse", "refs/remotes/origin/main"))
             self.assertEqual(git("ls-files"), "CLAUDE.md")
             self.assertEqual(git("status", "--porcelain"), "")
+
+    def test_runs_through_the_given_runner_and_disarms_config_a_setup_command_planted(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            sandbox = Path(directory)
+            calls: list[list[str]] = []
+            run_comply.commit_baseline(sandbox, lambda args, **kw: calls.append(list(args)))
+            self.assertTrue(calls, "every step goes through the runner, which confines it")
+            for call in calls:
+                if call[0] == "git":
+                    self.assertIn("core.fsmonitor=", call)
+                    self.assertIn("core.hooksPath=/dev/null", call)
+
+
+class Preflight(unittest.TestCase):
+    def test_refuses_to_run_without_a_working_bwrap(self) -> None:
+        with self.assertRaises(SystemExit) as raised:
+            run_comply.require_confinement(lambda: None, lambda: False)
+        self.assertEqual(raised.exception.code, 2)
+        with self.assertRaises(SystemExit):
+            run_comply.require_confinement(lambda: "/usr/bin/bwrap", lambda: False)
+        run_comply.require_confinement(lambda: "/usr/bin/bwrap", lambda: True)
 
 
 class IsolatedEnvironment(unittest.TestCase):
@@ -101,6 +123,20 @@ class IsolatedEnvironment(unittest.TestCase):
         self.assertEqual(env["GIT_TERMINAL_PROMPT"], "0")
         self.assertEqual(env["GIT_AUTHOR_EMAIL"], "sandbox@example.invalid")
         self.assertEqual(base["GH_TOKEN"], "t", "the caller's environment is not changed")
+
+
+class FreshClaudeHome(unittest.TestCase):
+    def test_each_call_gets_its_own_copy_holding_only_the_login(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source, base = Path(directory) / "real", Path(directory) / "work"
+            source.mkdir()
+            (source / ".credentials.json").write_text("{}\n")
+            (source / "settings.json").write_text("{}\n")
+            first, second = run_comply.fresh_claude_home(source, base), run_comply.fresh_claude_home(source, base)
+            self.assertNotEqual(first, second)
+            self.assertEqual(sorted(path.name for path in first.iterdir()), [".credentials.json", "plugins"])
+            (first / "CLAUDE.md").write_text("planted\n")
+            self.assertFalse((second / "CLAUDE.md").exists(), "one call cannot plant instructions for the next")
 
 
 class Confinement(unittest.TestCase):

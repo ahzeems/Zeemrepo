@@ -26,7 +26,8 @@ await test("isWorkflowCritical", async (t) => {
 
   await t.test("covers any root file except Markdown docs, licences and the lockfile", () => {
     assertAll(isWorkflowCritical, true, ["package.json", "eslint.config.js", ".npmrc", ".nvmrc", ".mcp.json", ".gitattributes", "Makefile"]);
-    assertAll(isWorkflowCritical, false, ["package-lock.json", CHANGELOG, "LICENSE", "NOTES.md"]);
+    assertAll(isWorkflowCritical, false, ["package-lock.json", CHANGELOG, "LICENSE", "LICENSE.txt", "COPYING", "NOTES.md"]);
+    assertAll(isWorkflowCritical, true, ["license-check.sh", "LICENSE.js"]);
   });
 
   await t.test("finds nested agent config, which Claude Code also loads", () => {

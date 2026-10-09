@@ -92,3 +92,12 @@ await test("globToRegExp matches exact paths, stars, odd characters and newlines
   assert.ok(!globToRegExp("a?.md").test("a.md"));
   assert.ok(globToRegExp("a?.md").test("a?.md"));
 });
+
+await test("line numbers and allowances stay aligned around astral and case-changing characters", () => {
+  const emoji = "\u{1F600}".repeat(20);
+  assert.deepEqual(check(`${emoji}\nok\nRun npm run gate.\n`).violations.map((violation) => violation.line), [3]);
+  const allowed = [{ path: "README.md", contains: "Zimi historically ran npm run gate", reason: "history", claims: [claim.id] }];
+  const result = check("\u0130\u0130\u0130\u0130\u0130 intro. Zimi historically ran npm run gate.\n", allowed);
+  assert.deepEqual(result.violations, []);
+  assert.deepEqual(result.unusedAllowances, []);
+});

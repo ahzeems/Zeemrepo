@@ -2,9 +2,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
-import type { GitOptions } from "../lib/git.ts";
 import { CHANGELOG } from "../lib/paths.ts";
-import { addedLineNumbers, branchBase, changedSince } from "./branch-diff.ts";
+import { addedLineNumbers, atRepositoryRoot, branchBase, changedSince } from "./branch-diff.ts";
 import { changelogRefusals } from "./changelog-validation.ts";
 
 export type Options = { cwd?: string; output?: Output; today?: string };
@@ -14,9 +13,9 @@ Requires this branch to add its own ${CHANGELOG} entry, under a date heading bet
 day the branch started and today (UTC). Exit: 0 allowed, 1 refused, 2 the check could not run.`;
 
 function refusals(options: Options): string[] {
-  const gitOptions: GitOptions = options.cwd === undefined ? {} : { cwd: options.cwd };
+  const { gitOptions, root } = atRepositoryRoot(options.cwd === undefined ? {} : { cwd: options.cwd });
   const base = branchBase(gitOptions);
-  const path = join(options.cwd ?? process.cwd(), CHANGELOG);
+  const path = join(root, CHANGELOG);
   return changelogRefusals({
     changed: changedSince(base.sha, gitOptions),
     addedLines: existsSync(path) ? addedLineNumbers(base.sha, CHANGELOG, gitOptions) : [],

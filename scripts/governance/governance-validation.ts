@@ -97,7 +97,10 @@ function collapse(text: string): { flat: string; lineOf: number[] } {
       if (!inSpace) { flat += " "; lineOf.push(line); }
       inSpace = true;
     } else {
-      flat += char; lineOf.push(line); inSpace = false;
+      // One entry per UTF-16 unit, because regex match offsets count units, not code points.
+      flat += char;
+      for (let unit = 0; unit < char.length; unit++) lineOf.push(line);
+      inSpace = false;
     }
     if (char === "\n") line++;
   }
@@ -115,12 +118,13 @@ function isHistory(surface: Surface): boolean {
 // An allowance excuses a match only when its quoted span covers the whole match, so text
 // appended to an allowed sentence is still checked.
 function excusers(surface: Surface, flat: string, start: number, end: number, claimId: string, allowed: readonly Allowance[]): number[] {
-  const lower = flat.toLowerCase();
+  // A case-insensitive search on the text itself keeps offsets aligned; lower-casing first
+  // would shift them wherever a character changes length (such as \u0130).
   return allowed.flatMap((entry, position) => {
     if (entry.path !== surface.path || !entry.claims.includes(claimId)) return [];
-    const needle = collapse(entry.contains).flat.trim().toLowerCase();
-    for (let at = lower.indexOf(needle); at >= 0; at = lower.indexOf(needle, at + 1)) {
-      if (at <= start && at + needle.length >= end) return [position];
+    const needle = collapse(entry.contains).flat.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    for (const found of flat.matchAll(new RegExp(needle, "giu"))) {
+      if (found.index <= start && found.index + found[0].length >= end) return [position];
     }
     return [];
   });

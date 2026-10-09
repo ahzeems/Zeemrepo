@@ -18,9 +18,14 @@ const SPLIT_ADVICE = "Commit the wiki/ files alone and the rest separately; to m
 // of wiki/ would hide the wiki side of a mixed commit.
 // A merge is judged only on what it adds itself: --cc lists files that differ from every
 // parent, which is empty for a clean merge of main and catches changes slipped in during one.
+// A merge is judged only on what its author changed by hand: --remerge-diff compares the
+// merge with git's own automatic merge of its parents, so a clean merge of main lists
+// nothing, while conflict resolutions and changes slipped in during a merge are listed.
+// (--cc is not enough: it lists files whose hunks came from both sides even when git merged
+// them cleanly.) Requires git 2.36 or later.
 function commitFiles(sha: string, options: GitOptions): string[] {
   const parents = git(["rev-list", "--parents", "-n", "1", sha], options).split(" ").length - 1;
-  const diff = parents > 1 ? ["--cc"] : ["--no-renames"];
+  const diff = parents > 1 ? ["--remerge-diff"] : ["--no-renames"];
   return gitPaths(["show", ...diff, "--name-only", "--format=", sha], options);
 }
 
@@ -54,7 +59,7 @@ function reportViolations(violations: readonly Violation[], output: Output): voi
   output.warn("wiki-compliance: this branch breaks the wiki commit rule.");
   const kinds = new Set(violations.map((violation) => violation.kind));
   if (kinds.has("mixed")) output.warn(`wiki-compliance: split each mixed commit. ${SPLIT_ADVICE}`);
-  if (kinds.has("subject")) output.warn('wiki-compliance: reword each wiki-only commit so its subject begins "docs(wiki): ".');
+  if (kinds.has("subject")) output.warn('wiki-compliance: reword each wiki-only commit so its subject begins "docs(wiki): " (a revert of one becomes "docs(wiki): revert ..."), and give a code commit a subject other than docs(wiki).');
 }
 
 function checkHistory(options: GitOptions, output: Output, json: boolean): number {

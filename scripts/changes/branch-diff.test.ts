@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createRepo } from "../test-support/repo-fixture.ts";
-import { addedLineNumbers, addedLines, branchBase, changedSince } from "./branch-diff.ts";
+import { mkdirSync, realpathSync } from "node:fs";
+import { join } from "node:path";
+import { addedLineNumbers, addedLines, atRepositoryRoot, branchBase, changedSince } from "./branch-diff.ts";
 
 await test("branch diff", async (t) => {
   const repo = createRepo("branch-diff-");
@@ -49,4 +51,15 @@ await test("branch diff", async (t) => {
     assert.deepEqual(addedLines(base, ["a.md"], { cwd: repo.dir }), ["zero", "two", "three"]);
     assert.deepEqual(addedLines(base, [], { cwd: repo.dir }), []);
   });
+});
+
+await test("atRepositoryRoot keeps top-level options and moves a subdirectory to the top", (t) => {
+  const repo = createRepo("branch-diff-root-");
+  t.after(() => repo.cleanup());
+  repo.commit("base");
+  mkdirSync(join(repo.dir, "sub"));
+  assert.deepEqual(atRepositoryRoot({ cwd: repo.dir }), { gitOptions: { cwd: repo.dir }, root: repo.dir });
+  const moved = atRepositoryRoot({ cwd: join(repo.dir, "sub") });
+  assert.equal(realpathSync(moved.root), realpathSync(repo.dir));
+  assert.deepEqual(moved.gitOptions, { cwd: moved.root });
 });

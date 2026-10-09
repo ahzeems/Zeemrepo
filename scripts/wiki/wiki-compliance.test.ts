@@ -55,6 +55,7 @@ await test("history check", async (t) => {
     assert.equal(result.code, EXIT_REFUSED);
     assert.match(result.err, /\[subject\]/);
     assert.match(result.err, /docs\(wiki\):/);
+    assert.match(result.err, /revert/i);
   });
 
   await t.test("moving a note out of wiki does not hide the wiki side", (t) => {
@@ -78,6 +79,23 @@ await test("history check", async (t) => {
     const result = repo.check();
     assert.equal(result.code, EXIT_REFUSED, result.out);
     assert.match(result.err, /\[mixed\]/);
+  });
+
+  await t.test("a clean merge of main, where both sides touched the same files, is not judged", (t) => {
+    const repo = branch(t);
+    repo.write("scripts/a.ts", "export const a = 1;\n\n\n\n\n\n// branch\n");
+    repo.commit("feat: branch edit");
+    repo.write("wiki/Home.md", "# Wiki\n\n\n\n\n\nBranch line.\n");
+    repo.commit("docs(wiki): branch edit");
+    repo.git(["switch", "--quiet", "-c", "main-moved", "refs/remotes/origin/main"]);
+    repo.write("scripts/a.ts", "// main\nexport const a = 1;\n");
+    repo.commit("feat: main edit");
+    repo.write("wiki/Home.md", "Main line.\n# Wiki\n");
+    repo.commit("docs(wiki): main edit");
+    repo.git(["switch", "--quiet", "feature"]);
+    repo.git(["merge", "--quiet", "--no-edit", "main-moved"]);
+    const result = repo.check();
+    assert.equal(result.code, EXIT_OK, result.err);
   });
 
   await t.test("ordinary merges, even of mixed history, are not judged", (t) => {

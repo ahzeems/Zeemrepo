@@ -31,7 +31,10 @@ export function isPersonalAccount(name: string): boolean {
 // github.com.evil.org is not mistaken for github.com.
 const PUBLIC_DOMAINS = new Set(["github.com", "users.noreply.github.com", "example.com", "example.org", "example.net"]);
 const PUBLIC_ADDRESSES = new Set(["noreply@anthropic.com"]);
-const EMAIL = /([\p{L}\p{N}._%+-]+)@([\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+)/gu;
+// The local part starts at a boundary and is bounded, so a long run of letters cannot make
+// the scan quadratic; the last domain label is alphabetic, so a version pin such as
+// typescript@6.0.3 is not mistaken for an address. A four-part IP address still counts.
+const EMAIL = /(?<![\p{L}\p{N}._%+-])([\p{L}\p{N}._%+-]{1,64})@((?:[\p{L}\p{N}-]+\.)+\p{L}{2,}|\d{1,3}(?:\.\d{1,3}){3})(?![\p{L}\p{N}-])/gu;
 
 function isPublicEmail(local: string, domain: string): boolean {
   const lower = domain.toLowerCase();
@@ -108,7 +111,8 @@ function candidatePaths(root: string, inGit: boolean): string[] {
 
 function stagedCopies(root: string, inGit: boolean): { file: string; text: string }[] {
   if (!inGit) return [];
-  const differing = gitPaths(["diff", "--relative", "--name-only", "--diff-filter=AM"], { cwd: root });
+  // D: staged but deleted from disk, so the commit would publish a copy the file scan cannot see.
+  const differing = gitPaths(["diff", "--relative", "--name-only", "--diff-filter=ADMT"], { cwd: root });
   return differing.filter((path) => !VENDORED.some((rule) => rule.test(path)))
     .map((path) => ({ file: join(root, path), text: git(["show", `:./${path}`], { cwd: root }) }))
     .filter(({ text }) => !text.includes("\0"));

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { join } from "node:path";
 import { test, type TestContext } from "node:test";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, type Output } from "../lib/cli.ts";
 import { createRepo, type RepoFixture } from "../test-support/repo-fixture.ts";
@@ -61,4 +62,27 @@ await test("--json reports the verdict, and a missing base is an error", async (
   });
   await t.test("bad arguments", (t) => assert.equal(branch(t).check("--bogus").code, EXIT_ERROR));
   await t.test("help", (t) => assert.match(branch(t).check("--help").out, /Usage/));
+});
+
+await test("a new changelog that is not staged yet is read whole", (t) => {
+  const repo = createRepo("changelog-guard-untracked-");
+  t.after(() => repo.cleanup());
+  repo.write("scripts/a.ts", "export const a = 1;\n");
+  repo.git(["update-ref", "refs/remotes/origin/main", repo.commit("base")]);
+  repo.git(["switch", "--quiet", "-c", "feature"]);
+  repo.write("scripts/a.ts", "export const a = 2;\n");
+  repo.write("CHANGELOG.md", `# Changelog\n\n## ${today}\n\n- Raised a.\n`);
+  const out: string[] = [];
+  const err: string[] = [];
+  const code = main([], { cwd: repo.dir, output: { write: (line) => out.push(line), warn: (line) => err.push(line) }, today });
+  assert.equal(code, EXIT_OK, err.join("\n"));
+});
+
+await test("run from a subdirectory, the guard still reads the repository's changelog", (t) => {
+  const repo = branch(t);
+  repo.write("scripts/a.ts", "export const a = 2;\n");
+  repo.write("CHANGELOG.md", `# Changelog\n\n## ${today}\n\n- Raised a.\n`);
+  repo.commit("feat: raise a");
+  const code = main([], { cwd: join(repo.dir, "scripts"), output: { write: () => undefined, warn: () => undefined }, today });
+  assert.equal(code, EXIT_OK);
 });

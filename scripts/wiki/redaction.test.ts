@@ -55,6 +55,7 @@ await test("findSensitive leaves allowed placeholders and public addresses alone
     `91344955+someone${at}users.noreply.github.com`, `noreply${at}anthropic.com`, `fixture${at}example.invalid`,
     `a${at}example.com`, "<email>", "C:\\Users\\<windows-user>", "/Users/<user>/repo", "/Users/Shared/x",
     "risk-assessment-document-for-the-team", "the disk-usage-monitoring-dashboard-panel",
+    "pin typescript@6.0.3 in CI", "npx eslint@10.11.0", "@types/node@22.20.4",
   ]) assert.deepEqual(names(text), [], text);
 });
 
@@ -120,4 +121,22 @@ await test("staged copies are found relative to a root inside a larger checkout"
   }
   const root = join(repo.dir, "vault");
   assert.deepEqual(redactionTargets(root).staged, [{ file: join(root, "inside.md"), text: "staged text" }]);
+});
+
+await test("a very long line is scanned in linear time", () => {
+  const started = performance.now();
+  findSensitive("a".repeat(200_000), checks);
+  assert.ok(performance.now() - started < 2000, "scan of a 200 KB line took over 2 seconds");
+});
+
+await test("a staged secret in a file deleted from the working copy is still found", async (t) => {
+  const repo = createRepo("redaction-deleted-");
+  t.after(() => repo.cleanup());
+  repo.write("a.md", "clean\n");
+  repo.commit("base");
+  repo.write("leak.md", "token " + "ghp_" + "q".repeat(30) + "\n");
+  repo.git(["add", "leak.md"]);
+  const { rmSync: remove } = await import("node:fs");
+  remove(join(repo.dir, "leak.md"));
+  assert.deepEqual(redactionTargets(repo.dir).staged.map((entry) => relative(repo.dir, entry.file)), ["leak.md"]);
 });

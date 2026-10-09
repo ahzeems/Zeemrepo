@@ -18,7 +18,7 @@ const CRITICAL = [
 // Root files are tooling (package.json, .npmrc, eslint.config.js, Makefile...) unless
 // they are prose or a recorded resolution.
 const ROOT_FILE = /^[^/]+$/s;
-const ROOT_NOT_WORKFLOW = [/\.md$/is, /^licen[cs]e/is, /^package-lock\.json$/is, /^\.gitignore$/is];
+const ROOT_NOT_WORKFLOW = [/\.md$/is, /^(licen[cs]e|copying)(\.(md|txt))?$/is, /^package-lock\.json$/is, /^\.gitignore$/is];
 
 // Paths that cannot change behaviour, documentation or process on their own. A critical
 // path is never exempt, whatever its name.

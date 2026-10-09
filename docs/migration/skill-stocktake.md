@@ -24,6 +24,7 @@ as their approval record.
 | Review-driven consistency fixes to baseline skills (branch-review, manage-branch, resolve-conflicts, write-skill, technical-writing), including technical-writing's tab-indentation line | "Authorize, incl. 2-space indent (Recommended)" |
 | Review fixes to the Pocock-derived baseline skills find-deepenings, plan-tickets and wayfinder (required `idea` link; "packages" to "modules") | "Keep the 3 Pocock edits" |
 | Nesting depth: ECC's 4 or Zimi coding-standards' 3 | "4, as ECC (Recommended)" |
+| Baseline edits after Phase 7: branch-review drops "once CI is configured" (CI exists); manage-branch opens the PR with `npm run pr` instead of `gh pr create` | "Approve both (Recommended)" |
 
 **What follows from the decisions**
 - **TDD.** Zimi's `tdd` content is dropped entirely, and ECC's `.claude/rules/ecc/common/testing.md` governs. This

@@ -15,6 +15,14 @@
             "quote": "Authorize, incl. 2-space indent (Recommended)"
           },
           "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
+        },
+        {
+          "sha256": "408821484faae45607555ed0daddfc54bcb814afbaef971cac245d9ec5754095",
+          "approval": {
+            "record": "docs/migration/skill-stocktake.md",
+            "quote": "Approve both (Recommended)"
+          },
+          "reason": "Post-Phase 7 alignment: step 3 cites the PR's required check and guards CI checks instead of \"once CI is configured\"."
         }
       ]
     },
@@ -69,6 +77,14 @@
             "quote": "Authorize, incl. 2-space indent (Recommended)"
           },
           "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
+        },
+        {
+          "sha256": "3121acca2dffef332406df03b7f9e1868c538da3ae15f939993eee76bf53e039",
+          "approval": {
+            "record": "docs/migration/skill-stocktake.md",
+            "quote": "Approve both (Recommended)"
+          },
+          "reason": "Post-Phase 7 alignment: the PR is opened or updated with npm run pr (checks first) instead of a raw gh pr create, matching .claude/rules/zeem/branch-and-merge.md."
         }
       ]
     },

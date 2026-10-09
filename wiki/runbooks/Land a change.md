@@ -46,8 +46,8 @@ requests on GitHub (owner decision, 2026-10-09).
    the landing audit can match each commit to its PR). Agents never merge or approve; a
    Claude Code hook refuses commands that would merge a pull request.
 8. After the merge: `git switch main && git pull --ff-only`, then delete your own merged
-   branch (anything else needs the owner's go-ahead). Before removing a worktree, run
-   `npm run worktree:guard`.
+   branch and, once `npm run worktree:guard` passes, your own clean worktree. Deleting anything
+   else needs the owner's go-ahead.
 
 ## Verify
 

@@ -16,7 +16,7 @@ const PUT = /(?:-X\s*|--request[=\s]+|--method[=\s]+)PUT\b/i;
 const MERGE_MUTATION = /\b(?:mergePullRequest|enablePullRequestAutoMerge)\b/;
 // Approving is the owner's act too: a review endpoint or mutation counts only with APPROVE.
 const REVIEW_ENDPOINT = /\bpulls\/\d+\/reviews\b|\b(?:addPullRequestReview|submitPullRequestReview)\b/;
-const APPROVE = /\bAPPROVE\b/;
+const APPROVE = /\bAPPROVE\b/i;
 // bash -c '...' and eval '...' run their argument, so it is lifted out as a command.
 const SHELL_PAYLOAD = /\b(?:bash|sh|zsh)\s+-c\s+(["'])([\s\S]*?)\1|\beval\s+(["'])([\s\S]*?)\3/g;
 // Heredoc bodies and quoted strings are data (commit messages, PR bodies, search terms).
@@ -35,7 +35,8 @@ function commandParts(command: string): string[][] {
 function programOf(words: readonly string[]): { program: string | undefined; rest: string[] } {
   let index = 0;
   while (index < words.length && (WRAPPERS.has(words[index] ?? "") || /^[A-Za-z_][A-Za-z0-9_]*=/.test(words[index] ?? ""))) index++;
-  return { program: words[index], rest: words.slice(index + 1) };
+  // A path to the binary (/usr/bin/gh) is still that program.
+  return { program: words[index]?.split("/").pop(), rest: words.slice(index + 1) };
 }
 
 // gh's global flags (-R owner/repo) may come before the subcommand.

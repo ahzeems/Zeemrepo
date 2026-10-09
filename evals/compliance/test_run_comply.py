@@ -31,6 +31,14 @@ class SeedSandbox(unittest.TestCase):
             self.assertEqual((sandbox / "CLAUDE.md").read_text(), "scenario's own file\n")
             self.assertEqual((sandbox / ".claude/rules/zeem/a.md").read_text(), "rule\n")
 
+    def test_links_the_shared_dependencies_so_the_checks_can_run(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            sandbox, deps = Path(directory) / "box", Path(directory) / "deps" / "node_modules"
+            sandbox.mkdir()
+            deps.mkdir(parents=True)
+            run_comply.seed_sandbox(sandbox, tar_of({"package.json": "{}\n"}), deps=deps)
+            self.assertEqual((sandbox / "node_modules").resolve(), deps.resolve())
+
     def test_skips_links_instead_of_aborting_the_run(self) -> None:
         buffer = io.BytesIO()
         with tarfile.open(fileobj=buffer, mode="w") as archive:
@@ -56,10 +64,27 @@ class SeedSandbox(unittest.TestCase):
             self.assertTrue((sandbox / "ok.md").exists())
 
 
+class Baseline(unittest.TestCase):
+    def test_commits_the_snapshot_as_main_with_origin_main_and_ignores_the_dependency_link(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            sandbox, deps = Path(directory) / "box", Path(directory) / "deps"
+            sandbox.mkdir()
+            deps.mkdir()
+            env = run_comply.isolated_env(dict(os.environ), Path(directory) / "gh")
+            subprocess.run(["git", "init", "--quiet"], cwd=sandbox, check=True, env=env)
+            run_comply.seed_sandbox(sandbox, tar_of({"CLAUDE.md": "c\n"}), deps=deps)
+            run_comply.commit_baseline(sandbox, env)
+            git = lambda *args: subprocess.run(["git", *args], cwd=sandbox, env=env, check=True, capture_output=True, text=True).stdout.strip()
+            self.assertEqual(git("symbolic-ref", "--short", "HEAD"), "main")
+            self.assertEqual(git("rev-parse", "HEAD"), git("rev-parse", "refs/remotes/origin/main"))
+            self.assertEqual(git("ls-files"), "CLAUDE.md")
+            self.assertEqual(git("status", "--porcelain"), "")
+
+
 class IsolatedEnvironment(unittest.TestCase):
     def test_keeps_only_allowlisted_variables_and_cuts_off_credentials(self) -> None:
         base = {
-            "PATH": "/bin", "HOME": "/nonexistent-home", "LANG": "C.UTF-8", "LC_ALL": "C", "ANTHROPIC_API_KEY": "k",
+            "PATH": "/bin", "HOME": "/nonexistent-home", "LANG": "C.UTF-8", "LC_ALL": "C", "ANTHROPIC_API_KEY": "k", "TMPDIR": "/tmp/claude-1000",
             "GH_TOKEN": "t", "GITHUB_TOKEN": "t", "GIT_DIR": "/real/.git", "SSH_AUTH_SOCK": "/s", "NPM_TOKEN": "n",
             "AWS_SECRET_ACCESS_KEY": "a", "CLAUDECODE": "1", "CLAUDE_CODE_MESSAGING_TOKEN": "m", "DBUS_SESSION_BUS_ADDRESS": "d",
         }
@@ -70,6 +95,7 @@ class IsolatedEnvironment(unittest.TestCase):
         for key in ("PATH", "HOME", "LANG", "LC_ALL", "ANTHROPIC_API_KEY"):
             self.assertEqual(env[key], base[key], key)
         self.assertEqual(env["GH_CONFIG_DIR"], "/tmp/empty-gh")
+        self.assertEqual(env["TMPDIR"], "/tmp", "the private /tmp, not a path outside the confinement")
         self.assertEqual(env["GIT_CONFIG_GLOBAL"], os.devnull)
         self.assertEqual(env["GIT_CONFIG_NOSYSTEM"], "1")
         self.assertEqual(env["GIT_TERMINAL_PROMPT"], "0")
@@ -78,36 +104,46 @@ class IsolatedEnvironment(unittest.TestCase):
 
 
 class Confinement(unittest.TestCase):
-    def test_masks_every_credential_and_repository_path_that_exists(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            home = Path(directory)
-            for folder in (".config/gh", ".ssh", "Github", ".claude/projects"):
-                (home / folder).mkdir(parents=True)
-            (home / ".git-credentials").write_text("x\n")
-            repo = home / "repo"
-            repo.mkdir()
-            command = run_comply.confine(["claude", "-p", "hi"], home=home, repo=repo, uid=4242)
-            self.assertEqual(command[0], "bwrap")
-            self.assertEqual(command[-3:], ["claude", "-p", "hi"])
-            masked = [command[i + 1] for i, arg in enumerate(command) if arg == "--tmpfs"]
-            for folder in (".config/gh", ".ssh", "Github", ".claude/projects"):
-                self.assertIn(str(home / folder), masked)
-            self.assertIn(str(repo), masked)
-            self.assertNotIn(str(home / ".aws"), masked, "a path that does not exist is not mounted over")
-            nulled = [command[i + 2] for i, arg in enumerate(command) if arg == "--ro-bind" and command[i + 1] == "/dev/null"]
-            self.assertEqual(nulled, [str(home / ".git-credentials")])
+    def layout(self, root: Path) -> run_comply.Layout:
+        for folder in ("home", "claude-home", "plugins", "deps", "work"):
+            (root / folder).mkdir()
+        (root / "claude").write_text("binary\n")
+        return run_comply.Layout(home=root / "home", claude_home=root / "claude-home", claude_binary=root / "claude",
+                                 plugins=root / "plugins", deps=root / "deps")
 
-    def test_only_claude_calls_are_confined(self) -> None:
-        calls: list[list[str]] = []
-        shim = run_comply.ConfinedSubprocess(lambda args, **_kw: calls.append(list(args)), lambda cmd: ["bwrap", "--", *cmd])
+    def test_starts_from_an_empty_home_and_private_tmp_and_binds_only_what_claude_needs(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            layout = self.layout(root)
+            command = run_comply.confine(["claude", "-p", "hi"], cwd=root / "work", layout=layout)
+            pairs = [command[i:i + 3] for i in range(len(command))]
+            self.assertEqual(command[0], "bwrap")
+            self.assertEqual(command[-4:], ["--", "claude", "-p", "hi"])
+            self.assertNotIn("--dev-bind", command, "nothing is shared by default")
+            self.assertIn(["--tmpfs", str(layout.home), "--bind"], pairs, "home starts empty")
+            self.assertIn(["--tmpfs", "/tmp", "--tmpfs"], pairs, "a private /tmp hides session sockets")
+            self.assertIn(["--bind", str(layout.claude_home), str(layout.home / ".claude")], pairs)
+            self.assertIn(["--ro-bind", str(layout.plugins), str(layout.home / ".claude/plugins")], pairs)
+            self.assertIn(["--ro-bind", str(layout.deps), str(layout.deps)], pairs)
+            self.assertIn(["--bind", str(root / "work"), str(root / "work")], pairs, "only the working directory is writable")
+            self.assertIn(["--chdir", str(root / "work"), "--unshare-pid"], pairs)
+            for flag in ("--unshare-pid", "--unshare-ipc", "--new-session", "--die-with-parent"):
+                self.assertIn(flag, command)
+            self.assertIn(["--ro-bind", "/usr", "/usr"], pairs)
+
+    def test_every_call_is_confined_in_its_own_working_directory(self) -> None:
+        calls: list[tuple[list[str], dict[str, object]]] = []
+        shim = run_comply.ConfinedSubprocess(lambda args, **kw: calls.append((list(args), kw)), lambda cmd, cwd: ["bwrap", str(cwd), "--", *cmd], Path("/tmp/default-work"))
         shim.run(["claude", "-p", "x"], capture_output=True)
-        shim.run(["git", "init"], cwd="/tmp")
-        self.assertEqual(calls, [["bwrap", "--", "claude", "-p", "x"], ["git", "init"]])
+        shim.run(["git", "init"], cwd=Path("/tmp/box"))
+        self.assertEqual(calls[0][0], ["bwrap", "/tmp/default-work", "--", "claude", "-p", "x"])
+        self.assertEqual(calls[1][0], ["bwrap", "/tmp/box", "--", "git", "init"])
+        self.assertEqual(calls[1][1]["cwd"], Path("/tmp/box"))
         self.assertIs(shim.PIPE, subprocess.PIPE, "everything else is the real subprocess module")
 
 
 class RepositorySnapshot(unittest.TestCase):
-    def test_holds_committed_files_but_not_the_evals_folder(self) -> None:
+    def test_holds_committed_files_but_not_the_reports_or_the_seeds(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             repo = Path(directory)
             git = lambda *args: subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True, env=run_comply.isolated_env(dict(os.environ), repo / "gh"))
@@ -115,12 +151,16 @@ class RepositorySnapshot(unittest.TestCase):
             (repo / "CLAUDE.md").write_text("constitution\n")
             (repo / "evals/compliance/reports").mkdir(parents=True)
             (repo / "evals/compliance/reports/old.md").write_text("an old score\n")
+            (repo / "evals/compliance/seeds.md").write_text("expected behaviour\n")
+            (repo / "evals/compliance/run_comply.py").write_text("# wrapper\n")
             git("add", "--all")
             git("commit", "--quiet", "-m", "base")
             with tarfile.open(fileobj=io.BytesIO(run_comply.repo_snapshot(repo))) as archive:
                 names = archive.getnames()
             self.assertIn("CLAUDE.md", names)
-            self.assertFalse(any(name.startswith("evals") for name in names))
+            self.assertIn("evals/compliance/run_comply.py", names, "npm run check needs the wrapper's tests")
+            self.assertFalse(any(name.startswith("evals/compliance/reports") for name in names))
+            self.assertNotIn("evals/compliance/seeds.md", names, "the expected behaviours are not handed to the agent")
 
 
 class Arguments(unittest.TestCase):

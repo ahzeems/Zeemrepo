@@ -7,20 +7,22 @@ the tool calls.
 
 `run_comply.py` wraps it, because skill-comply on its own runs each scenario in an empty
 directory and so measures Claude's defaults, not these rules. The wrapper:
-- copies a snapshot of the committed repository (without `evals/`) into each scenario sandbox
-  after ECC's own setup, keeping any file the scenario created;
-- runs every `claude` call ECC makes (scenarios, spec and scenario generation, classification)
-  under bubblewrap, with credential stores (`~/.config/gh`, `~/.ssh`, `~/.gnupg`, `~/.aws`,
-  `~/.docker`, `~/.kube`, gcloud, `~/.git-credentials`, `~/.netrc`, `~/.npmrc`, `~/.pypirc`), this
-  repository, `~/Github`, Claude session transcripts and `/run/user/<uid>` masked by empty mounts;
-- passes an allowlisted environment (path, home, locale, terminal, XDG and Anthropic auth only), an
+- copies a snapshot of the committed repository into each scenario sandbox after ECC's own setup
+  (never `reports/` or `seeds.md`, so neither earlier scores nor the expected behaviours leak in),
+  links one read-only copy of `node_modules`, and commits it as `main` with `origin/main` set, so
+  `npm run check` passes there as it does here;
+- runs every process ECC starts (setup commands, scenario runs, generation and classification)
+  under bubblewrap built as an allowlist: an empty home, a private `/tmp`, pid namespace and
+  session, read-only `/usr`, `/etc`, `/opt` and `/home/linuxbrew`, a private Claude config holding
+  only the login, the installed plugins read-only, and write access only to the working directory;
+- passes an allowlisted environment (path, home, locale, terminal and Anthropic auth only), an
   empty `gh` config, no global git config and a fixed sandbox author;
 - writes each report to `reports/<path-derived name>.md`, for example `rules-zeem-branch-and-merge.md`.
 
-**What it does not hide.** Claude's own login under `~/.claude` stays readable, because `claude`
-needs it; a scenario agent could read that token. Anything else in the home directory that is not in
-the masked list is readable too, so keep secrets in the listed stores or add their path to
-`MASKED_DIRS` or `MASKED_FILES` in `run_comply.py`. bubblewrap must be installed (`bwrap`).
+**Accepted exposure.** The scenario agent can read Claude's login token (claude needs it) and has
+network access (claude needs the API). It cannot see other credentials, this repository, other
+checkouts, the parent session's sockets or the real home directory, and nothing it writes outside
+its working directory survives the run. bubblewrap must be installed (`bwrap`).
 
 ## Setup (once)
 

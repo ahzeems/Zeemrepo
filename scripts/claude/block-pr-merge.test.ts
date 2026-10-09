@@ -29,6 +29,8 @@ await test("common ways to merge a pull request are blocked", () => {
     "nohup gh pr merge 7", "(gh pr merge 7)", "{ gh pr merge 7; }", "if true; then gh pr merge 7; fi",
     "sh -c \"gh pr merge 7\"", "eval 'gh pr merge 7'",
     "gh pr review 7 --approve", "gh pr review 7 -a", "gh -R o/r pr review --approve 7",
+    "/usr/bin/gh pr merge 7", "/home/linuxbrew/.linuxbrew/bin/gh pr review 7 --approve",
+    "gh api -X POST repos/o/r/pulls/7/reviews -f event=approve",
     "gh api -X POST repos/o/r/pulls/7/reviews -f event=APPROVE",
     "gh api graphql -f query='mutation { addPullRequestReview(input:{event: APPROVE}) { clientMutationId } }'",
     "gh api graphql -f query='mutation { submitPullRequestReview(input:{event: APPROVE}) { clientMutationId } }'",

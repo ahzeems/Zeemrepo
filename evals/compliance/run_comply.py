@@ -2,12 +2,14 @@
 
 ECC's runner starts each scenario in an empty `git init` directory, so on its own it measures
 Claude's default behaviour, not this repository's rules. This wrapper seeds each sandbox with a
-snapshot of the committed repository (CLAUDE.md, .claude/, scripts and hooks; never evals/, so
-earlier scores cannot leak into a run) after ECC's own setup, without overwriting the scenario's
+snapshot of the committed repository (CLAUDE.md, .claude/, scripts and hooks; never earlier
+reports or seeds.md, so neither scores nor expected behaviours leak into a run) after ECC's own setup, without overwriting the scenario's
 files. A generated "competing" prompt may ask the agent to push or merge, and a scenario agent has
-Bash as this user, so every ECC `claude` call runs under bubblewrap with credential stores, this
-repository and other checkouts masked by empty mounts, and with an allowlisted environment. Claude's
-own login (~/.claude) stays readable, because claude needs it; nothing else of value should be.
+Bash as this user, so every process ECC starts (setup commands, scenario runs, generation and
+classification) runs under bubblewrap built as an allowlist: an empty home, a private /tmp, pid
+namespace and session, the system and tool directories read-only, a private copy of Claude's
+login, the installed plugins read-only, and write access only to the working directory. Claude's
+login token is the one secret the agent can read, because claude needs it.
 
 Usage (from the repository root, with the venv described in evals/compliance/README.md):
   ~/.cache/zeemrepo/comply-venv/bin/python evals/compliance/run_comply.py <rule-or-skill.md> [--dry-run]
@@ -16,13 +18,16 @@ Usage (from the repository root, with the venv described in evals/compliance/REA
 from __future__ import annotations
 
 import argparse
+import hashlib
 import io
 import os
+import shutil
 import subprocess
 import sys
 import tarfile
 import tempfile
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -33,12 +38,12 @@ ECC_VERSION = "2.2.3"
 SKILL_COMPLY = Path.home() / ".claude/plugins/cache/ecc/ecc" / ECC_VERSION / "skills/skill-comply"
 # An allowlist, not a denylist: anything else (tokens, SSH agent sockets, D-Bus, the parent Claude
 # session's messaging variables) is dropped.
-KEPT = {"PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "LANGUAGE", "TERM", "TMPDIR", "TZ",
-        "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "CLAUDE_CONFIG_DIR"}
-KEPT_PREFIXES = ("LC_", "XDG_")
-# Masked with an empty tmpfs (directories) or /dev/null (files) when they exist.
-MASKED_DIRS = (".config/gh", ".ssh", ".gnupg", ".aws", ".docker", ".kube", ".config/gcloud", "Github", ".claude/projects")
-MASKED_FILES = (".git-credentials", ".netrc", ".npmrc", ".pypirc", ".config/git/credentials")
+KEPT = {"PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "LANGUAGE", "TERM", "TZ",
+        "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"}
+KEPT_PREFIXES = ("LC_",)
+# Read-only system and tool directories visible inside the confinement, when they exist.
+SYSTEM_DIRS = ("/usr", "/etc", "/opt", "/home/linuxbrew", "/run/systemd/resolve")
+MERGED_USR = {"/bin": "usr/bin", "/sbin": "usr/sbin", "/lib": "usr/lib", "/lib64": "usr/lib64"}
 SANDBOX_AUTHOR = {
     "GIT_AUTHOR_NAME": "Compliance Sandbox", "GIT_AUTHOR_EMAIL": "sandbox@example.invalid",
     "GIT_COMMITTER_NAME": "Compliance Sandbox", "GIT_COMMITTER_EMAIL": "sandbox@example.invalid",
@@ -54,50 +59,89 @@ def isolated_env(base: Mapping[str, str], gh_config_dir: Path) -> dict[str, str]
         "GIT_CONFIG_GLOBAL": os.devnull,
         "GIT_CONFIG_NOSYSTEM": "1",
         "GIT_TERMINAL_PROMPT": "0",
+        "TMPDIR": "/tmp",
     })
     return env
 
 
-def confine(command: list[str], *, home: Path, repo: Path, uid: int) -> list[str]:
-    """`command` under bubblewrap, with credential stores and checkouts masked."""
-    dirs = [home / name for name in MASKED_DIRS] + [repo, Path(f"/run/user/{uid}"), Path(f"/tmp/claude-{uid}")]
-    files = [home / name for name in MASKED_FILES]
-    args = ["bwrap", "--dev-bind", "/", "/"]
-    for path in dirs:
-        if path.is_dir():
-            args += ["--tmpfs", str(path)]
-    for path in files:
-        if path.is_file():
-            args += ["--ro-bind", "/dev/null", str(path)]
-    return [*args, "--die-with-parent", "--", *command]
+@dataclass(frozen=True)
+class Layout:
+    """Host paths the confinement exposes: everything else is invisible."""
+    home: Path
+    claude_home: Path  # private, writable copy holding only Claude's login
+    claude_binary: Path
+    plugins: Path
+    deps: Path | None = None
+
+
+def confine(command: list[str], *, cwd: Path, layout: Layout) -> list[str]:
+    """`command` under bubblewrap: an allowlist of read-only system paths, an empty home, private /tmp."""
+    args = ["bwrap"]
+    for path in SYSTEM_DIRS:
+        if Path(path).is_dir():
+            args += ["--ro-bind", path, path]
+    for link, target in MERGED_USR.items():
+        if Path(link).is_symlink():
+            args += ["--symlink", target, link]
+    home = str(layout.home)
+    args += ["--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp", "--tmpfs", home,
+             "--bind", str(layout.claude_home), f"{home}/.claude",
+             "--ro-bind", str(layout.plugins), f"{home}/.claude/plugins",
+             "--ro-bind", str(layout.claude_binary), f"{home}/.local/bin/claude"]
+    if layout.deps is not None:
+        args += ["--ro-bind", str(layout.deps), str(layout.deps)]
+    args += ["--bind", str(cwd), str(cwd), "--chdir", str(cwd),
+             "--unshare-pid", "--unshare-ipc", "--new-session", "--die-with-parent"]
+    return [*args, "--", *command]
 
 
 class ConfinedSubprocess:
-    """Stands in for the subprocess module inside ECC: `claude` calls run confined, the rest unchanged."""
+    """Stands in for the subprocess module inside ECC: every command runs confined in its working directory."""
 
-    def __init__(self, run: Callable[..., object], wrap: Callable[[list[str]], list[str]]) -> None:
+    def __init__(self, run: Callable[..., object], wrap: Callable[[list[str], Path], list[str]], default_cwd: Path) -> None:
         self._run = run
         self._wrap = wrap
+        self._default_cwd = default_cwd
 
     def run(self, args: list[str], **kwargs: object) -> object:
-        command = list(args)
-        return self._run(self._wrap(command) if command[:1] == ["claude"] else command, **kwargs)
+        cwd = kwargs.get("cwd")
+        workdir = Path(str(cwd)) if cwd is not None else self._default_cwd
+        return self._run(self._wrap(list(args), workdir), **kwargs)
 
     def __getattr__(self, name: str) -> object:
         return getattr(subprocess, name)
 
 
+def private_claude_home(source: Path, target: Path) -> Path:
+    """A fresh Claude config directory holding only the login, so nothing of the real one is exposed."""
+    target.mkdir(parents=True, exist_ok=True)
+    credentials = source / ".credentials.json"
+    if credentials.is_file():
+        shutil.copy2(credentials, target / ".credentials.json")
+    (target / "plugins").mkdir(exist_ok=True)
+    return target
+
+
+def shared_deps(repo: Path, cache: Path) -> Path:
+    """One copy of node_modules per lockfile, outside the masked repository, so sandboxes can run the checks."""
+    lock = hashlib.sha256((repo / "package-lock.json").read_bytes()).hexdigest()[:16]
+    target = cache / lock / "node_modules"
+    if not target.is_dir():
+        shutil.copytree(repo / "node_modules", target, symlinks=True)
+    return target
+
+
 def repo_snapshot(repo: Path) -> bytes:
-    """The committed tree at HEAD as a tar archive, without evals/."""
+    """The committed tree at HEAD as a tar archive, without earlier reports or the seeds' expected behaviours."""
     env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
     return subprocess.run(
-        ["git", "archive", "--format=tar", "HEAD", "--", ".", ":(exclude)evals"],
+        ["git", "archive", "--format=tar", "HEAD", "--", ".", ":(exclude)evals/compliance/reports", ":(exclude)evals/compliance/seeds.md"],
         cwd=repo, env=env, check=True, capture_output=True,
     ).stdout
 
 
-def seed_sandbox(sandbox: Path, snapshot: bytes) -> None:
-    """Extract the snapshot into the sandbox, keeping files the scenario already created."""
+def seed_sandbox(sandbox: Path, snapshot: bytes, deps: Path | None = None) -> None:
+    """Extract the snapshot into the sandbox, keeping files the scenario already created, and link deps."""
     root = sandbox.resolve()
     with tarfile.open(fileobj=io.BytesIO(snapshot)) as archive:
         for member in archive.getmembers():
@@ -105,6 +149,21 @@ def seed_sandbox(sandbox: Path, snapshot: bytes) -> None:
             if member.issym() or member.islnk() or not target.is_relative_to(root) or target == root or target.exists():
                 continue
             archive.extract(member, root, filter="data")
+    if deps is not None and not (root / "node_modules").exists():
+        (root / "node_modules").symlink_to(deps, target_is_directory=True)
+
+
+def commit_baseline(sandbox: Path, env: Mapping[str, str]) -> None:
+    """Commit the seeded tree as main, with origin/main at it, so the branch guards have a base."""
+    def git(*args: str) -> None:
+        subprocess.run(["git", *args], cwd=sandbox, env=dict(env), check=True, capture_output=True)
+
+    with (sandbox / ".git" / "info" / "exclude").open("a") as exclude:
+        exclude.write("node_modules\n")
+    git("add", "--all")
+    git("commit", "--quiet", "--allow-empty", "--no-verify", "-m", "Zeemrepo snapshot")
+    git("branch", "-M", "main")
+    git("update-ref", "refs/remotes/origin/main", "HEAD")
 
 
 def ecc_arguments(target: Path, *, model: str, gen_model: str, dry_run: bool) -> list[str]:
@@ -140,6 +199,7 @@ def main(argv: list[str]) -> None:
     args = parser.parse_args(argv)
     require_skill_comply(SKILL_COMPLY)
     snapshot = repo_snapshot(REPO)
+    deps = shared_deps(REPO, Path.home() / ".cache/zeemrepo/comply-deps")
     caller_env = dict(os.environ)
     os.environ.clear()
     os.environ.update(isolated_env(caller_env, Path(tempfile.mkdtemp(prefix="run-comply-gh-"))))
@@ -149,7 +209,12 @@ def main(argv: list[str]) -> None:
     import scripts.runner as runner
     from scripts import classifier, scenario_generator, spec_generator
 
-    confined = ConfinedSubprocess(subprocess.run, lambda command: confine(command, home=Path.home(), repo=REPO, uid=os.getuid()))
+    work = Path(tempfile.mkdtemp(prefix="run-comply-"))
+    layout = Layout(home=Path.home(), claude_home=private_claude_home(Path.home() / ".claude", work / "claude-home"),
+                    claude_binary=Path(shutil.which("claude") or "claude").resolve(),
+                    plugins=Path.home() / ".claude" / "plugins", deps=deps)
+    (work / "calls").mkdir()
+    confined = ConfinedSubprocess(subprocess.run, lambda command, cwd: confine(command, cwd=cwd, layout=layout), work / "calls")
     for module in (runner, classifier, scenario_generator, spec_generator):
         module.subprocess = confined
 
@@ -157,7 +222,8 @@ def main(argv: list[str]) -> None:
 
     def setup_with_repository(sandbox_dir: Path, scenario: object) -> None:
         original(sandbox_dir, scenario)
-        seed_sandbox(sandbox_dir, snapshot)
+        seed_sandbox(sandbox_dir, snapshot, deps)
+        commit_baseline(sandbox_dir, os.environ)
 
     runner._setup_sandbox = setup_with_repository
     sys.argv = ["skill-comply", *ecc_arguments(args.target, model=args.model, gen_model=args.gen_model, dry_run=args.dry_run)]

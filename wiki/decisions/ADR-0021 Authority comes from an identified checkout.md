@@ -21,11 +21,14 @@ file differed from main, four skill files differed, and the root `wiki/` differe
 nine places. A session launched there loaded the stale instructions. Every one of those files
 was recoverable from Git; none held unique content.
 
-Zimi's ADR-0021 explained this by calling the root bare repository storage with stale loose
-files, and told sessions to stop at the "bare root". That premise was false: Git reported
-`core.bare=false`, and the root was an ordinary checkout that had fallen behind. Zimi later
-recorded that the root was a working tree. The failure did not come from the layout. It came
-from acting on a checkout nobody had identified.
+At that time Zimi's root was bare repository storage (`core.bare=true`) with stale loose files
+left in it, so a session launched there loaded files no checkout owned. At a bare root,
+`git rev-parse --show-toplevel` fails with `fatal: this operation must be run in a work tree`,
+which is the quickest way to tell. Zimi's ADR-0021 then made the bare layout a permanent rule and
+told sessions to stop there. By 2026-10-08 the root had become an ordinary work tree again, so
+that rule was false (Zimi ADR-0024, "Verify checkout form before loading instructions"). Two
+failures, then: acting on a checkout nobody had identified, and writing a layout assumption into
+a rule as if it could not change.
 
 ## Decision
 
@@ -34,7 +37,12 @@ and reports:
 
 - path (`git rev-parse --show-toplevel`) and which worktree it is (`git worktree list`);
 - branch and full `HEAD`;
-- whether the tree is clean (`git status --porcelain`).
+- whether the tree is clean (`git status --porcelain`);
+- which instruction files it loaded (`CLAUDE.md` here and in any directory above it, and
+  `.claude/`). A stale `CLAUDE.md` in a parent directory is still loaded.
+
+If an instruction source is stale or conflicts with the identified checkout, stop and report it
+instead of choosing one.
 
 Current main is read from a clean checkout whose `HEAD` matches a freshly fetched
 `origin/main`. Feature work uses its own branch, whose `CLAUDE.md`, `.claude/` and `wiki/`
@@ -56,4 +64,4 @@ worktree, run `npm run worktree:guard`, which reports uncommitted or unpushed wo
 - Worktree removal has a mechanical check against losing work; whether a session respects
   one-writer-per-checkout is not checked.
 
-Ported from Zimi `wiki/decisions/ADR-0021 The bare root is storage, authority comes from an identified checkout.md` at 9fb36b2, rewritten: Zimi's version rested on a false bare-root premise (`core.bare=false`), so the storage clause and the stop-at-the-bare-root instruction were removed, and the enduring rule (identify the checkout; separate worktrees; one writer each) was kept with Zeemrepo's paths and commands.
+Ported from Zimi `wiki/decisions/ADR-0021 The bare root is storage, authority comes from an identified checkout.md` at 9fb36b2, rewritten with Zimi `wiki/decisions/ADR-0024 Verify checkout form before loading instructions.md` (Zimi main at f600680, after 9fb36b2): the bare layout Zimi's version made permanent had changed by 2026-10-08, so the storage clause and the stop-at-the-bare-root instruction were removed, and the enduring rule (identify the checkout; separate worktrees; one writer each) was kept with Zeemrepo's paths and commands.

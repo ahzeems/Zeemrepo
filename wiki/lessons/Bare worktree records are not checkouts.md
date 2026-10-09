@@ -32,7 +32,9 @@ structurally invalid output throws and follows the guard's inspection-failure pa
 Zeemrepo carries the fixed parser: `parseWorktrees` in `scripts/git/worktree-validation.ts`
 reads `git worktree list --porcelain -z`, returns `{ path, bare }` per record, and throws on
 incomplete or inconsistent records. `scripts/git/worktree-validation.test.ts` includes a bare
-record and malformed inputs. `npm run worktree:guard` uses it.
+record and malformed inputs, and `scripts/git/worktree-guard.test.ts` runs the guard from a
+worktree of a bare repository, so dropping the bare filter fails a test. `npm run worktree:guard`
+uses it.
 
 ## How to apply
 

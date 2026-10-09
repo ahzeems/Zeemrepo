@@ -46,7 +46,7 @@ OWNER DECISION, 2026-10-06, in the owner's words:
 > reviews complied or waive acceptance criteria.
 
 The decision carries over to Zeemrepo unchanged. This note is the single definition;
-[[Verify a repository change]] and [[Merge gate contract]] point here instead of restating it.
+the review step in [[Verify a repository change]] links here instead of restating it.
 
 ## Consequences
 

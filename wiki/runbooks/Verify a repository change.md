@@ -40,9 +40,9 @@ committing or opening a pull request.
 
    | Part | What it proves |
    |---|---|
-   | `npm run lint` | Type-aware ESLint over `scripts/**/*.ts`: no `any`, casts, non-null assertions, ts-comment suppressions or floating promises; files at most 800 lines, functions at most 50, nesting at most 4. |
+   | `npm run lint` | Type-aware ESLint over `scripts/**/*.ts`: no `any`, casts, non-null assertions, ts-comment suppressions or floating promises; the ECC size and nesting limits (`eslint.config.ts`). |
    | `npm run typecheck` | `tsc` with `strict`, `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`. |
-   | `npm test` | `node:test` over `scripts/**/*.test.ts` with coverage thresholds of 80% lines, 80% functions and 70% branches. A test also fails if any script lacks a sibling `.test.ts`, since coverage cannot see an untested file. |
+   | `npm test` | `node:test` over `scripts/**/*.test.ts` with the coverage thresholds set in `package.json`. A test also fails if any script lacks a sibling `.test.ts`, since coverage cannot see an untested file. |
    | `npm run wiki:lint` | Note schema, links, tags, agents, evidence labels, and a redaction sweep over every tracked file. |
    | `npm run skills:lint` | Skill structure and provenance; see [[Skill standards]]. |
    | `npm run governance:check` | No text, code or config file asserts a replaced rule. |
@@ -55,7 +55,8 @@ committing or opening a pull request.
    `scripts/fixtures/valid/` and `scripts/fixtures/broken/`. A new checker gets the same pair;
    a checker that never sees a counterexample proves nothing
    ([[Documentation checkers need counterexamples]]).
-5. Review in a separate context. A builder's own review is never independent. Use the ECC
+5. Review in a separate context, as
+   [[ADR-0022 Independent review means a separate reviewer context]] defines it. Use the ECC
    reviewers (`ecc:code-reviewer`, `ecc:typescript-reviewer` for TypeScript, and
    `ecc:security-reviewer` for hooks, git, file system or credential code), and the repository's
    `.claude/agents/verifier.md` (read-only, one verdict per acceptance criterion) and
@@ -63,10 +64,8 @@ committing or opening a pull request.
    new review.
 6. Fix findings, rerun `npm run check`, and record the reviewed SHA, the commands and their
    results, and each criterion's verdict in the work record as labelled evidence.
-7. Stage only intended files, keeping wiki files in their own `docs(wiki): ` commit. The
-   pre-commit hook refuses a commit on main or a detached HEAD and a staged mix of wiki and
-   other files, then runs lint, typecheck, `wiki:lint` and `skills:lint`. The pre-push hook
-   refuses pushes to main, rewrites and unlanded branch deletions, then runs `npm run check`.
+7. Stage only intended files, keeping wiki files in their own `docs(wiki): ` commit. The git
+   hooks refuse what [[Merge gate contract]] lists, and pre-push reruns `npm run check`.
 
 ## Verify
 

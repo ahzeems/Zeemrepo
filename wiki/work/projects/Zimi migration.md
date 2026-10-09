@@ -16,6 +16,7 @@ evidence:
   - "VERIFIED: Phase 5 npm run check passes: lint, typecheck, 422 tests, wiki:lint, skills:lint, governance:check, wiki:compliance, changelog:guard, memory:guard."
   - "VERIFIED: Phase 6 npm run check passes with the branch guard, worktree guard, npm run pr, landing audit, merge-blocking hook, hooks and split CI (509 tests); check workflow green on PR #7."
   - "VERIFIED: PRs #6 and #7 merged by the owner (change-record guards; git guards, split CI and merge-blocking hook)."
+  - "VERIFIED: Phase 7 npm run check passes (511 tests) with CLAUDE.md, seven .claude/rules/zeem files, finder and verifier agents, 9 decisions, 23 lessons and 5 reference and runbook pages; ECC code-reviewer and a port-fidelity review findings fixed on the branch."
   - "OWNER DECISION: nothing is pushed to main; work lands by pull request and only the owner merges (2026-10-09)."
 ---
 
@@ -43,3 +44,10 @@ compliance evals with ECC `skill-comply`, and closeout. Zimi itself is never mod
 - Guards: [[Change records]]
 - Rules distillation: `docs/migration/rules-distill.md`
 - Landing: [[Merge gate contract]]
+
+## Observations
+
+- Removing a name from `userOnly` in `config/skill-standards.json` silently drops that skill's
+  `disable-model-invocation` check; only review catches it.
+- `branch-review` (a baseline skill) still says "once CI is configured". Changing it needs an owner
+  approval quoted in `import-baseline.json`.

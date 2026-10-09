@@ -58,9 +58,14 @@ from a second connection, keeping the first one open:
 
 ```bash
 ssh -o BatchMode=yes <host> 'whoami'                                    # must succeed
-ssh -o PubkeyAuthentication=no -o PreferredAuthentications=password \
-    -o BatchMode=yes <host> true                                        # must be refused
+ssh -o PubkeyAuthentication=no -o BatchMode=yes <host> true 2>&1 | tail -1
 ```
+
+Judge the second command by the methods the server lists, not by the refusal: `BatchMode` turns
+off every prompt, so it is refused either way. `Permission denied (publickey).` means password
+login is off; `password` or `keyboard-interactive` in that list means it is still on. Zimi's
+version of this check used the refusal alone and so could never fail. `sudo sshd -T | grep -i
+passwordauthentication` on the server remains the authoritative answer.
 
 The general rule: a configuration file states an intention, and only the running process states
 the fact. Where the two can disagree, ask the process. The same reasoning applies to a firewall, a

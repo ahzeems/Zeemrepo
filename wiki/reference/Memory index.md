@@ -14,7 +14,7 @@ One line per memory note. Add new notes here; work notes need no entry.
 ## Decisions
 
 - [[ADR-0001 Wiki is an Obsidian vault in the repository]] - Project memory is an Obsidian vault in wiki/ inside the repo, as plain Markdown with typed folders, YAML frontmatter and an enforced tag list.
-- [[ADR-0005 Work records live in the shared vault]] - Use linked vault records and native Bases to track idea-to-execution work alongside durable agent memory.
+- [[ADR-0005 Work records live in the shared vault]] - Track idea-to-execution work as linked, typed records under wiki/work/, alongside durable agent memory, readable by Obsidian Properties and Bases.
 - [[ADR-0007 Changelog entries carry no post-merge facts]] - Entries record the change in their own PR and never cite a merge commit, removing the closeout PR.
 - [[ADR-0008 Owner merges pull requests on GitHub]] - Nothing is pushed to main; every change lands by pull request, agents push a branch and open the PR, and only the owner merges on GitHub.
 - [[ADR-0009 Workflow-critical Markdown is an interface]] - Documents that declare how work is landed, reviewed, and verified are part of the interface; drift between them and the code is a Blocker and is checked mechanically.
@@ -36,7 +36,7 @@ One line per memory note. Add new notes here; work notes need no entry.
 - [[Fine-grained tokens cannot upload SSH keys]] - gh auth login with a pasted fine-grained token fails with HTTP 403 on /user/keys; log in through the browser with the admin:public_key scope instead.
 - [[Git hooks route child Git commands to the hooked repository]] - Tests that spawn git inherit a hook's GIT_DIR and GIT_INDEX_FILE, so under a hook their fixture commands act on the real repository.
 - [[Git notes do not travel with fetch or pull]] - Clone, fetch and pull skip the notes refs, so evidence kept in git notes looks missing in other clones; Zeemrepo keeps review and CI evidence on GitHub instead.
-- [[Passphrase-protected SSH keys block agent pushes]] - An agent cannot type an SSH key passphrase, so git push over SSH fails; push over HTTPS with the gh credential helper and leave the remote on SSH.
+- [[Passphrase-protected SSH keys block agent pushes]] - An agent cannot type an SSH key passphrase, so git push over SSH fails; use an HTTPS remote with the gh credential helper, as Zeemrepo's origin does.
 - [[Placeholder values get copied literally]] - A user ran an example command as written and set their git name to the literal text 'Your Name'; give placeholders that cannot be mistaken for values.
 - [[Prose rules do not enforce themselves]] - A repository rule written only in a skill was broken by the agent that had not yet loaded the skill; only a check running in the canonical path stopped it.
 - [[Redaction checks must cover code, not only notes]] - The vault linter scanned notes, skills and three root documents, so a username or hostname committed in a script passed; the scan must cover everything the repository publishes.

@@ -1,7 +1,7 @@
 ---
 type: decision
 title: ADR-0005 Work records live in the shared vault
-summary: Use linked vault records and native Bases to track idea-to-execution work alongside durable agent memory.
+summary: Track idea-to-execution work as linked, typed records under wiki/work/, alongside durable agent memory, readable by Obsidian Properties and Bases.
 tags: [area/planning, area/agents, tool/obsidian, kind/architecture]
 created: 2026-09-20
 updated: 2026-10-09
@@ -25,7 +25,8 @@ and project. Maps and plans keep their original skill sections; ticket bodies ha
 own notes so their metadata is visible in views. The owning map or plan links to those
 notes instead of copying their content. A backlog is a filtered view, not another store.
 
-Native Bases use the same Markdown properties. Internal links join work to sessions,
+Obsidian Bases can read the same Markdown properties, but views are optional: Zeemrepo ships
+none yet, and records are found by type and status as the note schema describes. Internal links join work to sessions,
 lessons, decisions, and research, making the vault a shared graph for human and agent memory.
 [[Idea to execution]] describes the flow from idea to delivered work.
 

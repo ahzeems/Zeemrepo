@@ -47,8 +47,8 @@ replacement is read as history, and anything else needs an allowance naming the 
 span, the claims it excuses, and a reason. An allowance that no longer matches is itself a
 failure.
 
-`branch-review` treats a declared operating-model contradiction as a spec Blocker, and
-`verify-work` runs the check for workflow changes.
+`npm run governance:check` is part of `npm run check`, so `verify-work`, the pre-push hook and the
+`check` workflow all run it, and the `guards` workflow runs main's copy against every pull request.
 
 ## Consequences
 

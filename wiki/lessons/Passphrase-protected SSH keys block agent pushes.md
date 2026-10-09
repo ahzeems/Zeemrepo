@@ -1,7 +1,7 @@
 ---
 type: lesson
 title: Passphrase-protected SSH keys block agent pushes
-summary: An agent cannot type an SSH key passphrase, so git push over SSH fails; push over HTTPS with the gh credential helper and leave the remote on SSH.
+summary: An agent cannot type an SSH key passphrase, so git push over SSH fails; use an HTTPS remote with the gh credential helper, as Zeemrepo's origin does.
 tags: [area/git, area/agents, tool/ssh, tool/gh, kind/pitfall]
 created: 2026-09-20
 updated: 2026-10-09
@@ -12,8 +12,8 @@ related: ["[[Fine-grained tokens cannot upload SSH keys]]", "[[Root shell hides 
 
 ## What happened
 
-The user protected their SSH key with a passphrase, which is good practice, and the repository
-remote uses SSH. A non-interactive test from the agent failed, because nothing can answer the
+In Zimi, the user protected their SSH key with a passphrase, which is good practice, and the
+repository remote used SSH. A non-interactive test from the agent failed, because nothing can answer the
 passphrase prompt:
 
 ```
@@ -26,8 +26,14 @@ the key is on GitHub.
 
 ## Fix
 
-Use the GitHub CLI login for a one-off HTTPS push, without changing the remote or any global git
-config. In Zeemrepo an agent pushes its own branch, never main:
+Push over HTTPS with the GitHub CLI's credential helper. Zeemrepo's `origin` is an HTTPS URL,
+and `gh auth setup-git` makes `gh auth git-credential` git's helper for github.com, so
+`npm run pr` pushes without any key prompt. Check with `git remote -v` and
+`git config --get-urlmatch credential.helper https://github.com`.
+
+For a checkout whose remote must stay on SSH, Zimi used a one-off HTTPS push that changes neither
+the remote nor global config. It is a raw push, so in Zeemrepo use it only for your own branch,
+never main, and prefer switching the remote to HTTPS so `npm run pr` works:
 
 ```bash
 git -c credential.helper='!gh auth git-credential' push https://github.com/<owner>/<repo>.git <branch>
@@ -43,8 +49,8 @@ git update-ref refs/remotes/origin/<branch> <branch>
 
 ## How to apply
 
-- Before the first push in a session, check whether SSH works non-interactively. If it does not,
-  use the HTTPS form above.
+- Before the first push in a session, check the remote's protocol. With an SSH remote, check
+  whether SSH works non-interactively; if it does not, use HTTPS as above.
 - Tell the user their own pushes will still ask for the passphrase, and that the agent has not
   tested that path.
 - Verify a key upload with `gh ssh-key list`, not with an SSH connection test.

@@ -59,7 +59,9 @@ checks. [[Land a change]] gives the steps.
 ## Consequences
 
 Prevention now lives on the server, where an agent cannot skip it: a direct push to main is
-refused by GitHub, not only by a local hook that `--no-verify` bypasses. The owner makes a
+refused by GitHub, not only by a local hook that `--no-verify` bypasses or that a fresh clone
+lacks (`core.hooksPath` is per clone, so hooks run only after `npm run hooks:install`; `npm run pr`
+warns when they are missing). The owner makes a
 decision on every change again, which is the cost Zimi's ADR-0008 tried to remove; the owner
 has chosen to pay it.
 

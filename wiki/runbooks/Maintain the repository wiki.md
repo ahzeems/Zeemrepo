@@ -66,7 +66,9 @@ records hold scope and evidence. Sessions and superseded decisions are history.
    subject starting `docs(wiki): `; everything else goes in other commits. A new tag or agent is
    added to the allowlist in `.claude/skills/wiki-memory/references/note-schema.md` in a commit
    of its own, before the note that uses it. The pre-commit hook refuses a mixed index, and
-   `npm run wiki:compliance` refuses a branch whose history mixes them or lacks the subject.
+   `npm run wiki:compliance` refuses a branch whose history mixes them or lacks the subject. A
+   merge of `main` may resolve conflicts in wiki and other files at once; every hunk it adds must
+   remove a conflict marker, so an unrelated edit in a merge is still refused.
 
 8. **Land through a pull request.** Follow [[Land a change]]: `npm run pr`, the `check` and
    `guards` status checks, and the owner's merge on GitHub. Fixing a missed update later is an

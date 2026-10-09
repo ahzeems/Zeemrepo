@@ -9,7 +9,7 @@ agent: claude-code
 status: in-progress
 owner: human
 priority: P1
-next_action: "Phase 9: wrap ECC skill-comply so its sandbox loads CLAUDE.md and .claude/, write seeds.md, and run compliance reports for the zeem rules and key skills."
+next_action: "Phase 9: wrap ECC skill-comply so its sandbox loads CLAUDE.md and .claude/, write seeds.md, and run compliance reports for the zeem rules and key skills, write-guard included."
 idea: "[[Migrate Zimi into Zeemrepo]]"
 evidence:
   - "VERIFIED: PRs #1-#5 merged by the owner (audit, toolchain, shared library, wiki system, skills)."
@@ -24,6 +24,8 @@ evidence:
   - "VERIFIED: PR #10 merged by the owner (skill alignment)."
   - "VERIFIED: Phase 8 imported 34 instincts (dry run 34 new, 0 duplicates); evolve found the 7 designed clusters and generated 13 items (7 skills, 6 agents)."
   - "INFERRED: proposed in docs/migration/evolve-review.md, pending the owner's merge: write-guard from two generated skills, one rule line from a third, the other 10 items rejected."
+  - "VERIFIED: PR #11 merged by the owner (Phase 8 instincts, evolve review, write-guard)."
+  - "OWNER DECISION: \"I recommend allowing mixed wiki/non-wiki conflict resolutions in genuine merge commits, while rejecting unrelated edits.\" (2026-10-09); wiki-compliance now allows a merge whose remerge-diff hunks all remove conflict markers."
   - "OWNER DECISION: nothing is pushed to main; work lands by pull request and only the owner merges (2026-10-09)."
 ---
 
@@ -55,8 +57,3 @@ compliance evals with ECC `skill-comply`, and closeout. Zimi itself is never mod
 ## Observations
 
 - Skill alignment: [no-doc-change: Land a change and Merge gate contract already describe npm run pr and the required check and guards CI checks; the two skills now match them]
-- `wiki:compliance` refuses a merge of main whose conflict resolution touches both a wiki file and
-  another file (seen on PR #10: CHANGELOG.md and this record). Two open PRs nearly always conflict
-  on both, so the rules "merge main in" and "wiki commits stay separate" collide. Workaround used:
-  a `docs(wiki):` commit taking main's copy before the merge, and the record re-applied after it.
-  Proposed fix for the owner to decide: let a merge resolve conflicts in both kinds of file.

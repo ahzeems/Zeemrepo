@@ -34,10 +34,11 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
   else, including `mcp-proxy.anthropic.com` (the owner's claude.ai connectors: mail, drive, docs),
   the internet and this machine's loopback services; it caps connections and drops clients that
   stall, and each run prints the hosts it allowed and refused;
-- splits a plain chained Bash call (`&&`, `;`, newlines) that succeeded into one observation per
-  command before grading, because ECC labels each tool call with a single step; a failed call, and
-  anything conditional or nested (`||`, `if`/`for`, subshells, `$(...)`, heredocs, comments,
-  backslashes), stays whole so a step that never ran cannot be credited;
+- splits a uniform chained Bash call that succeeded (all `&&`, or all `;` and newlines) into one
+  observation per command before grading, because ECC labels each tool call with a single step; a
+  failed call, a mixed chain (`a && b; c` exits 0 even when `b` never ran), and anything
+  conditional, backgrounded or nested (`||`, `&`, `exec`, `if`/`for`, subshells, `$(...)`, heredocs,
+  comments, backslashes) stays whole, so a step that never ran is not credited;
 - writes each report to `reports/<path-derived name>.md`, for example `rules-zeem-branch-and-merge.md`.
 
 **Accepted exposure.** The scenario agent can read Claude's login token, because claude needs it,

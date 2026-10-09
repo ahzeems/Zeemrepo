@@ -202,10 +202,18 @@ def seed_sandbox(sandbox: Path, snapshot: bytes, deps: Path | None = None) -> No
     root = sandbox.resolve()
     with tarfile.open(fileobj=io.BytesIO(snapshot)) as archive:
         for member in archive.getmembers():
-            target = (root / member.name).resolve()
-            if member.issym() or member.islnk() or not target.is_relative_to(root) or target == root:
+            if member.issym() or member.islnk():
                 continue
-            if target.exists() and not (member.isfile() and target.is_file() and is_tooling(member.name)):
+            path = root / member.name
+            tooling = member.isfile() and is_tooling(member.name)
+            # A symlink the scenario planted at a tooling path is removed, so the real file goes there
+            # and not through the link; only when the link itself sits inside the sandbox.
+            if tooling and path.is_symlink() and path.parent.resolve().is_relative_to(root):
+                path.unlink()
+            target = path.resolve()
+            if not target.is_relative_to(root) or target == root:
+                continue
+            if target.exists() and not (tooling and target.is_file()):
                 continue
             if target.exists():
                 target.unlink()  # a hardlink planted at a tooling path must not be written through
@@ -274,17 +282,21 @@ class Observation:
 # or that nests commands ($(...), backticks, subshells, heredocs) stays whole, as do comments and
 # backslash escapes, because a wrong split could credit a step that never ran.
 SEPARATORS = ("&&", ";", "\n")
-UNSPLITTABLE = re.compile(r"<<|\|\||\$\(|`|\\|#|[(){}]|(?:^|[\s;&])(?:if|then|else|elif|fi|for|while|until|do|done|case|esac)(?=\s|;|$)")
+# A lone & (background; not 2>&1, &> or |&) and exec also change which parts run.
+UNSPLITTABLE = re.compile(r"<<|\|\||\$\(|`|\\|#|[(){}]|(?<![&>|])&(?![&>])|(?:^|[\s;&])(?:if|then|else|elif|fi|for|while|until|do|done|case|esac|exec)(?=\s|;|$)")
 # Claude Code's Bash tool starts the output of a failed call with its exit code.
 FAILED_OUTPUT = re.compile(r"^\s*Exit code [1-9]")
 
 
 def split_command(command: str) -> list[str]:
-    """Top-level parts of a plain shell chain (&&, ; and newlines), quoted text kept whole; anything
-    else (see UNSPLITTABLE) is returned as one part."""
+    """Top-level parts of a uniform shell chain, quoted text kept whole. Either every separator is &&
+    (each part ran only if the one before succeeded) or every one is ; or a newline (each part ran);
+    a mix stays whole, because `a && b; c` exits 0 when a fails, hiding that b never ran. Anything
+    else (see UNSPLITTABLE) is returned as one part too."""
     if UNSPLITTABLE.search(command):
         return [command]
     parts: list[str] = []
+    used: set[str] = set()
     current = ""
     quote: str | None = None
     index = 0
@@ -297,13 +309,14 @@ def split_command(command: str) -> list[str]:
         else:
             separator = next((sep for sep in SEPARATORS if command.startswith(sep, index)), None)
             if separator is not None:
+                used.add("&&" if separator == "&&" else ";")
                 parts.append(current)
                 current = ""
                 index += len(separator)
                 continue
         current += char
         index += 1
-    if quote is not None:
+    if quote is not None or len(used) > 1:
         return [command]
     parts.append(current)
     return [part.strip() for part in parts if part.strip()]
@@ -329,7 +342,7 @@ def split_observations(events: Sequence[object]) -> list[object]:
         fields = bash_input(event)
         output = getattr(event, "output", "")
         parts = split_command(str(fields["command"])) if fields is not None else []
-        if len(parts) < 2 or (isinstance(output, str) and FAILED_OUTPUT.match(output)):
+        if len(parts) < 2 or not isinstance(output, str) or FAILED_OUTPUT.match(output):
             result.append(event)
             continue
         stamp = getattr(event, "timestamp")

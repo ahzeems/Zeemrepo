@@ -39,6 +39,31 @@ class SeedSandbox(unittest.TestCase):
             self.assertEqual((sandbox / "src/app.js").read_text(), "scenario code\n")
             self.assertEqual((sandbox / "CLAUDE.md").read_text(), "repo\n")
 
+    def test_a_symlink_planted_at_a_tooling_path_is_replaced_by_the_real_file(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            sandbox, outside = Path(directory) / "box", Path(directory) / "outside.txt"
+            sandbox.mkdir()
+            outside.write_text("keep me\n")
+            (sandbox / "app.js").write_text("scenario code\n")
+            (sandbox / "package.json").symlink_to(outside)
+            (sandbox / "CLAUDE.md").symlink_to(sandbox / "app.js")
+            run_comply.seed_sandbox(sandbox, tar_of({"package.json": "real\n", "CLAUDE.md": "rules\n"}))
+            self.assertFalse((sandbox / "package.json").is_symlink())
+            self.assertEqual((sandbox / "package.json").read_text(), "real\n")
+            self.assertEqual((sandbox / "CLAUDE.md").read_text(), "rules\n")
+            self.assertEqual((sandbox / "app.js").read_text(), "scenario code\n")
+            self.assertEqual(outside.read_text(), "keep me\n")
+
+    def test_a_tooling_file_under_a_symlinked_directory_is_left_alone(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            sandbox, outside = Path(directory) / "box", Path(directory) / "elsewhere"
+            sandbox.mkdir()
+            outside.mkdir()
+            (outside / "x.ts").write_text("keep me\n")
+            (sandbox / "scripts").symlink_to(outside)
+            run_comply.seed_sandbox(sandbox, tar_of({"scripts/x.ts": "real\n"}))
+            self.assertEqual((outside / "x.ts").read_text(), "keep me\n")
+
     def test_a_hardlinked_tooling_file_is_replaced_not_written_through(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             sandbox, outside = Path(directory) / "box", Path(directory) / "outside.txt"
@@ -113,14 +138,18 @@ class Baseline(unittest.TestCase):
 
 class Grading(unittest.TestCase):
     def test_plain_chains_split_and_anything_conditional_or_nested_stays_whole(self) -> None:
-        self.assertEqual(run_comply.split_command("git add a b && git commit -m 'x && y'; npm run pr"),
+        self.assertEqual(run_comply.split_command("git add a b && git commit -m 'x && y' && npm run pr"),
                          ["git add a b", "git commit -m 'x && y'", "npm run pr"])
+        self.assertEqual(run_comply.split_command("git status; git log -1\nls"), ["git status", "git log -1", "ls"])
+        self.assertEqual(run_comply.split_command("cd x && npm test 2>&1 | tail &>/dev/null"), ["cd x", "npm test 2>&1 | tail &>/dev/null"])
         self.assertEqual(run_comply.split_command('echo "a; b" && ls'), ['echo "a; b"', "ls"])
         self.assertEqual(run_comply.split_command("cd x\nnpm test"), ["cd x", "npm test"])
         self.assertEqual(run_comply.split_command("ls | grep x && pwd"), ["ls | grep x", "pwd"], "a pipe is one command")
         for whole in ("cat > f <<'EOF'\na && b\nEOF\ngit add f", "npm test || echo failed", "a && $(b; c)", "a && `b; c`",
                       'echo "a \\" ; b" && ls', "find . -exec rm {} \\; && ls", "npm test # x; y", "a \\\nb && c",
-                      "if true; then git commit -m x; fi", "for f in a; do echo $f; done", "(cd x; ls) && pwd", "ls -la"):
+                      "if true; then git commit -m x; fi", "for f in a; do echo $f; done", "(cd x; ls) && pwd", "ls -la",
+                      "npm run check && git commit -m x; git status", "npm run check && git commit -m x\ngit status",
+                      "a && b &", "exec a && b"):
             self.assertEqual(run_comply.split_command(whole), [whole], whole)
 
     def test_each_part_of_a_chained_bash_call_becomes_its_own_observation(self) -> None:

@@ -39,6 +39,16 @@ class SeedSandbox(unittest.TestCase):
             self.assertEqual((sandbox / "src/app.js").read_text(), "scenario code\n")
             self.assertEqual((sandbox / "CLAUDE.md").read_text(), "repo\n")
 
+    def test_a_hardlinked_tooling_file_is_replaced_not_written_through(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            sandbox, outside = Path(directory) / "box", Path(directory) / "outside.txt"
+            sandbox.mkdir()
+            outside.write_text("keep me\n")
+            os.link(outside, sandbox / "package.json")
+            run_comply.seed_sandbox(sandbox, tar_of({"package.json": "real\n"}))
+            self.assertEqual((sandbox / "package.json").read_text(), "real\n")
+            self.assertEqual(outside.read_text(), "keep me\n")
+
     def test_links_the_shared_dependencies_so_the_checks_can_run(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             sandbox, deps = Path(directory) / "box", Path(directory) / "deps" / "node_modules"
@@ -102,14 +112,16 @@ class Baseline(unittest.TestCase):
 
 
 class Grading(unittest.TestCase):
-    def test_chained_commands_split_at_top_level_only(self) -> None:
-        self.assertEqual(run_comply.split_command("git add a b && git commit -m 'x && y'; npm run pr || true"),
-                         ["git add a b", "git commit -m 'x && y'", "npm run pr", "true"])
+    def test_plain_chains_split_and_anything_conditional_or_nested_stays_whole(self) -> None:
+        self.assertEqual(run_comply.split_command("git add a b && git commit -m 'x && y'; npm run pr"),
+                         ["git add a b", "git commit -m 'x && y'", "npm run pr"])
         self.assertEqual(run_comply.split_command('echo "a; b" && ls'), ['echo "a; b"', "ls"])
         self.assertEqual(run_comply.split_command("cd x\nnpm test"), ["cd x", "npm test"])
-        heredoc = "cat > f <<'EOF'\na && b\nEOF\ngit add f"
-        self.assertEqual(run_comply.split_command(heredoc), [heredoc], "a heredoc body is never split")
-        self.assertEqual(run_comply.split_command("ls -la"), ["ls -la"])
+        self.assertEqual(run_comply.split_command("ls | grep x && pwd"), ["ls | grep x", "pwd"], "a pipe is one command")
+        for whole in ("cat > f <<'EOF'\na && b\nEOF\ngit add f", "npm test || echo failed", "a && $(b; c)", "a && `b; c`",
+                      'echo "a \\" ; b" && ls', "find . -exec rm {} \\; && ls", "npm test # x; y", "a \\\nb && c",
+                      "if true; then git commit -m x; fi", "for f in a; do echo $f; done", "(cd x; ls) && pwd", "ls -la"):
+            self.assertEqual(run_comply.split_command(whole), [whole], whole)
 
     def test_each_part_of_a_chained_bash_call_becomes_its_own_observation(self) -> None:
         Event = run_comply.Observation
@@ -117,10 +129,25 @@ class Grading(unittest.TestCase):
                   Event(timestamp="T0002", event="tool_complete", tool="Bash", session="s",
                         input=json.dumps({"command": "git add a && npm run pr"}), output="done")]
         split = run_comply.split_observations(events)
-        self.assertEqual([e.timestamp for e in split], ["T0001", "T0002.1", "T0002.2"])
+        self.assertEqual([e.timestamp for e in split], ["T0001", "T0002.001", "T0002.002"])
         self.assertEqual([json.loads(e.input)["command"] for e in split[1:]], ["git add a", "npm run pr"])
         self.assertEqual({e.output for e in split[1:]}, {"done"})
         self.assertEqual(sorted(split, key=lambda e: e.timestamp), split, "the grader's sort keeps the order")
+
+    def test_eleven_parts_keep_their_order_under_a_text_sort(self) -> None:
+        Event = run_comply.Observation
+        command = " && ".join(f"step{n}" for n in range(1, 12))
+        split = run_comply.split_observations([Event("T0003", "tool_complete", "Bash", "s", json.dumps({"command": command, "description": "d"}), "ok")])
+        ordered = sorted(split, key=lambda e: e.timestamp)
+        self.assertEqual([json.loads(e.input)["command"] for e in ordered], [f"step{n}" for n in range(1, 12)])
+        self.assertEqual(json.loads(ordered[0].input)["description"], "d", "other input keys are kept")
+
+    def test_a_failed_call_is_not_split_so_steps_that_never_ran_get_no_credit(self) -> None:
+        Event = run_comply.Observation
+        failed = Event("T0004", "tool_complete", "Bash", "s", json.dumps({"command": "npm run check && git commit -m x"}), "Exit code 1\nlint failed")
+        self.assertEqual(run_comply.split_observations([failed]), [failed])
+        odd = Event("T0005", "tool_complete", "Bash", "s", None, "x")  # type: ignore[arg-type]
+        self.assertEqual(run_comply.split_observations([odd]), [odd])
 
 
 class Retry(unittest.TestCase):
@@ -148,7 +175,7 @@ class Context(unittest.TestCase):
             with_context = run_comply.with_repo_context(target, Path(directory))
             text = with_context.read_text()
             self.assertTrue(text.startswith("# A skill\n"))
-            for fact in ("TypeScript", "node:test", "npm test", "no Python", "no network"):
+            for fact in ("TypeScript", "node:test", "npm test", "no pip", "not Python", "no network"):
                 self.assertIn(fact, text)
             self.assertEqual(target.read_text(), "# A skill\n", "the real file is untouched")
 

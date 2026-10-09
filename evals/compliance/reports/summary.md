@@ -66,9 +66,11 @@ detail matters more than the totals.
 Fixed in the harness after this run (not yet measured; these reports predate them):
 - repository tooling (`package.json`, `CLAUDE.md`, `.claude/`, `scripts/`, `config/`, hooks)
   replaces a scenario's copy;
-- the scenario generator is told the repository's language, test runner and limits (a check after
-  the fix produced a TypeScript guard scenario with `node:test` and no push);
-- chained Bash calls are split into one observation per command before grading;
+- the scenario generator is told the repository's language, test runner and limits (one
+  generation after the fix, inspected but not saved, produced a TypeScript guard scenario with
+  `node:test` and no push);
+- plain chained Bash calls that succeeded are split into one observation per command before
+  grading (conditional, nested or failed calls stay whole);
 - `printf` setups write a leading `---` as text, and a generation with malformed YAML is retried.
 
 Still for the owner to decide:

@@ -7,14 +7,16 @@ the tool calls.
 
 `run_comply.py` wraps it, because skill-comply on its own runs each scenario in an empty
 directory and so measures Claude's defaults, not these rules. The wrapper:
-- tells ECC's scenario generator what this repository is (TypeScript on Node, `node:test`, no
-  Python or network), so scenarios fit it, and retries a generation whose YAML does not parse;
+- tells ECC's scenario generator what this repository is (TypeScript on Node, `node:test`, no pip
+  and no network for packages), so scenarios fit it, and retries a generation whose YAML does not
+  parse;
 - runs each scenario's setup commands through a confined `sh -c` (so redirections and heredocs
   create files, and a `printf` format starting with `---` is text);
 - copies a snapshot of the committed repository into each scenario sandbox after that setup
   (never `reports/` or `seeds.md`, so neither earlier scores nor the expected behaviours leak in);
-  the repository's tooling (`package.json`, `CLAUDE.md`, `.claude/`, `scripts/`, `config/`, hooks)
-  replaces a scenario's copy, and other scenario files are kept;
+  the repository's tooling (`package.json`, `CLAUDE.md`, and the files of `.claude/`, `scripts/`,
+  `config/` and the hooks) replaces a scenario's copy file by file, and other scenario files are
+  kept;
   links one read-only copy of `node_modules`, and commits it as `main` with `origin/main` set, so
   `npm run check` passes there as it does here;
 - runs every process ECC starts (setup commands, the baseline commit, scenario runs, generation and
@@ -32,8 +34,10 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
   else, including `mcp-proxy.anthropic.com` (the owner's claude.ai connectors: mail, drive, docs),
   the internet and this machine's loopback services; it caps connections and drops clients that
   stall, and each run prints the hosts it allowed and refused;
-- splits each chained Bash call (`&&`, `||`, `;`, newlines; not heredocs or quoted text) into one
-  observation per command before grading, because ECC labels each tool call with a single step;
+- splits a plain chained Bash call (`&&`, `;`, newlines) that succeeded into one observation per
+  command before grading, because ECC labels each tool call with a single step; a failed call, and
+  anything conditional or nested (`||`, `if`/`for`, subshells, `$(...)`, heredocs, comments,
+  backslashes), stays whole so a step that never ran cannot be credited;
 - writes each report to `reports/<path-derived name>.md`, for example `rules-zeem-branch-and-merge.md`.
 
 **Accepted exposure.** The scenario agent can read Claude's login token, because claude needs it,

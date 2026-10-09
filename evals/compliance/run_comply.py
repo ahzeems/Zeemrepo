@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import io
+import re
 import os
 import shutil
 import subprocess
@@ -206,6 +207,8 @@ def seed_sandbox(sandbox: Path, snapshot: bytes, deps: Path | None = None) -> No
                 continue
             if target.exists() and not (member.isfile() and target.is_file() and is_tooling(member.name)):
                 continue
+            if target.exists():
+                target.unlink()  # a hardlink planted at a tooling path must not be written through
             archive.extract(member, root, filter="data")
     if deps is not None and not (root / "node_modules").exists():
         (root / "node_modules").symlink_to(deps, target_is_directory=True)
@@ -267,13 +270,19 @@ class Observation:
     output: str
 
 
-SEPARATORS = ("&&", "||", ";", "\n")
+# Split only plain chains. Anything whose meaning depends on how earlier parts ended (||, if, while)
+# or that nests commands ($(...), backticks, subshells, heredocs) stays whole, as do comments and
+# backslash escapes, because a wrong split could credit a step that never ran.
+SEPARATORS = ("&&", ";", "\n")
+UNSPLITTABLE = re.compile(r"<<|\|\||\$\(|`|\\|#|[(){}]|(?:^|[\s;&])(?:if|then|else|elif|fi|for|while|until|do|done|case|esac)(?=\s|;|$)")
+# Claude Code's Bash tool starts the output of a failed call with its exit code.
+FAILED_OUTPUT = re.compile(r"^\s*Exit code [1-9]")
 
 
 def split_command(command: str) -> list[str]:
-    """Top-level parts of a shell command chained with && || ; or newlines. Quoted text is kept whole,
-    and a command holding a heredoc is never split, because its body may contain separators."""
-    if "<<" in command:
+    """Top-level parts of a plain shell chain (&&, ; and newlines), quoted text kept whole; anything
+    else (see UNSPLITTABLE) is returned as one part."""
+    if UNSPLITTABLE.search(command):
         return [command]
     parts: list[str] = []
     current = ""
@@ -294,25 +303,37 @@ def split_command(command: str) -> list[str]:
                 continue
         current += char
         index += 1
+    if quote is not None:
+        return [command]
     parts.append(current)
     return [part.strip() for part in parts if part.strip()]
 
 
+def bash_input(event: object) -> dict[str, object] | None:
+    raw = getattr(event, "input", None)
+    if getattr(event, "tool", None) != "Bash" or not isinstance(raw, str):
+        return None
+    try:
+        parsed = json.loads(raw)
+    except ValueError:
+        return None
+    return parsed if isinstance(parsed, dict) and isinstance(parsed.get("command"), str) else None
+
+
 def split_observations(events: Sequence[object]) -> list[object]:
-    """One observation per part of a chained Bash call, so the grader can credit each step; ECC gives
-    each tool call a single label. Pieces of T0004 become T0004.1, T0004.2, keeping the order."""
+    """One observation per part of a plain chained Bash call that succeeded, so the grader can credit
+    each step (ECC gives each tool call a single label). A failed call stays whole, since its later
+    parts may never have run. Pieces of T0004 become T0004.001, T0004.002, which sort in order."""
     result: list[object] = []
     for event in events:
-        try:
-            command = json.loads(getattr(event, "input")).get("command") if getattr(event, "tool") == "Bash" else None
-        except (ValueError, AttributeError):
-            command = None
-        parts = split_command(command) if isinstance(command, str) else []
-        if len(parts) < 2:
+        fields = bash_input(event)
+        output = getattr(event, "output", "")
+        parts = split_command(str(fields["command"])) if fields is not None else []
+        if len(parts) < 2 or (isinstance(output, str) and FAILED_OUTPUT.match(output)):
             result.append(event)
             continue
         stamp = getattr(event, "timestamp")
-        result += [dataclasses.replace(event, timestamp=f"{stamp}.{n}", input=json.dumps({"command": part}))  # type: ignore[type-var]
+        result += [dataclasses.replace(event, timestamp=f"{stamp}.{n:03d}", input=json.dumps({**fields, "command": part}))  # type: ignore[type-var]
                    for n, part in enumerate(parts, start=1)]
     return result
 
@@ -324,8 +345,8 @@ REPO_CONTEXT = """
 The sandbox is a copy of this repository: TypeScript run directly by Node, tests with node:test
 through `npm test`, every guard through `npm run check`, wiki notes with YAML frontmatter (type,
 title, summary, tags, dates, agent, status). Its package.json, CLAUDE.md, .claude/, scripts/ and
-config/ replace any scenario copies. There is no Python, no pip and no network for packages, so
-write scenarios in TypeScript or JavaScript with node:test. Setup commands should only create the
+config/ replace any scenario copies. There is no pip and no network for packages, so write
+scenarios in TypeScript or JavaScript with node:test, not Python. Setup commands should only create the
 files the task needs and commit locally; do not push or create remotes.
 """
 

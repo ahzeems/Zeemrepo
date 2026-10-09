@@ -218,7 +218,7 @@ def commit_baseline(sandbox: Path, run: Callable[..., object]) -> None:
 SCENARIO_TIMEOUT = 900
 # Generated setups write frontmatter with printf '---...', which printf reads as an option; the
 # redirect has already truncated the file, so the scenario starts with an empty one.
-PRINTF_AS_TEXT = 'printf() { command printf -- "$@"; }\n'
+PRINTF_AS_TEXT = 'printf() { if [ "$1" = "--" ]; then command printf "$@"; else command printf -- "$@"; fi; }\n'
 
 
 def setup_sandbox(sandbox: Path, commands: Sequence[str], run: Callable[..., object], warn: Callable[[str], None]) -> None:

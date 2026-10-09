@@ -33,7 +33,8 @@ detail matters more than the totals.
   neutral run's "staging" miss is probably the same one-label-per-call effect (INFERRED).
 - **write-guard: the scores measure the scenarios, not the skill (VERIFIED).** All three scenarios
   started with their planted notes (`wiki/lessons/bad-note.md`, `good-note.md`) empty, because the
-  `printf '---...'` setups failed after truncating them, so no run had a real violation to prove.
+  `printf '---...'` setups failed after truncating them, so no run had the intended pair of a
+  planted violation and a clean control.
   "Prove the gap" was still credited in all three; in neutral and competing the ordering failed at
   step 2. The supportive scenario also asked for a pytest checker in this Node repository: `pip` does
   not exist in the sandbox, PyPI is refused by design, and the rule it asked for (a `name` field)
@@ -41,7 +42,8 @@ detail matters more than the totals.
   guard.
 - **wiki-memory: most bookkeeping was done but not credited (VERIFIED, with limits).** In the
   supportive and neutral runs the agents made wiki-only `docs(wiki):` commits that updated the work
-  record and added a Memory index line, in calls the grader labelled as other steps. Limits: the
+  record and added a Memory index line, in calls the grader left unlabelled or credited out of order.
+  Limits: the
   `wiki:lint` they ran was the scenario's stub (`echo lint ok`), so it proved nothing; and in neutral
   the indexed note was committed empty because its heredoc failed, which the real `wiki:lint` would
   have refused. When the prompt said to leave the wiki alone, nothing was written (competing 0%).
@@ -51,9 +53,11 @@ detail matters more than the totals.
 - Scenario files override the repository's: a scenario's own `package.json` (with a stub `pr`
   script) replaced the real one in the sandbox (VERIFIED), so `npm run pr` and `npm run check`
   there were not the real ones.
-- Some generated setup commands fail: a `git push` to an `origin` the scenario never created
-  (VERIFIED from the run log), and `printf` formats starting with `---`, which `printf` reads as an
-  option (VERIFIED: the planted notes were committed empty); `printf` is fixed for later runs.
+- Some generated setup commands fail. A `git push -u origin main` failed (VERIFIED from the run
+  log); the scenario had created its bare `origin`, so the likely cause is that the new repository's
+  branch was still `master` when it ran (INFERRED from the reflog). `printf` formats starting with
+  `---` are read as an option (VERIFIED: the planted notes were committed empty); `printf` is fixed
+  for later runs.
 - One label per tool call undercounts chained commands; strict ordering turns one early miss into a
   zero.
 

@@ -101,7 +101,8 @@ class ScenarioSetup(unittest.TestCase):
             messages: list[str] = []
             commands = ("mkdir -p src", "printf 'def f():\\n    return 1\\n' > src/f.py",
                         "cat > notes.md <<'EOF'\nhello\nEOF", "cd src && touch inside.txt", "false",
-                        "printf '---\\nname: x\\n---\\n' > front.md")
+                        "printf '---\\nname: x\\n---\\n' > front.md", "printf -- '---\\nok\\n' > dashed.md",
+                        "printf '%s-%s\\n' a b > plain.txt")
             run_comply.setup_sandbox(sandbox, commands, lambda args, **kw: subprocess.run(args, **kw), messages.append)
             self.assertFalse((sandbox / "stale").exists(), "a reused sandbox starts empty")
             self.assertTrue((sandbox / ".git").is_dir())
@@ -109,6 +110,8 @@ class ScenarioSetup(unittest.TestCase):
             self.assertEqual((sandbox / "notes.md").read_text(), "hello\n")
             self.assertTrue((sandbox / "src/inside.txt").exists())
             self.assertEqual((sandbox / "front.md").read_text(), "---\nname: x\n---\n", "a format starting with --- is text, not an option")
+            self.assertEqual((sandbox / "dashed.md").read_text(), "---\nok\n", "a command that already passes -- is unchanged")
+            self.assertEqual((sandbox / "plain.txt").read_text(), "a-b\n")
             self.assertEqual(len(messages), 1)
             self.assertIn("false", messages[0], "a failed setup command is reported, not skipped silently")
 

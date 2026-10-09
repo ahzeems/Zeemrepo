@@ -16,9 +16,11 @@ const PUT = /(?:-X\s*|--request[=\s]+|--method[=\s]+)PUT\b/i;
 const MERGE_MUTATION = /\b(?:mergePullRequest|enablePullRequestAutoMerge)\b/;
 // Approving is the owner's act too: a review endpoint or mutation counts when its event is APPROVE,
 // or when the body comes from a file the hook cannot read (--input).
-const REVIEW_ENDPOINT = /\bpulls\/\d+\/reviews\b|\b(?:addPullRequestReview|submitPullRequestReview)\b/;
-// A body read from a file (--input, -F x=@file, curl -d @file) cannot be inspected, so it counts too.
-const APPROVE_EVENT = /\bevent\b\W{0,3}APPROVE\b|--input\b|=@|\s-(?:d|-data(?:-binary|-raw)?)\s*@/i;
+// The GraphQL endpoint counts as a review endpoint: a query read from a file may be an approval.
+const REVIEW_ENDPOINT = /\bpulls\/\d+\/reviews\b|\b(?:addPullRequestReview|submitPullRequestReview)\b|\bgraphql\b/;
+// A body read from a file (--input, -F x=@file, curl -d/--data*/--json @file, curl -T file) cannot be
+// inspected, so it counts too.
+const APPROVE_EVENT = /\bevent\b\W{0,3}APPROVE\b|--input\b|=@|\s-(?:d|-data[\w-]*|-json)\s*@|\s-T\s/i;
 // In a short-flag bundle, -b and -F take the rest of the word as their value (-bapprove is a body).
 const VALUE_FLAGS = new Set(["b", "F"]);
 

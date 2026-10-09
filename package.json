@@ -1,0 +1,24 @@
+{
+  "name": "zeemrepo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "lint": "eslint --flag unstable_native_nodejs_ts_config --max-warnings 0 .",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test --experimental-test-coverage --test-coverage-include=\"scripts/**/*.ts\" --test-coverage-exclude=\"scripts/**/*.test.ts\" --test-coverage-exclude=\"scripts/fixtures/**\" --test-coverage-lines=80 --test-coverage-functions=80 --test-coverage-branches=70 \"scripts/**/*.test.ts\"",
+    "check": "npm run lint && npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.20.4",
+    "eslint": "^10.11.0",
+    "markdown-it": "^15.0.2",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.70.0",
+    "yaml": "^2.9.1"
+  }
+}

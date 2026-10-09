@@ -8,12 +8,12 @@ below is the skill; skipping a step is what produces the fix that has to be made
 
 ## 1. Reproduce it
 
-One command that fails, every time, on this seat. Write it down exactly. If it only fails
+One command that fails, every time, in this checkout. Write it down exactly. If it only fails
 sometimes, say how often and under what conditions: an intermittent fault reproduced once is a
 coincidence.
 
 Where there is no command yet, build the smallest one that shows the fault, and keep it: it
-becomes the failing test and, later, the replay case.
+becomes the failing regression test.
 
 ## 2. Minimise it
 
@@ -28,17 +28,18 @@ check names what it would show if true and what if false, before you run it.
 
 A hypothesis you cannot design a check for is a belief. Say so and move to one you can.
 
-## 4. Fix at the cause, not at the symptom
+## 4. Locate the cause
 
 The proximate error is rarely the root cause: a `KeyError` is a symptom, a contract that never
 said which keys are required is a cause. Ask what let the wrong value survive to that point (the
 missing check, the unstated assumption, the two sources of truth), and stop when the next "why"
-leaves the repository. Fix the one whose repair prevents the class.
+leaves the repository. Decide which repair prevents the class; do not apply it yet.
 
-## 5. Prove the fix
+## 5. Write the failing test, then fix
 
-Hand off to `/ecc:orch-fix-defect` (or `ecc:tdd-workflow`) so the repro becomes the red
-regression test before the fix turns it green. Run the same repro against the original defect
+Hand off to `/ecc:orch-fix-defect` (or `ecc:tdd-workflow`) and turn the repro into a regression
+test. Run it and confirm it fails for the right reason: the defect, not a typo or a missing
+fixture. Only then apply the repair from step 4 and confirm the test passes. Run the same repro against the original defect
 and the corrected behavior in a safe fixture or isolated checkout. Red before, green after, both
 logs kept. If there is no base commit, record the original failing input and outcome rather than
 inventing a revision.
@@ -61,7 +62,7 @@ a valid outcome, and `No observations.` is a complete answer.
 
 **A prevention names a check that exists and fails on the original defect.** Write the check,
 prove it red against the failure, then green with the fix, and retain both results. It must run
-through an existing test or CI command (`npm test`, `npm run check`); a check with no runner
+through an existing test or check command (`npm test` / `npm run check`); a check with no runner
 prevents nothing, and one that never executes is worse than an acknowledged gap because it
 reports green. When no check can catch it, write `none: <reason>` and the manual control instead.
 Never repoint a prevention at a nearby file to make the record look complete. "Be more careful"
@@ -73,7 +74,7 @@ Root cause and Prevention sections, and before it closes the `root_cause`, `fix_
 `UNKNOWN:` or `OWNER DECISION:`. Add or update a lesson (What happened / Fix / How to apply) only
 if the trap generalises beyond this defect; lessons are updated in place, not appended.
 
-Where the cause could recur after a tool, model, or skill change, keep a replay case with
+Where the cause could recur after a tool, model, or skill change, keep the regression test with
 the behavior's tests so the same failure can be detected again.
 
 A finding that needs building becomes a wiki work record with acceptance a command can settle;

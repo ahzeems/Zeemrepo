@@ -42,7 +42,7 @@ It still has to pass every rule below.
 | Knowledge the session should hold while it works | skill | loaded into the current context, writes nothing itself |
 | Work done away from the conversation | Claude Code subagent in `.claude/agents/`, or the built-in Explore or general-purpose agent | its own context and its own tool list |
 | A prompt the user runs in the open | user-only skill (`disable-model-invocation: true`), run as a slash command | every edit lands where the user watches it |
-| A deterministic check or transform | script in `scripts/`, with a test | it can fail CI; prose cannot |
+| A deterministic check or transform | script in `scripts/`, with a test | it can fail `npm run check`; prose cannot |
 
 If it writes files, prefer the command over the agent: an agent writes inside a context nobody is
 reading.

@@ -3,7 +3,9 @@
 In this repository, an ADR is a wiki decision note, `wiki/decisions/ADR-NNNN Title.md`, written
 from [the decision template](../../../wiki/templates/decision.md) with Context, Decision and
 Consequences sections; scan `wiki/decisions/` for the highest number. The upstream location and
-template below are kept for reference; the brevity advice and the qualification test still apply.
+template below are kept for reference, and the qualification test still applies. The wiki decision
+note's required sections (Context, Decision, Consequences) and the wiki status set take precedence
+over the brevity advice and the status values below.
 
 ADRs live in `docs/adr/` and use sequential numbering: `0001-slug.md`, `0002-slug.md`, etc.
 

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, type TestContext } from "node:test";
@@ -80,6 +80,10 @@ await test("user-only skills and model invocation must agree both ways", async (
   await t.test("the flag on an unlisted skill is refused, so the list stays the single source", (t) => {
     assert.match(errorsOf(library(t, { "tdd/SKILL.md": skill("tdd", "\ndisable-model-invocation: true") })), /tdd: disable-model-invocation is set but the skill is not in userOnly/);
   });
+  await t.test("the flag must be a boolean, so a string cannot slip past the list", (t) => {
+    const errors = errorsOf(library(t, { "alpha/SKILL.md": skill("alpha", '\ndisable-model-invocation: "true"') }));
+    assert.match(errors, /alpha: disable-model-invocation must be true or false/);
+  });
   await t.test("a user-only name with no installed skill is a configuration error", (t) => {
     assert.match(errorsOf(library(t, { "alpha/SKILL.md": skill("alpha") }, { userOnly: ["ghost"] })), /ghost: user-only skill is not installed/);
   });
@@ -90,6 +94,30 @@ await test("no em dashes anywhere in a skill's files", (t) => {
   const errors = errorsOf(root);
   assert.match(errors, /alpha\/SKILL\.md: line 6: em dash/);
   assert.match(errors, /alpha\/references\/r\.md: line 2: em dash/);
+});
+
+await test("nothing in a skill escapes the file checks", async (t) => {
+  await t.test("symbolic links are reported", (t) => {
+    const root = library(t, { "alpha/SKILL.md": skill("alpha") });
+    symlinkSync("/etc/hostname", join(root, ".claude/skills/alpha/linked.md"));
+    assert.match(errorsOf(root), /alpha\/linked\.md: symbolic link/);
+  });
+  await t.test("node_modules and dot folders inside a skill are checked too", (t) => {
+    const root = library(t, { "alpha/SKILL.md": skill("alpha"), "alpha/node_modules/x.md": "a \u2014 b\n", "alpha/.hidden/openai.yaml": "x\n" });
+    const errors = errorsOf(root);
+    assert.match(errors, /alpha\/node_modules\/x\.md: line 1: em dash/);
+    assert.match(errors, /alpha\/\.hidden\/openai\.yaml: Codex and OpenCode files/);
+  });
+  await t.test("a skill that fails to load still has its files checked", (t) => {
+    const root = library(t, { "alpha/notes.md": "a \u2014 b\n" });
+    assert.match(errorsOf(root), /alpha\/notes\.md: line 1: em dash/);
+  });
+  await t.test("only known files may sit directly in .claude/skills, and they are checked", (t) => {
+    const root = library(t, { "alpha/SKILL.md": skill("alpha"), "stray.md": "x\n", "THIRD-PARTY-NOTICES.md": "a \u2014 b\n" });
+    const errors = errorsOf(root);
+    assert.match(errors, /stray\.md: unexpected file in \.claude\/skills/);
+    assert.match(errors, /THIRD-PARTY-NOTICES\.md: line 1: em dash/);
+  });
 });
 
 await test("files for other harnesses are refused", (t) => {
@@ -103,22 +131,39 @@ await test("allowances excuse one rule for one skill, and stale ones are reporte
     const root = library(t, { "alpha/SKILL.md": skill("alpha", "", "x".repeat(6001)) }, { allowances: [{ skill: "alpha", rule: "bodyLimit", reason }] });
     assert.equal(errorsOf(root), "");
   });
-  await t.test("does not excuse a different rule or skill", (t) => {
+  await t.test("does not excuse a different skill", (t) => {
+    const root = library(t, { "alpha/SKILL.md": skill("alpha", "", "x".repeat(6001)), "beta/SKILL.md": skill("beta") }, { allowances: [{ skill: "beta", rule: "bodyLimit", reason }] });
+    assert.match(errorsOf(root), /alpha: body is 6001 characters/);
+    assert.match(errorsOf(root), /allowance for beta \(bodyLimit\) matches nothing/);
+  });
+  await t.test("does not excuse a different rule", (t) => {
     const root = library(t, { "alpha/SKILL.md": skill("alpha", "", "x".repeat(6001)) }, { allowances: [{ skill: "alpha", rule: "descriptionLimit", reason }] });
     assert.match(errorsOf(root), /over the 6000 budget/);
     assert.match(errorsOf(root), /allowance for alpha \(descriptionLimit\) matches nothing/);
   });
 });
 
-await test("baseline skills are exempt from size limits but not from structure, citations or em dashes", (t) => {
-  const text = skill("alpha", "", "x".repeat(6001) + "\n[gone](gone.md)\n");
+await test("baseline skills are exempt from size and key limits but not from structure, citations or em dashes", (t) => {
+  const text = skill("alpha", " " + "y".repeat(200) + "\nlicense: MIT", "x".repeat(6001) + "\n[gone](gone.md)\nOne \u2014 two.\n");
   const root = library(t, { "alpha/SKILL.md": text });
   writeFileSync(join(root, ".claude/skills/import-baseline.json"), JSON.stringify({
     skills: [{ name: "alpha", source: "zimi@9fb36b2", sourceSha256: provenanceHash(text), installedSha256: provenanceHash(text) }],
   }));
   const errors = errorsOf(root);
-  assert.doesNotMatch(errors, /budget/);
+  assert.doesNotMatch(errors, /budget|standard|frontmatter carries/);
   assert.match(errors, /cites a path that does not exist/);
+  assert.match(errors, /alpha\/SKILL\.md: line \d+: em dash/);
+});
+
+await test("a citation of a directory with a heading fragment is reported", (t) => {
+  const root = library(t, { "alpha/SKILL.md": skill("alpha", "", "See [x](refs.md#top).\n"), "alpha/refs.md/inner.md": "# Top\n" });
+  assert.match(errorsOf(root), /heading target is not a file: refs\.md#top/);
+});
+
+await test("a badly shaped baseline entry is reported through validation", (t) => {
+  const root = library(t, { "alpha/SKILL.md": skill("alpha") });
+  writeFileSync(join(root, ".claude/skills/import-baseline.json"), JSON.stringify({ skills: [{ name: "alpha", source: "x" }] }));
+  assert.match(errorsOf(root), /alpha: baseline entry needs sourceSha256 and installedSha256/);
 });
 
 await test("configuration problems stop validation with one clear error", (t) => {

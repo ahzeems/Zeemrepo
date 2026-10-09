@@ -39,7 +39,7 @@ A numbered list, strongest first. For each:
 - **Friction:** what is hard today, with `file:line` evidence.
 - **Deepening:** the smaller interface or the merged module, in two or three lines.
 - **Strength:** strong, moderate or speculative, and why.
-- **Blast radius:** packages and tests it touches.
+- **Blast radius:** modules and tests it touches.
 - **Decision check:** any accepted decision in `wiki/decisions/` the change would contradict. A
   candidate that needs a decision reversed says so; it is not dropped silently, and it is not
   proposed as if the decision were absent.

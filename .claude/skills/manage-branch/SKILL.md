@@ -47,7 +47,8 @@ Conventional commits (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`). Stage
 gh pr create --base main --head <feature-branch> --title "<type>(<scope>): <summary>" --body-file <file>
 ```
 
-Run [branch-review](../branch-review/SKILL.md) and [verify-work](../verify-work/SKILL.md) on the committed head before handoff. The body says
+Run [branch-review](../branch-review/SKILL.md) and [verify-work](../verify-work/SKILL.md) on the committed head before handoff, in a separate session or subagent; if the builder reviews
+its own work, say in the PR body that it is a self-review. The body says
 what changed, why, and how it was verified: the same evidence a reviewer would otherwise have to
 reconstruct.
 

@@ -24,15 +24,16 @@ claims and where the evidence sits. Read both; judge against the ticket or reque
 ## 3. Run the checks yourself
 
 Read [the feature map](references/feature-map.md) for the recipe of each feature the change
-touches. Use the affected entries; a full audit covers every entry.
+touches. Use the affected entries; a full audit covers every entry. Discovery or dry runs prove
+only their stated boundary, not authenticated model behavior, GUI rendering, or full installation.
 
-- Run `npm run check` on the pinned tree, and read the PR's CI checks (`gh pr checks <n>`)
-  where CI is configured. Compare their inputs with step 1's snapshot.
+- Run `npm run check` on the pinned tree, and once CI is configured read the PR's CI checks
+  (`gh pr checks <n>`). Compare their inputs with step 1's snapshot.
 - For a change to workflow or process, search the declared surfaces (.claude/skills/,
   .claude/rules/, wiki/) for the rule the change replaced. A criterion is not met while one
   of them still states it.
-- A criterion is not met while the branch has no dated CHANGELOG.md entry where the change
-  needs one, no owning work record under `wiki/work/`, or a work record carrying no evidence.
+- A criterion is not met while the branch has no owning work record under `wiki/work/`, or a
+  work record carrying no evidence.
 - Run `npm run wiki:compliance` for any change touching the vault. A wiki record written
   without [wiki-memory](../wiki-memory/SKILL.md)'s commit rule is not a met criterion, whatever the note says.
 - Run the ticket's own commands. A defect needs a red-then-green record: the repro command failing at `base_sha` and passing at `head_sha`.
@@ -55,7 +56,9 @@ criterion no command can settle, such as taste or a business decision.
 
 The verdict is `VERIFIED` only when every criterion is `met`. Any `not_met` makes it
 `NOT_VERIFIED`, with `requested_changes` naming what to change. Do not repeat the same failed approach without new evidence. Use `INCONCLUSIVE` when you
-could not run what the criteria need, and say what blocked you.
+could not run what the criteria need, and say what blocked you. `NOT_VERIFIED` and
+`INCONCLUSIVE` are verdicts, not wiki evidence labels; wiki evidence uses `VERIFIED:`,
+`INFERRED:`, `UNKNOWN:` or `OWNER DECISION:`.
 
 ## 6. Record it
 

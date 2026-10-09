@@ -26,14 +26,15 @@ function readRevision(value: unknown, label: string, errors: string[]): Revision
     return null;
   }
   const { sha256, approval, reason } = value;
+  const record = isRecord(approval) ? approval.record : undefined;
+  const quote = isRecord(approval) ? approval.quote : undefined;
   const problems: string[] = [];
   if (typeof sha256 !== "string" || !SHA256.test(sha256)) problems.push(`${label} needs a 64-character sha256`);
   if (typeof reason !== "string" || reason.trim() === "") problems.push(`${label} needs a reason`);
-  const validApproval = isRecord(approval) && typeof approval.record === "string" && typeof approval.quote === "string" && approval.quote.trim().length >= 12;
-  if (!validApproval) problems.push(`${label} needs an approval record path and a verbatim quote`);
+  if (typeof record !== "string" || typeof quote !== "string" || quote.trim().length < 12) problems.push(`${label} needs an approval record path and a verbatim quote`);
   errors.push(...problems);
-  if (problems.length > 0 || typeof sha256 !== "string" || typeof reason !== "string" || !validApproval) return null;
-  return { sha256, reason, approval: { record: String(approval.record), quote: String(approval.quote) } };
+  if (problems.length > 0 || typeof sha256 !== "string" || typeof reason !== "string" || typeof record !== "string" || typeof quote !== "string") return null;
+  return { sha256, reason, approval: { record, quote } };
 }
 
 function readEntry(entry: Record<string, unknown>, name: string, errors: string[]): BaselineEntry | null {
@@ -112,7 +113,7 @@ export function baselineHistoryErrors(landed: unknown, current: unknown): string
       errors.push(`${name}: landed baseline entry was removed`);
       continue;
     }
-    for (const field of ["sourceSha256", "installedSha256"] as const) {
+    for (const field of ["source", "sourceSha256", "installedSha256"] as const) {
       if (now[field] !== previous[field]) errors.push(`${name}: landed ${field} was rewritten`);
     }
     const before = Array.isArray(previous.revisions) ? previous.revisions : [];

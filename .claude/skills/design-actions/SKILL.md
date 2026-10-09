@@ -21,9 +21,11 @@ before it earns its code. The implementation follows the TypeScript rules in .cl
 
 ## Authority
 
-Merging a pull request is the owner's act. Credential handling, and deletion of branches,
-worktrees or cloud resources, also remain subject to the owner's authority. Adding an action
-does not grant permission.
+Merging a pull request is the owner's act. Credential handling, deletion of cloud resources,
+and deletion of an unmerged branch or of a branch or worktree another session owns also remain
+subject to the owner's authority. Deleting your own branch and worktree after the owner merged
+its pull request is routine cleanup ([manage-branch](../manage-branch/SKILL.md)). Adding an
+action does not grant permission.
 
 An action that spends money, applies infrastructure or sends something outside the local
 workspace needs explicit owner authorization, checked before the side effect. Reuse actual
@@ -57,10 +59,10 @@ and confirms the resulting state; validation includes input and authorization ch
 An injected validator or runner is how a test replaces the world (an external API or a
 clock) without a flag on the command line that production could use to bypass a check.
 
-## Before you ship it
+## Write these tests first
 
-Test validation, refusal before effects, dry run without effects, success, failure, and retry
-behavior. Add the real entry point and its prerequisites to the relevant README.
+Before the code, write tests for validation, refusal before effects, dry run without effects,
+success, failure, and retry behavior. Add the real entry point and its prerequisites to the relevant README.
 
 Two real consumers justify a shared dispatcher; one is a direct function or script.
 

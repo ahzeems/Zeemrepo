@@ -24,10 +24,12 @@ Paths are relative to the repository root.
 | Wiki commit rule | scripts/wiki/wiki-compliance.ts, scripts/wiki/wiki-compliance-validation.ts | Run `npm run wiki:compliance` on the branch: it exits 0 when every commit touching wiki/ holds only wiki files with a `docs(wiki): ` subject, and 1 naming each mixed or mis-titled commit. `node scripts/wiki/wiki-compliance.ts --staged` checks the index; `--json` gives structured output. Tests use disposable repositories; never rewrite real history to probe it. |
 | Shared lib | scripts/lib/ (cli.ts, git.ts, frontmatter.ts, paths.ts, walk.ts, record.ts, change-policy.ts) | Run `npm test`. Each module has a sibling `.test.ts`; cli.test.ts pins the 0/1/2 exit codes. Read the changed module against its test: a passing suite that never loads the changed path proves nothing. |
 | Toolchain checks | eslint.config.ts, tsconfig.json, package.json, scripts/toolchain/test-pairing.ts, scripts/toolchain/eslint-limits.test.ts | Run `npm run lint`, `npm run typecheck` and `npm test`. `npm test` enforces 80% line and function coverage and 70% branch coverage; test-pairing fails a script with no sibling test; eslint-limits proves the lint limits through the real config. |
+| Skill standards | scripts/skills/ (skill-lint.ts CLI, skill-validation.ts, provenance.ts, skill-standards.ts, markdown-references.ts), config/skill-standards.json, .claude/skills/import-baseline.json | Run `npm run skills:lint`: it exits 0 when every skill meets the standard, 1 naming each refused rule (frontmatter, size, citations, em dashes, user-only flag, baseline provenance), and 2 when the tool itself failed. Run `node scripts/skills/skill-lint.ts --root scripts/fixtures/broken/skill-lint`: it must exit 1. Run `npm test`: scripts/skills/*.test.ts cover each rule, the fixture libraries and landed-provenance history in disposable repositories. Do not break live skills to test refusal. |
 
 ## Coverage boundaries
 
-`npm run check` runs lint, typecheck, tests with coverage, `wiki:lint` and `wiki:compliance`.
+`npm run check` runs lint, typecheck, tests with coverage, `wiki:lint`, `skills:lint` and
+`wiki:compliance`.
 It does not prove Obsidian rendering, model behavior, or GitHub permissions. A recipe that
 could not run stays blocked coverage, not a pass.
 

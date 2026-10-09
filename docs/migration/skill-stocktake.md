@@ -22,6 +22,8 @@ as their approval record.
 | Em dashes: unslop keeps them, technical-writing and teach ban them | "Avoid em dashes (Recommended)" |
 | Changes to baseline skills (technical-writing, tdd, principle-laziness-protocol, principle-minimize-reader-load, principle-redesign-from-first-principles, teach, write-skill, resolve-conflicts, manage-branch, branch-review, bro) | "Authorize all (Recommended)" |
 
+| Review-driven consistency fixes to baseline skills (branch-review, manage-branch, resolve-conflicts, write-skill, technical-writing), including technical-writing's tab-indentation line | "Authorize, incl. 2-space indent (Recommended)" |
+
 **What follows from the decisions**
 - **TDD.** Zimi's `tdd` content is dropped entirely, and ECC's `.claude/rules/ecc/common/testing.md` governs. This
   replaces the stocktake's "merge into a testing rule" verdict.

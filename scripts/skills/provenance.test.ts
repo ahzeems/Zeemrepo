@@ -116,6 +116,12 @@ await test("history: rewriting or removing landed provenance is refused", () => 
   assert.match(baselineHistoryErrors(landed, { skills: [{ ...base, revisions: [] }] }).join(), /revision 1 was changed or removed/);
 });
 
+await test("history: a landed source cannot be rewritten", () => {
+  const withSource = { skills: [{ ...landed.skills[0], source: "Zimi at 9fb36b2" }] };
+  const rewritten = { skills: [{ ...landed.skills[0], source: "somewhere else" }] };
+  assert.match(baselineHistoryErrors(withSource, rewritten).join(), /landed source was rewritten/);
+});
+
 await test("history: unreadable landed history is unverified, never a pass", () => {
   assert.match(baselineHistoryErrors("not json", landed).join(), /history is unverified/);
 });

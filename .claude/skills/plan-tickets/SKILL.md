@@ -68,7 +68,8 @@ One sentence naming the deliverable.
 ## Create them
 
 Keep each build ticket as its own note in `wiki/work/tickets/` (`ticket_kind: build`), linked to
-the approved plan, written through [wiki-memory](../wiki-memory/SKILL.md). Decision tickets
+the approved plan, written through [wiki-memory](../wiki-memory/SKILL.md). Every non-idea work
+note needs the `idea` link the [note schema](../wiki-memory/references/note-schema.md) requires. Decision tickets
 belong to the map ([wayfinder](../wayfinder/SKILL.md)), not to this skill.
 This skill creates only build tickets from an approved plan. Use a map when decisions need
 one; do not create a second tracking system.

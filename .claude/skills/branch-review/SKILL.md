@@ -28,17 +28,17 @@ owner's request. Read committed records at `$HEAD_SHA`. If the acceptance lines 
 between base and head, the branch moved its own goalposts: quote both. With no spec, the
 spec axis reports "no spec available" and infers nothing from the code.
 
-## 3. Skip what `npm run check` and PR CI already enforce
+## 3. Skip what `npm run check` already enforces
 
-Read package.json, eslint.config.ts, and the TypeScript configs for the checks. Neither axis
-reports a rule one of those checks enforces. Cite existing command evidence instead (a local
-`npm run check` result or the PR's CI checks), when its tree matches, and name any FAIL, SKIP, or missing result. Do not run the checks yourself;
+Read package.json, eslint.config.ts, and the TypeScript configs for the checks; `npm run check`
+is the enforcing command. Neither axis reports a rule one of those checks enforces. Cite existing
+command evidence instead (a local `npm run check` result, or the PR's CI checks once CI is
+configured), when its tree matches, and name any FAIL, SKIP, or missing result. Do not run the checks yourself;
 this route is read-only. verify-work runs them separately.
 
 ## 4. Run the axes separately
 
-**Standards brief:** the diff, the repository rules in .claude/rules/ (including the design
-principles), and the standards for each file kind
+**Standards brief:** the diff, the repository rules in .claude/rules/, and the standards for each file kind
 touched. Report per file and hunk: a documented rule the diff breaks, citing the file and line; and
 design smells, named, with the hunk quoted: mysterious name, duplicated logic, feature envy, data
 clumps, primitive obsession, repeated switches, shotgun surgery, divergent change, speculative
@@ -64,7 +64,7 @@ Every finding is a lead to check against its citation, not a fact.
 
 ## 6. Record it
 
-Return the report in the task. After leaving review, post it on the pull request as a review
-comment (`gh pr review <n> --comment --body-file <file>`) with the pinned SHAs, reviewer models,
-separate findings, and context limits. Never `--approve`.
+Return the report in the task. After leaving review, post it on the pull request as a
+comment (`gh pr comment <n> --body-file <file>`) with the pinned SHAs, reviewer models,
+separate findings, and context limits. Never approve the PR.
 A review is input to a verdict ([verify-work](../verify-work/SKILL.md)); by itself it approves nothing and merges nothing. Only the owner merges.

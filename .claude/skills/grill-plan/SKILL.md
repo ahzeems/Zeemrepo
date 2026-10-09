@@ -19,7 +19,7 @@ intent and approvals remain valid evidence of decisions.
 
 - Its answers lead to **different work**, not different words.
 - It cannot be settled by a command. If it can, run the command instead.
-- It is about **this** repository: its constraints, its budget, its seat, its rules. Not about software in general.
+- It is about **this** repository: its constraints, its budget, its environment, its rules. Not about software in general.
 
 ## On a decision
 

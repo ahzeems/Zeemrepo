@@ -85,15 +85,27 @@ function checkBudgets(skill: Skill, context: Context, fail: (message: string) =>
 }
 
 // Avoid em dashes (owner decision); Codex and OpenCode configuration has no reader here.
-function checkFiles(skill: Skill, root: string, errors: string[]): void {
+// Every file is checked, dot folders and node_modules included, and links are reported
+// rather than followed, so nothing in a skill escapes these checks.
+const ROOT_FILES = new Set(["import-baseline.json", "THIRD-PARTY-NOTICES.md"]);
+
+function checkFile(file: string, path: string, errors: string[]): void {
+  if (OTHER_HARNESS.test(path)) errors.push(`${path}: Codex and OpenCode files are not used; delete it`);
+  if (!/\.md$/i.test(file)) return;
+  readFileSync(file, "utf8").split("\n").forEach((line, index) => {
+    if (line.includes(EM_DASH)) errors.push(`${path}: line ${index + 1}: em dash; use a comma, colon, parentheses or a new sentence`);
+  });
+}
+
+function checkFiles(root: string, errors: string[]): void {
   const skillsRoot = join(root, SKILLS_DIR);
-  for (const file of walk(skill.dir, { includeDot: true }).files) {
-    const path = relative(skillsRoot, file).split("\\").join("/");
-    if (OTHER_HARNESS.test(path)) errors.push(`${path}: Codex and OpenCode files are not used; delete it`);
-    if (!/\.md$/i.test(file)) continue;
-    readFileSync(file, "utf8").split("\n").forEach((line, index) => {
-      if (line.includes(EM_DASH)) errors.push(`${path}: line ${index + 1}: em dash; use a comma, colon, parentheses or a new sentence`);
-    });
+  const { files, symlinks } = walk(skillsRoot, { includeDot: true, skipDirs: new Set() });
+  const toPath = (file: string): string => relative(skillsRoot, file).split("\\").join("/");
+  for (const link of symlinks) errors.push(`${toPath(link)}: symbolic link; replace it with the file`);
+  for (const file of files) {
+    const path = toPath(file);
+    if (!path.includes("/") && !ROOT_FILES.has(path)) errors.push(`${path}: unexpected file in .claude/skills; skills live in their own folders`);
+    checkFile(file, path, errors);
   }
 }
 
@@ -101,6 +113,10 @@ function checkFiles(skill: Skill, root: string, errors: string[]): void {
 // with it in both directions.
 function userOnlyErrors(userOnly: readonly string[], skills: readonly Skill[]): string[] {
   const errors: string[] = [];
+  for (const skill of skills) {
+    const flag = skill.data["disable-model-invocation"];
+    if (flag !== undefined && typeof flag !== "boolean") errors.push(`${skill.name}: disable-model-invocation must be true or false, not ${JSON.stringify(flag)}`);
+  }
   for (const name of userOnly) {
     const skill = skills.find((item) => item.name === name);
     if (skill === undefined) errors.push(`${name}: user-only skill is not installed`);
@@ -129,8 +145,8 @@ export function validateSkills(root: string): SkillValidation {
     const fail = (message: string): void => { errors.push(`${skill.name}: ${message}`); };
     checkStructure(skill, fail);
     checkBudgets(skill, context, fail);
-    checkFiles(skill, root, errors);
   }
+  checkFiles(root, errors);
   for (const entry of baseline) errors.push(...provenanceErrors(root, entry));
   errors.push(...userOnlyErrors(standards.userOnly, skills));
   // An allowance that no longer excuses anything is reported, so permissions cannot accumulate.

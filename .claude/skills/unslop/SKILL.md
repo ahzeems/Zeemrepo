@@ -22,8 +22,8 @@ bold label restates the line ("**Performance:** Performance improved"). A bold l
 names the item and is followed by new detail is this repo's house style and stays. Title-case
 headings (use sentence case), decorative emoji, curly quotes.
 
-**Em dashes.** Avoid them. Use a comma, a colon before a list or example, parentheses, or a separate sentence instead. The
-same rule holds in technical-writing and teach.
+**Em dashes.** Avoid them. Replace an em dash with a comma, parentheses, or a new sentence. A
+colon stays only before a list or example. The technical-writing and teach skills ban em dashes too.
 
 **Residue.** Chatbot phrases and sycophancy.
 Filler: "in order to" becomes "to", "due to the fact that" becomes "because", and a sentence

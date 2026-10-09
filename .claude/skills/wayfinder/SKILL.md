@@ -27,7 +27,8 @@ Use [references/map-template.md](references/map-template.md).
 
 Save the map through [wiki-memory](../wiki-memory/SKILL.md) as `wiki/work/maps/<Map title>.md`,
 from [the map template](../../../wiki/templates/map.md), with `status: clarifying`. Commit wiki
-files alone with a `docs(wiki): ` subject.
+files alone with a `docs(wiki): ` subject. The map and every ticket, like any non-idea work note, need the `idea`
+link the [note schema](../wiki-memory/references/note-schema.md) requires.
 
 ## Tickets
 

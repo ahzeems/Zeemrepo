@@ -59,6 +59,7 @@ await test("a ready branch is checked, pushed and gets a PR, and nothing merges"
   assert.equal(result.code, EXIT_OK, result.err);
   assert.match(result.out, /https:\/\/github\.com\/o\/r\/pull\/7/);
   assert.match(result.out, /the owner merges/);
+  assert.match(result.err, /hooks are not installed/);
   const check = calls.find((call) => call.command === "npm" && call.args.join(" ") === "run check");
   assert.ok(check?.inherit, "npm run check streams its output to the terminal");
   const push = calls.find((call) => call.command === "git" && call.args.join(" ") === "push --set-upstream origin feat/x");

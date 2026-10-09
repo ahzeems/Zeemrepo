@@ -39,6 +39,8 @@ await test("guards run from main against the change, never running the change's 
   const runLines = workflow.split("\n").filter((line) => /^\s+(run:|node |npm )/.test(line));
   assert.ok(!runLines.some((line) => /npm (ci|test|run)(?! ci --ignore-scripts)/.test(line) && !line.includes("--ignore-scripts")), "no change code runs");
   assert.match(workflow, /node-version-file: trusted\/\.nvmrc/);
+  assert.match(workflow, /PR_AUTHOR: \$\{\{ github\.event\.pull_request\.user\.login \}\}/, "the bot exemption reads GitHub's author, not PR content");
+  assert.doesNotMatch(workflow, /run: [^\n]*\$\{\{/, "no expression is expanded inside a run script");
 });
 
 await test("workflows pin every action to a commit SHA and never persist credentials", () => {

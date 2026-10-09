@@ -76,6 +76,9 @@ export function main(args: readonly string[], options: Options = {}): number {
     return EXIT_ERROR;
   }
   const run = options.run ?? spawnRunner(options.cwd);
+  if (run("git", ["config", "--get", "core.hooksPath"]).stdout.trim() !== ".githooks") {
+    output.warn("pr-ready: git hooks are not installed in this checkout; run npm run hooks:install so commits on main are refused locally.");
+  }
   const ready = readiness(run);
   if ("refusal" in ready) {
     output.warn(`pr-ready: ${ready.refusal}`);

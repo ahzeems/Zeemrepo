@@ -9,6 +9,9 @@ await test("ordinary work stays allowed", () => {
     "gh pr create --base main --fill", "gh pr view 7 --json state,mergedBy,mergeCommit", "gh pr checks 7",
     "gh pr comment 7 --body 'findings'", "gh api repos/o/r/pulls/7", "gh api repos/o/r/pulls/7/merge",
     "git commit -m 'docs: agents never run gh pr merge'", "grep -rn 'pulls/7/merge' docs",
+    "git commit -m \"x\n\ngh pr merge was blocked\"", "git commit -F - <<'EOT'\nfix\n\ngh pr merge is blocked\nEOT",
+    "gh pr create --body \"do not gh pr merge; owner only\"", "gh pr create --body 'see foo | gh pr merge'",
+    "gh pr edit 7 --body \"run: gh pr merge\"", "git log --grep=\"gh pr merge\"", "echo gh pr merge 5",
   ]) assert.equal(isPrMerge(command), false, command);
 });
 
@@ -21,6 +24,9 @@ await test("common ways to merge a pull request are blocked", () => {
     "gh api graphql -f query='mutation { enablePullRequestAutoMerge(input:{}) { clientMutationId } }'",
     "gh pr merge --auto 7",
     "curl -X PUT -H 'Authorization: token x' https://api.github.com/repos/o/r/pulls/7/merge",
+    "gh --repo o/r pr merge 7", "sudo gh pr merge 7", "env GH_TOKEN=x gh pr merge 7", "command gh pr merge 7",
+    "nohup gh pr merge 7", "(gh pr merge 7)", "{ gh pr merge 7; }", "if true; then gh pr merge 7; fi",
+    "sh -c \"gh pr merge 7\"", "eval 'gh pr merge 7'",
   ]) assert.equal(isPrMerge(command), true, command);
 });
 

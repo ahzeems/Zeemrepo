@@ -45,6 +45,8 @@ jobs:
 
       - name: Run main's guards against the change
         working-directory: change
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           set -eu
           guards=../trusted/scripts
@@ -52,5 +54,11 @@ jobs:
           node "$guards/skills/skill-lint.ts" --root .
           node "$guards/governance/governance-guard.ts" --root .
           node "$guards/wiki/wiki-compliance.ts"
-          node "$guards/changes/changelog-guard.ts"
-          node "$guards/changes/repo-memory-guard.ts"
+          # Dependabot cannot write a changelog entry or a work record; its action updates are
+          # recorded by the pull request itself. GitHub sets the author, so a PR cannot claim it.
+          if [ "$PR_AUTHOR" = "dependabot[bot]" ]; then
+            echo "Dependabot pull request: change-record guards skipped"
+          else
+            node "$guards/changes/changelog-guard.ts"
+            node "$guards/changes/repo-memory-guard.ts"
+          fi

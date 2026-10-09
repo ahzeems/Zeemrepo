@@ -94,11 +94,13 @@ function checkIssue(graph: Graph, { data, file }: WorkRecord): void {
   }
 }
 
+// Ready means cleared to start, so it needs approval as much as approved or executing work.
+const NEEDS_APPROVAL = new Set(["approved", "ready", ...STARTED]);
+
 function checkApproval(graph: Graph, { data, file }: WorkRecord): void {
-  const status = stringValue(data.status);
-  if (status !== "approved" && !STARTED.has(status)) return;
+  if (!NEEDS_APPROVAL.has(stringValue(data.status))) return;
   const approval = stringValue(data.approval_ref).trim();
-  if (!approval) graph.fail(file, "approved or executing plans and specs need approval_ref");
+  if (!approval) graph.fail(file, "approved, ready or executing plans and specs need approval_ref");
   else if (!PULL_REQUEST.test(approval)) graph.fail(file, "approval_ref must be the merged pull request: #N or its GitHub URL");
 }
 

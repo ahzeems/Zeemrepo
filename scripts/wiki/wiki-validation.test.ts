@@ -4,6 +4,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { WIKI_SCHEMA } from "../lib/paths.ts";
+import { createRepo } from "../test-support/repo-fixture.ts";
 import { validateWiki } from "./wiki-validation.ts";
 
 const identity = { host: "build-box-7", user: "alice" };
@@ -61,21 +62,42 @@ const invalidCases: [string, string, RegExp][] = [
   ["empty tags", validNote.replace("[kind/convention]", "[]"), /nonempty/],
   ["unknown tag", validNote.replace("kind/convention", "kind/unknown"), /allowed list/],
   ["prototype name as type", validNote.replace("type: reference", "type: constructor"), /unknown note type/],
-  ["wrong folder", validNote.replace("type: reference", "type: runbook"), /belongs in wiki\/runbooks\//],
   ["title mismatch", validNote.replace("title: Example note", "title: Other"), /title does not match/],
   ["memory status", validNote.replace("status: active", "status: done"), /status must be one of active/],
   ["missing replacement", validNote.replace("status: active", "status: superseded"), /superseded_by/],
   ["broken link", validNote + "\n[[Missing note]]\n", /broken wikilink/],
-  ["missing lesson sections", validNote.replace("type: reference", "type: lesson"), /missing section/],
   ["unrecognised agent", validNote.replace("agent: claude-code", "agent: claude"), /allowed agent/],
   ["retired agent", validNote.replace("agent: claude-code", "agent: codex"), /allowed agent/],
   ["non-kebab agent", validNote.replace("agent: claude-code", "agent: Claude Code"), /kebab-case/],
 ];
+// Each case must fail for exactly the reason it names: a regex over all errors would also
+// pass a note that failed for some other reason.
 for (const [name, content, error] of invalidCases) {
-  await test(`rejects ${name}`, (context) => {
-    assert.match(errorsOf(fixture(context, content)), error);
+  await test(`rejects ${name}, and only for that`, (context) => {
+    const errors = validateWiki(fixture(context, content), { identity }).errors;
+    assert.equal(errors.length, 1, errors.join("\n"));
+    assert.match(errors[0] ?? "", error);
   });
 }
+
+await test("rejects a note in the wrong folder, and only for that", (context) => {
+  const runbook = validNote.replace("type: reference", "type: runbook")
+    .replace("Recorded facts.", "## When to use\n\n## Prerequisites\n\n## Steps\n\n## Verify\n");
+  const errors = validateWiki(fixture(context, runbook), { identity }).errors;
+  assert.deepEqual(errors, ["wiki/reference/Example note.md: note belongs in wiki/runbooks/"]);
+});
+
+await test("rejects a lesson missing its sections, naming each one", (context) => {
+  const root = fixture(context);
+  mkdirSync(join(root, "wiki/lessons"));
+  rmSync(join(root, "wiki/reference/Example note.md"));
+  writeFileSync(join(root, "wiki/lessons/Example note.md"), validNote.replace("type: reference", "type: lesson").replace("Recorded facts.", "## Fix\n"));
+  const errors = validateWiki(root, { identity }).errors;
+  assert.deepEqual(errors, [
+    'wiki/lessons/Example note.md: missing section "## What happened"',
+    'wiki/lessons/Example note.md: missing section "## How to apply"',
+  ]);
+});
 
 await test("rejects misnamed decisions and sessions", (context) => {
   const root = fixture(context);
@@ -97,6 +119,43 @@ await test("rejects a symbolic link in the vault", (context) => {
   const root = fixture(context);
   symlinkSync(join(root, "wiki/reference/Example note.md"), join(root, "wiki/reference/Linked.md"));
   assert.match(errorsOf(root), /symbolic links are not supported/);
+});
+
+await test("links inside code and comments are examples, not links or index entries", async (t) => {
+  await t.test("a broken link in code is not reported", (t) => {
+    const note = validNote + "\n`[[Inline example]]`\n\n```markdown\n- [[Fenced example]]\n```\n\n<!-- [[Commented]] -->\n";
+    assert.equal(errorsOf(fixture(t, note)), "");
+  });
+  await t.test("a link in Home's code does not index a note", (t) => {
+    const root = fixture(t);
+    writeFileSync(join(root, "wiki/Home.md"), "# Wiki\n\n```\n[[Example note]]\n```\n");
+    assert.match(errorsOf(root), /not indexed/);
+  });
+});
+
+await test("a symlinked Home is reported and never read", (context) => {
+  const root = fixture(context);
+  writeFileSync(join(root, "elsewhere.md"), "# Wiki\n\n- [[Example note]]\n");
+  rmSync(join(root, "wiki/Home.md"));
+  symlinkSync(join(root, "elsewhere.md"), join(root, "wiki/Home.md"));
+  const errors = errorsOf(root);
+  assert.match(errors, /Home\.md: symbolic links are not supported/);
+  assert.match(errors, /not indexed/);
+});
+
+await test("a secret staged and then removed from the working copy is still found", (t) => {
+  const repo = createRepo("wiki-staged-");
+  t.after(() => repo.cleanup());
+  repo.write("wiki/Home.md", "# Wiki\n\n- [[Example note]]\n");
+  repo.write("wiki/reference/Example note.md", validNote);
+  repo.write(WIKI_SCHEMA, readFileSync(join(import.meta.dirname, "../..", WIKI_SCHEMA), "utf8"));
+  repo.commit("base");
+  const credential = "ghp_" + "z".repeat(30);
+  repo.write("docs/plan.md", `token ${credential}\n`);
+  repo.git(["add", "docs/plan.md"]);
+  repo.write("docs/plan.md", "clean\n");
+  const errors = validateWiki(repo.dir, { identity }).errors;
+  assert.deepEqual(errors, ["docs/plan.md: line 1 of the staged copy: possible GitHub token"]);
 });
 
 await test("reports a missing schema as missing", (context) => {

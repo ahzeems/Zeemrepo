@@ -104,6 +104,14 @@ await test("history check", async (t) => {
   });
 });
 
+await test("on the base itself there is nothing to inspect, and it says so", (t) => {
+  const repo = branch(t);
+  repo.git(["switch", "--quiet", "main"]);
+  const result = repo.check();
+  assert.equal(result.code, EXIT_OK);
+  assert.match(result.out, /HEAD is the base; there are no branch commits to inspect/);
+});
+
 await test("staged check", async (t) => {
   await t.test("refuses a staged mix, listing every file", (t) => {
     const repo = branch(t);

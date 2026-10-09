@@ -106,3 +106,18 @@ await test("redactionTargets outside git: every file under the root except vendo
   }
   assert.deepEqual(redactionTargets(root).files.map((file) => relative(root, file)).sort(), [...included].sort());
 });
+
+await test("staged copies are found relative to a root inside a larger checkout", (t) => {
+  const repo = createRepo("redaction-nested-");
+  t.after(() => repo.cleanup());
+  repo.write("outside.md", "clean\n");
+  repo.write("vault/inside.md", "clean\n");
+  repo.commit("base");
+  for (const path of ["outside.md", "vault/inside.md"]) {
+    repo.write(path, "staged text\n");
+    repo.git(["add", path]);
+    repo.write(path, "working text\n");
+  }
+  const root = join(repo.dir, "vault");
+  assert.deepEqual(redactionTargets(root).staged, [{ file: join(root, "inside.md"), text: "staged text" }]);
+});

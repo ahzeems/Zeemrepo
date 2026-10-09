@@ -1,14 +1,15 @@
 import { lstatSync, openSync, readSync, closeSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
 import { join, relative } from "node:path";
-import { gitPaths, tryGit } from "../lib/git.ts";
+import { git, gitPaths, tryGit } from "../lib/git.ts";
 import { walk } from "../lib/walk.ts";
 import { escapeRegExp } from "./schema.ts";
 
 export type Identity = { host: string; user: string };
 export type RedactionCheck = { name: string; test(line: string): boolean };
 export type Finding = { line: number; name: string };
-export type Targets = { files: string[]; symlinks: string[] };
+// staged: files whose index copy differs from the working copy, with the index text.
+export type Targets = { files: string[]; symlinks: string[]; staged: { file: string; text: string }[] };
 
 export function currentIdentity(): Identity {
   return { host: hostname(), user: userInfo().username };
@@ -93,8 +94,11 @@ function isBinary(file: string): boolean {
 // What the repository publishes: in a checkout, every file git tracks or would add (ignored
 // files excluded); outside one, every file under the root. A hand-picked list of folders
 // and extensions misses whatever nobody thought to list.
-function candidatePaths(root: string): string[] {
-  const inGit = tryGit(["rev-parse", "--is-inside-work-tree"], { cwd: root }) === "true";
+function isInGit(root: string): boolean {
+  return tryGit(["rev-parse", "--is-inside-work-tree"], { cwd: root }) === "true";
+}
+
+function candidatePaths(root: string, inGit: boolean): string[] {
   if (!inGit) {
     const found = walk(root, { includeDot: true });
     return [...found.files, ...found.symlinks].map((file) => relative(root, file).split("\\").join("/"));
@@ -102,9 +106,18 @@ function candidatePaths(root: string): string[] {
   return gitPaths(["ls-files", "--cached", "--others", "--exclude-standard"], { cwd: root });
 }
 
+function stagedCopies(root: string, inGit: boolean): { file: string; text: string }[] {
+  if (!inGit) return [];
+  const differing = gitPaths(["diff", "--relative", "--name-only", "--diff-filter=AM"], { cwd: root });
+  return differing.filter((path) => !VENDORED.some((rule) => rule.test(path)))
+    .map((path) => ({ file: join(root, path), text: git(["show", `:./${path}`], { cwd: root }) }))
+    .filter(({ text }) => !text.includes("\0"));
+}
+
 export function redactionTargets(root: string): Targets {
-  const targets: Targets = { files: [], symlinks: [] };
-  for (const path of new Set(candidatePaths(root))) {
+  const inGit = isInGit(root);
+  const targets: Targets = { files: [], symlinks: [], staged: stagedCopies(root, inGit) };
+  for (const path of new Set(candidatePaths(root, inGit))) {
     if (VENDORED.some((rule) => rule.test(path))) continue;
     const file = join(root, path);
     const stat = lstatSync(file, { throwIfNoEntry: false });

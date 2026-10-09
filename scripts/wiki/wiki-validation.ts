@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync } from "node:fs";
 import { basename, dirname, join, relative, sep } from "node:path";
 import { parseDocument } from "yaml";
 import { parseFrontmatter } from "../lib/frontmatter.ts";
@@ -27,8 +27,14 @@ type Vault = {
   fail: Fail;
 };
 
+// Code and comments hold examples, not links: `[[Note title]]` in a code block neither
+// breaks nor indexes anything.
+function withoutCode(text: string): string {
+  return text.replace(/^(```|~~~)[^\n]*\n[\s\S]*?^\1[^\n]*$/gm, "").replace(/`[^`\n]*`/g, "").replace(/<!--[\s\S]*?-->/g, "");
+}
+
 function wikilinks(text: string): string[] {
-  return [...text.matchAll(/\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]/g)]
+  return [...withoutCode(text).matchAll(/\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]/g)]
     .flatMap((match) => match[1] === undefined ? [] : [match[1].trim()]);
 }
 
@@ -71,14 +77,19 @@ function knownTitles(wikiDir: string, notes: readonly string[], bases: readonly 
   return titles;
 }
 
+// A symlinked index is reported elsewhere and never read: it could point anywhere.
+function readRegular(file: string): string | null {
+  const stat = lstatSync(file, { throwIfNoEntry: false });
+  return stat?.isFile() === true ? readFileSync(file, "utf8") : null;
+}
+
 // Memory notes must be reachable from Home, directly or through the Memory index.
 function indexedTitles(wikiDir: string): Set<string> {
-  const home = join(wikiDir, "Home.md");
-  const homeLinks = existsSync(home) ? wikilinks(readFileSync(home, "utf8")) : [];
+  const homeLinks = wikilinks(readRegular(join(wikiDir, "Home.md")) ?? "");
   const indexed = new Set(homeLinks);
   const memoryIndex = join(wikiDir, "reference", "Memory index.md");
-  if (indexed.has("Memory index") && existsSync(memoryIndex)) {
-    for (const link of wikilinks(readFileSync(memoryIndex, "utf8"))) indexed.add(link);
+  if (indexed.has("Memory index")) {
+    for (const link of wikilinks(readRegular(memoryIndex) ?? "")) indexed.add(link);
   }
   return indexed;
 }
@@ -95,8 +106,10 @@ function checkFields(vault: Vault, file: string, name: string, data: Readonly<Re
   for (const key of REQUIRED_STRINGS) if (!stringValue(data[key]).trim()) fail(`missing or non-string required field "${key}"`);
   if (stringValue(data.title) !== name) fail("title does not match file name");
   if (stringValue(data.summary).length >= 200) fail("summary must be under 200 characters");
-  for (const key of ["created", "updated"]) if (!validDate(stringValue(data[key]))) fail(`${key} must be a real YYYY-MM-DD date`);
-  if (stringValue(data.updated) < stringValue(data.created)) fail("updated is earlier than created");
+  const dates = ["created", "updated"].map((key) => ({ key, value: stringValue(data[key]) }));
+  for (const { key, value } of dates) if (!validDate(value)) fail(`${key} must be a real YYYY-MM-DD date`);
+  // Order is only meaningful between real dates; comparing a malformed one adds noise.
+  if (dates.every(({ value }) => validDate(value)) && stringValue(data.updated) < stringValue(data.created)) fail("updated is earlier than created");
   const statuses = WORK_TYPES.has(stringValue(data.type)) ? WORK_STATUSES : MEMORY_STATUSES;
   if (!statuses.includes(stringValue(data.status))) fail(`status must be one of ${statuses.join(", ")}`);
   if (data.status === "superseded" && !SINGLE_WIKILINK.test(stringValue(data.superseded_by))) fail("superseded notes need a wikilink in superseded_by");
@@ -187,10 +200,14 @@ function vaultFiles(wikiDir: string, home: string, fail: Fail): VaultFiles {
 
 function checkRedaction(root: string, identity: Identity, fail: Fail): void {
   const checks = redactionChecks(identity);
-  const { files, symlinks } = redactionTargets(root);
+  const { files, symlinks, staged } = redactionTargets(root);
   for (const link of symlinks) fail(link, "symbolic link: not scanned for secrets; replace it with the file");
   for (const file of files) {
     for (const finding of findSensitive(readFileSync(file, "utf8"), checks)) fail(file, `line ${finding.line}: possible ${finding.name}`);
+  }
+  // What a commit publishes is the staged copy, which can differ from the file on disk.
+  for (const { file, text } of staged) {
+    for (const finding of findSensitive(text, checks)) fail(file, `line ${finding.line} of the staged copy: possible ${finding.name}`);
   }
 }
 
@@ -208,7 +225,7 @@ export function validateWiki(root: string, options: ValidateOptions = {}): WikiV
   const vault: Vault = { root, wikiDir, tags, agents, titles, indexed, seen: new Map(), fail };
   const records = notes.flatMap((file) => checkNote(vault, file) ?? []);
   validateWork(records, fail);
-  const homeLinks = existsSync(home) ? wikilinks(readFileSync(home, "utf8")) : [];
+  const homeLinks = wikilinks(readRegular(home) ?? "");
   for (const link of homeLinks) if (!titles.has(link)) fail(home, "broken index wikilink");
   checkRedaction(root, options.identity ?? currentIdentity(), fail);
   return { errors, noteCount: notes.length, tagCount: tags.size };

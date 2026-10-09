@@ -24,3 +24,8 @@ await test("every memory type has its own folder", () => {
   const folders = [...MEMORY_TYPES.values()].map((spec) => spec.folder);
   assert.equal(new Set(folders).size, folders.length);
 });
+
+await test("allowedList reads only list items, not backticks in prose between the markers", () => {
+  const schema = "<!-- tags:start -->\nUse a tag like `made/up` in prose.\n- `area/git`\n-   `kind/pitfall`  \n<!-- tags:end -->";
+  assert.deepEqual([...allowedList(schema, "tags")], ["area/git", "kind/pitfall"]);
+});

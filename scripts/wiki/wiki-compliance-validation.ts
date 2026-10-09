@@ -29,7 +29,10 @@ export function stagedMix(files: readonly string[]): { wiki: string[]; other: st
 export function commitViolations(commits: readonly Commit[]): Violation[] {
   return commits.flatMap((commit): Violation[] => {
     const { wiki, other } = splitPaths(commit.files);
-    if (wiki.length === 0) return [];
+    if (wiki.length === 0) {
+      if (!WIKI_SUBJECT.test(commit.subject)) return [];
+      return [{ sha: commit.sha, subject: commit.subject, kind: "subject", detail: "a docs(wiki) subject on a commit that changes no wiki files" }];
+    }
     if (other.length > 0) {
       const detail = `mixes ${wiki.length} wiki file(s) with ${other.length} other file(s), first ${wiki[0] ?? ""}`;
       return [{ sha: commit.sha, subject: commit.subject, kind: "mixed", detail }];

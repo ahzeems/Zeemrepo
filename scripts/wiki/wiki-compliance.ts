@@ -58,6 +58,11 @@ function reportViolations(violations: readonly Violation[], output: Output): voi
 }
 
 function checkHistory(options: GitOptions, output: Output, json: boolean): number {
+  if (mergeBase(options) === git(["rev-parse", "HEAD"], options) && !json) {
+    // On main itself, or a branch with no commits yet: say so rather than report "0 commits".
+    output.write("wiki-compliance: HEAD is the base; there are no branch commits to inspect");
+    return EXIT_OK;
+  }
   const commits = branchCommits(options);
   const violations = commitViolations(commits);
   const compliant = violations.length === 0;

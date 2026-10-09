@@ -47,3 +47,9 @@ await test("wiki paths are recognised in any letter case, and the bare wiki path
     assert.equal(violation?.kind, "mixed", path);
   }
 });
+
+await test("a docs(wiki) subject on a commit with no wiki files is refused as mislabelled", () => {
+  const [violation] = commitViolations([commit("docs(wiki): record", ["scripts/a.ts"])]);
+  assert.equal(violation?.kind, "subject");
+  assert.match(violation?.detail ?? "", /no wiki files/);
+});

@@ -15,9 +15,11 @@ export const MEMORY_TYPES: ReadonlyMap<string, TypeSpec> = new Map([
 export const MEMORY_STATUSES: readonly string[] = ["active", "draft", "superseded"];
 export const REQUIRED_STRINGS: readonly string[] = ["type", "title", "summary", "created", "updated", "agent", "status"];
 
+// Only list items count (`- \`area/git\``): a backticked word in prose between the markers
+// would otherwise widen the allowlist without anyone meaning to.
 export function allowedList(schema: string, marker: string): ReadonlySet<string> {
   const block = schema.split(`<!-- ${marker}:start -->`)[1]?.split(`<!-- ${marker}:end -->`)[0] ?? "";
-  return new Set([...block.matchAll(/`([^`]+)`/g)].flatMap((match) => match[1] === undefined ? [] : [match[1]]));
+  return new Set([...block.matchAll(/^\s*-\s+`([^`]+)`\s*$/gm)].flatMap((match) => match[1] === undefined ? [] : [match[1]]));
 }
 
 export function missingSections(body: string, sections: readonly string[]): string[] {

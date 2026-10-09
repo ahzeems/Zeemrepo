@@ -224,3 +224,11 @@ await test("approval_ref must name the pull request the owner merged", () => {
     assert.match(errors(records), /approval_ref must be the merged pull request/, approval);
   }
 });
+
+await test("a plan or spec marked ready also needs approval_ref", () => {
+  for (const type of ["plan", "spec"]) {
+    const records = graph();
+    records.push(record(type, "Ready one", { idea: "[[Idea]]", status: "ready" }));
+    assert.match(errors(records), /need approval_ref/, type);
+  }
+});

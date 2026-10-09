@@ -7,6 +7,7 @@ have at least one view), and Obsidian's own `.obsidian/` settings folder. Anythi
 symbolic links. `templates/` holds only the named templates (one per type, plus `build-ticket` and
 `decision-ticket`); each must parse and declare its own type, so a real note cannot hide there. Titles must be unique
 ignoring case. A memory note counts as indexed when Home links it, or when Home links Memory index and Memory index links it.
+Wikilinks inside code (inline or fenced) and HTML comments are examples: they are neither checked nor counted as index entries.
 
 ```yaml
 ---
@@ -93,7 +94,7 @@ are allowed when useful. Keep links sparse: ownership and actual dependencies in
 | ticket_kind | Every ticket | build, decision, research, prototype, or prerequisite. |
 | depends_on | Ticket dependencies | List of ticket links. No self-reference or cycle; never use its owning map or plan as a dependency. |
 | blocker | status blocked | Concrete reason and who or what can unblock it. |
-| approval_ref | Approved or executing plan/spec | The pull request the owner merged to approve it: `#12` or its full GitHub URL. Nothing else counts, and the field alone never establishes authority; check that the PR was merged by the owner. |
+| approval_ref | Approved, ready or executing plan/spec | The pull request the owner merged to approve it: `#12` or its full GitHub URL. Nothing else counts, and the field alone never establishes authority; check that the PR was merged by the owner. |
 | evidence | Work marked done | Nonempty list of labelled items (`VERIFIED:`, `INFERRED:`, `UNKNOWN:`, `OWNER DECISION:`), at least one `VERIFIED:` or `OWNER DECISION:`. |
 
 Workflow states are backlog, clarifying, proposed, approved, ready, in-progress, blocked,

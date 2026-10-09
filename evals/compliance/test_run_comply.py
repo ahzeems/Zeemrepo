@@ -1,5 +1,6 @@
 """Tests for run_comply.py: the sandbox seeding and isolation, without calling ECC or claude."""
 
+import dataclasses
 import io
 import json
 import os
@@ -212,13 +213,16 @@ class Grading(unittest.TestCase):
                            json.dumps({"command": "npm run check && git commit -m x && npm run pr", "run_in_background": True}),
                            "Command running in background with ID: b1")
         self.assertEqual(run_comply.split_observations([background], succeeded={"T0002"}), [background])
+        moved = dataclasses.replace(background, input=json.dumps({"command": "a && b"}))
+        self.assertEqual(run_comply.split_observations([moved], succeeded={"T0002"}), [moved], "the output alone also counts")
 
     def test_quoted_text_does_not_keep_a_chain_whole(self) -> None:
         self.assertEqual(run_comply.split_command('git add a && git commit -m "feat(evals): notes for review #12" && npm run pr'),
                          ["git add a", 'git commit -m "feat(evals): notes for review #12"', "npm run pr"])
         self.assertEqual(run_comply.split_command("git add . && find . -name x"), ["git add .", "find . -name x"])
         for whole in ('git commit -m "$(cat m)" && git push', "echo 'a' && . ./env && b", 'echo "x" && if true; then a; fi',
-                      "echo 'unterminated && b"):
+                      "echo 'unterminated && b", 'e"xit" 0; git push', '"exit" 0 && git push', "'exec' true; git push",
+                      '"." ./env; git push', "echo x\n'source' f\ngit push", "set -n; git push", "trap 'exit 0' DEBUG; git push"):
             self.assertEqual(run_comply.split_command(whole), [whole], whole)
 
     def test_a_failed_call_is_not_split_so_steps_that_never_ran_get_no_credit(self) -> None:

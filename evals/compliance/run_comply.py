@@ -295,11 +295,15 @@ class Observation:
 SEPARATORS = ("&&", ";", "\n")
 # Checked on the whole command, quotes included: these run or escape even inside double quotes.
 UNSPLITTABLE_ANYWHERE = re.compile(r"<<|\$\(|`|\\")
-# Checked outside quotes only, so a commit message such as "feat(evals): notes for review" does not
-# count. A lone & (background; not 2>&1, &> or |&), and exec, exit, source, `.`, eval, kill and
-# coproc in command position, also change which parts run.
-UNSPLITTABLE = re.compile(r"\|\||#|[(){}]|(?<![&>|])&(?![&>])|(?:^|[\s;&])(?:if|then|else|elif|fi|for|while|until|do|done|case|esac|exec|exit|return|source|eval|kill|coproc)(?=\s|;|$)|(?:^|[;&\n])\s*\.(?=\s)")
+# Checked with quoted text reduced to one word (see split_command), so a commit message such as
+# "feat(evals): notes for review" does not count but a quoted builtin such as e"xit" still does. A
+# lone & (background; not 2>&1, &> or |&), and exec, exit, source, `.`, eval, kill, coproc, set
+# and trap, also change which parts run.
+UNSPLITTABLE = re.compile(r"\|\||#|[(){}]|(?<![&>|])&(?![&>])|(?:^|[\s;&])(?:if|then|else|elif|fi|for|while|until|do|done|case|esac|exec|exit|return|source|eval|kill|coproc|set|trap)(?=\s|;|$)|(?:^|[;&\n])\s*\.(?=\s)")
 # Claude Code's Bash tool starts the output of a failed call with its exit code.
+# Inside quotes, any other character becomes `_`, so quoted text joins its word as the shell joins it.
+QUOTED_WORD_CHAR = re.compile(r"[A-Za-z0-9./-]")
+BACKGROUND_OUTPUT = re.compile(r"^\s*Command running in background")
 FAILED_OUTPUT = re.compile(r"^\s*Exit code [1-9]")
 
 
@@ -349,6 +353,8 @@ def split_command(command: str) -> list[str]:
         char = command[index]
         if quote is not None:
             quote = None if char == quote else quote
+            if quote is not None:
+                unquoted += char if QUOTED_WORD_CHAR.match(char) else "_"
         elif char in "'\"":
             quote = char
         else:
@@ -390,7 +396,7 @@ def split_observations(events: Sequence[object], succeeded: set[str]) -> list[ob
         output = getattr(event, "output", "")
         parts = split_command(str(fields["command"])) if fields is not None else []
         stamp = getattr(event, "timestamp")
-        backgrounded = fields is not None and bool(fields.get("run_in_background"))
+        backgrounded = fields is not None and bool(fields.get("run_in_background")) or bool(BACKGROUND_OUTPUT.match(str(output)))
         if len(parts) < 2 or backgrounded or stamp not in succeeded or not isinstance(output, str) or FAILED_OUTPUT.match(output):
             result.append(event)
             continue

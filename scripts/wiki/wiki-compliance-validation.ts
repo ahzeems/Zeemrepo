@@ -60,12 +60,25 @@ const NOT_CONTENT = /^(?:old mode|new mode|deleted file mode|new file mode|simil
 const MARKERS = [/^<{7} /, /^={7}$/, /^>{7} /];
 const isMarker = (line: string): boolean => MARKERS.some((marker) => marker.test(line));
 
+// The sides are the lines removed inside a marker block; a line removed outside one is an edit.
+function sidesOf(removed: readonly string[]): Set<string> | null {
+  const sides = new Set<string>();
+  let inside = false;
+  for (const line of removed) {
+    if (MARKERS[0]?.test(line) === true) inside = true;
+    else if (MARKERS[2]?.test(line) === true) inside = false;
+    else if (!inside) return null;
+    else if (!isMarker(line)) sides.add(line);
+  }
+  return sides;
+}
+
 function resolvesOnly(hunk: string): boolean {
   const lines = hunk.split("\n").slice(1);
   const removed = lines.filter((line) => line.startsWith("-")).map((line) => line.slice(1));
-  const sides = new Set(removed.filter((line) => !isMarker(line)));
   const added = lines.filter((line) => line.startsWith("+")).map((line) => line.slice(1));
-  return MARKERS.every((marker) => removed.some((line) => marker.test(line))) && added.every((line) => sides.has(line));
+  const sides = sidesOf(removed);
+  return sides !== null && MARKERS.every((marker) => removed.some((line) => marker.test(line))) && added.every((line) => sides.has(line));
 }
 
 function fileResolvesOnly(section: string): boolean {

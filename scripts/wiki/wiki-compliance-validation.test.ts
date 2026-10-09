@@ -78,6 +78,8 @@ await test("a remerge patch counts as a resolution only if every hunk removes co
   assert.equal(isConflictResolution(moded), false, "a mode change is not a resolution");
   const partial = resolved.replace("->>>>>>> def (theirs)\n", " >>>>>>> def (theirs)\n");
   assert.equal(isConflictResolution(partial), false, "a hunk must remove a whole marker set");
+  const dropped = resolved.replace("@@ -1,5 +1,2 @@\n", "@@ -1,6 +1,2 @@\n-an unrelated line beside the conflict\n");
+  assert.equal(isConflictResolution(dropped), false, "a deletion outside the marker block is an edit");
   assert.equal(isConflictResolution(""), false, "nothing to judge is not a resolution");
   assert.equal(isConflictResolution("diff --git a/z b/z\nremerge CONFLICT (modify/delete): z deleted in theirs\n"), false, "a file with no hunks");
 });

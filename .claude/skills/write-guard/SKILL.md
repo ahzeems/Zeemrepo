@@ -28,8 +28,9 @@ prose is the usual gap ([Prose rules do not enforce themselves](<../../../wiki/l
 - Git fixtures through `createRepo` (`scripts/test-support/repo-fixture.ts`) or `scripts/lib/git.ts`
   with an explicit `cwd`. Any other child process in test code passes `env: cleanGitEnv`.
   `scripts/toolchain/fixture-env.test.ts` enforces it for direct calls, renamed or destructured
-  spawners and namespace imports, but not for a spawner passed through another function, so keep
-  spawning inside the test-support helpers. It matters because the pre-push hook runs the tests
+  spawners and namespace imports. It does not follow a spawner passed to another function, stored
+  in an object, assigned after its declaration or read through a computed property (`cp["spawn"]`),
+  so keep spawning inside the test-support helpers. It matters because the pre-push hook runs the tests
   with `GIT_DIR` set when pushed from a worktree
   ([Hook-run checks must preserve Git state](<../../../wiki/lessons/Hook-run checks must preserve Git state.md>)).
 

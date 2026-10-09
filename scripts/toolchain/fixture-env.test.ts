@@ -32,7 +32,8 @@ function spawnerNames(file: ts.SourceFile): { names: Set<string>; namespaces: Se
 
 // `const run = execFileSync`, `const run = cp.spawnSync` and `const { spawnSync } = cp` make a
 // spawner under a new name; follow them (and aliases of aliases) until nothing new appears.
-// A spawner passed to another function or stored in an object is not followed.
+// Not followed: a spawner passed to another function, stored in an object, assigned after its
+// declaration, or read through a computed property; write-guard says so.
 function aliasOf(initializer: ts.Expression, names: ReadonlySet<string>, namespaces: ReadonlySet<string>): boolean {
   if (ts.isIdentifier(initializer)) return names.has(initializer.text);
   return ts.isPropertyAccessExpression(initializer) && ts.isIdentifier(initializer.expression)

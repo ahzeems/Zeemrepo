@@ -117,6 +117,15 @@ await test("history check", async (t) => {
     assert.equal(repo.check().code, EXIT_REFUSED);
   });
 
+  await t.test("a user's diff3 setting cannot turn a resolution to the base text into a pass", (t) => {
+    const repo = conflictingMerge(t);
+    repo.write("scripts/a.ts", "export const a = 1;\n");
+    repo.git(["add", "scripts/a.ts", "wiki/Home.md"]);
+    repo.git(["commit", "--quiet", "--no-edit"]);
+    repo.git(["config", "merge.conflictStyle", "diff3"]);
+    assert.equal(repo.check().code, EXIT_REFUSED, "the base line came from neither side");
+  });
+
   await t.test("an octopus merge cannot be judged, so it is refused", (t) => {
     const repo = branch(t);
     for (const name of ["one", "two"]) {

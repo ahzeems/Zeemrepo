@@ -55,6 +55,8 @@ committing or opening a pull request.
    `scripts/fixtures/valid/` and `scripts/fixtures/broken/`. A new checker gets the same pair;
    a checker that never sees a counterexample proves nothing
    ([[Documentation checkers need counterexamples]]).
+   To add or change a checker, follow the `write-guard` skill
+   (`.claude/skills/write-guard/SKILL.md`).
 5. Review in a separate context, as
    [[ADR-0022 Independent review means a separate reviewer context]] defines it. Use the ECC
    reviewers (`ecc:code-reviewer`, `ecc:typescript-reviewer` for TypeScript, and

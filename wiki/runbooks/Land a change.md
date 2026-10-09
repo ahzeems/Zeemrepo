@@ -36,9 +36,12 @@ requests on GitHub (owner decision, 2026-10-09).
 5. Run `npm run pr`. It refuses unless the tree is clean, the branch contains `origin/main`
    and `npm run check` passes; then it pushes the branch and opens or reports the pull
    request. It never merges. `npm run pr -- --dry-run` checks without pushing.
-6. Wait for the `check` workflow. It runs the change's lint, types and tests, and the
-   repository guards from main's copy, so a branch cannot weaken the guards that judge it.
-7. The owner reviews and merges on GitHub. Agents never merge or approve.
+6. Wait for both required checks. `check` runs the change's own `npm run check`. `guards`
+   runs main's copy of the repository guards on `pull_request_target`, so the pull request
+   can neither edit that workflow nor run its own code in it.
+7. The owner reviews and merges on GitHub (merge commit or squash; rebase merging is off so
+   the landing audit can match each commit to its PR). Agents never merge or approve; a
+   Claude Code hook refuses commands that would merge a pull request.
 8. After the merge: `git switch main && git pull --ff-only`, then delete the branch. Before
    removing a worktree, run `npm run worktree:guard`.
 
@@ -48,3 +51,6 @@ requests on GitHub (owner decision, 2026-10-09).
 - `npm run audit` (after `git fetch origin`) reports every commit on main since the PR-only
   rule as a merged pull request.
 - The pre-push hook refuses `git push origin main`; the GitHub ruleset refuses it too.
+- Dependabot opens weekly pull requests for the pinned GitHub Actions. They change
+  workflow-critical files, so they need the same changelog entry, work record and operating
+  note as any change before the owner merges them.

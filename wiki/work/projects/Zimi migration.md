@@ -9,7 +9,7 @@ agent: claude-code
 status: in-progress
 owner: human
 priority: P1
-next_action: "Phase 8: write the Zimi instincts file (lessons and decisions, including the git-state lesson), import it with /ecc:instinct-import, and review /ecc:evolve output."
+next_action: "Phase 8: write the Zimi instincts file (lessons and decisions, including the git-state lesson), import it with /ecc:instinct-import, and review /ecc:evolve output; the skill alignment is done."
 idea: "[[Migrate Zimi into Zeemrepo]]"
 evidence:
   - "VERIFIED: PRs #1-#5 merged by the owner (audit, toolchain, shared library, wiki system, skills)."
@@ -19,6 +19,8 @@ evidence:
   - "VERIFIED: Phase 7 npm run check passes (511 tests) with CLAUDE.md, seven .claude/rules/zeem files, finder and verifier agents, 9 decisions, 23 lessons and 5 reference and runbook pages; ECC code-reviewer and a port-fidelity review findings fixed on the branch."
   - "VERIFIED: PR #8 merged by the owner (rules, agents, ported wiki knowledge)."
   - "VERIFIED: with GIT_DIR, GIT_WORK_TREE and GIT_INDEX_FILE aimed at a decoy clone, all 511 tests passed and the decoy was unchanged; a pre-push run from a linked worktree whose check leaked a commit was refused by git-state.ts."
+  - "VERIFIED: PR #9 merged by the owner (pre-push git-state backstop)."
+  - "OWNER DECISION: baseline edits to branch-review and manage-branch approved: \"Approve both (Recommended)\" (2026-10-09); merged branches from PRs #1-#7 deleted after checking each was contained in origin/main; backup branches kept."
   - "OWNER DECISION: nothing is pushed to main; work lands by pull request and only the owner merges (2026-10-09)."
 ---
 
@@ -49,7 +51,4 @@ compliance evals with ECC `skill-comply`, and closeout. Zimi itself is never mod
 
 ## Observations
 
-- `branch-review` (a baseline skill) still says "once CI is configured". Changing it needs an owner
-  approval quoted in `import-baseline.json`.
-- `manage-branch` (a baseline skill) opens PRs with `gh pr create` rather than `npm run pr`; the
-  rule in `.claude/rules/zeem/branch-and-merge.md` wins until an owner-approved revision aligns it.
+- Skill alignment: [no-doc-change: Land a change and Merge gate contract already describe npm run pr and the required check and guards CI checks; the two skills now match them]

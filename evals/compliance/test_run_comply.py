@@ -166,6 +166,7 @@ class Confinement(unittest.TestCase):
             for flag in ("--unshare-pid", "--unshare-ipc", "--new-session", "--die-with-parent"):
                 self.assertIn(flag, command)
             self.assertIn(["--ro-bind", "/usr", "/usr"], pairs)
+            self.assertNotIn("/run/systemd/resolve", command, "the host resolver's socket would let DNS carry data out")
 
     def test_with_a_network_proxy_the_namespace_has_no_network_but_the_forwarder(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

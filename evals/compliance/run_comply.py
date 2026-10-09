@@ -44,7 +44,9 @@ KEPT = {"PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "LANGUAGE", "TERM", 
         "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"}
 KEPT_PREFIXES = ("LC_",)
 # Read-only system and tool directories visible inside the confinement, when they exist.
-SYSTEM_DIRS = ("/usr", "/etc", "/opt", "/home/linuxbrew", "/run/systemd/resolve")
+# Not /run/systemd/resolve: its world-writable query socket would let DNS carry data out, and the
+# sandbox needs no resolver because the host proxy resolves names.
+SYSTEM_DIRS = ("/usr", "/etc", "/opt", "/home/linuxbrew")
 MERGED_USR = {"/bin": "usr/bin", "/sbin": "usr/sbin", "/lib": "usr/lib", "/lib64": "usr/lib64"}
 SANDBOX_AUTHOR = {
     "GIT_AUTHOR_NAME": "Compliance Sandbox", "GIT_AUTHOR_EMAIL": "sandbox@example.invalid",
@@ -241,7 +243,20 @@ def main(argv: list[str]) -> None:
     require_skill_comply(SKILL_COMPLY)
     snapshot = repo_snapshot(REPO)
     deps = shared_deps(REPO, Path.home() / ".cache/zeemrepo/comply-deps")
-    work = Path(tempfile.mkdtemp(prefix="run-comply-"))  # everything the run creates; removed at the end
+    # Everything the run creates (login copies, the proxy socket, the gh config) lives here and is
+    # removed at the end, however the run ends. /tmp keeps the socket path short.
+    work = Path(tempfile.mkdtemp(prefix="run-comply-", dir="/tmp"))
+    proxy: netproxy.Proxy | None = None
+    try:
+        proxy = run_confined(args, snapshot, deps, work)
+    finally:
+        if proxy is not None:
+            proxy.close()
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Path) -> netproxy.Proxy:
+    """Isolate the environment, start the proxy, confine ECC's subprocesses and run it; returns the proxy."""
     (work / "gh").mkdir()
     caller_env = dict(os.environ)
     os.environ.clear()
@@ -269,7 +284,6 @@ def main(argv: list[str]) -> None:
     require_confinement(lambda: shutil.which("bwrap"), lambda: confined.run(["true"]).returncode == 0)
     for module in (runner, classifier, scenario_generator, spec_generator):
         module.subprocess = confined
-
     original = runner._setup_sandbox
 
     def setup_with_repository(sandbox_dir: Path, scenario: object) -> None:
@@ -279,11 +293,10 @@ def main(argv: list[str]) -> None:
 
     runner._setup_sandbox = setup_with_repository
     sys.argv = ["skill-comply", *ecc_arguments(args.target, model=args.model, gen_model=args.gen_model, dry_run=args.dry_run)]
-    try:
-        ecc_run.main()
-    finally:
-        proxy.close()
-        shutil.rmtree(work, ignore_errors=True)  # the per-call login copies go with it
+    ecc_run.main()
+    for host, port, permitted in sorted(proxy.seen):
+        print(f"run_comply: network {'allowed' if permitted else 'REFUSED'} {host}:{port}", file=sys.stderr)
+    return proxy
 
 
 if __name__ == "__main__":

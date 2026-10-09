@@ -1,4 +1,4 @@
-// Claude Code PreToolUse hook: refuse Bash commands that merge a pull request.
+// Claude Code PreToolUse hook: refuse Bash commands that merge or approve a pull request.
 //
 // Claude prepares changes, runs checks, pushes its branch and opens the PR; merging is the
 // owner's act on GitHub (owner decision, 2026-10-09). The deny rules in .claude/settings.json
@@ -14,6 +14,9 @@ export const HOOK_BLOCK = 2;
 const MERGE_ENDPOINT = /\bpulls\/\d+\/merge\b/;
 const PUT = /(?:-X\s*|--request[=\s]+|--method[=\s]+)PUT\b/i;
 const MERGE_MUTATION = /\b(?:mergePullRequest|enablePullRequestAutoMerge)\b/;
+// Approving is the owner's act too: a review endpoint or mutation counts only with APPROVE.
+const REVIEW_ENDPOINT = /\bpulls\/\d+\/reviews\b|\b(?:addPullRequestReview|submitPullRequestReview)\b/;
+const APPROVE = /\bAPPROVE\b/;
 // bash -c '...' and eval '...' run their argument, so it is lifted out as a command.
 const SHELL_PAYLOAD = /\b(?:bash|sh|zsh)\s+-c\s+(["'])([\s\S]*?)\1|\beval\s+(["'])([\s\S]*?)\3/g;
 // Heredoc bodies and quoted strings are data (commit messages, PR bodies, search terms).
@@ -43,13 +46,15 @@ function ghSubcommand(rest: readonly string[]): string[] {
 }
 
 // API merges are judged on the whole command, because the endpoint or mutation is usually quoted.
-const apiMerge = (command: string): boolean => MERGE_MUTATION.test(command) || (MERGE_ENDPOINT.test(command) && PUT.test(command));
+const apiMerge = (command: string): boolean => MERGE_MUTATION.test(command) || (MERGE_ENDPOINT.test(command) && PUT.test(command))
+  || (REVIEW_ENDPOINT.test(command) && APPROVE.test(command));
 
 export function isPrMerge(command: string): boolean {
   return commandParts(command).some((words) => {
     const { program, rest } = programOf(words);
     if (program === "gh") {
       const [first, second] = ghSubcommand(rest);
+      if (first === "pr" && second === "review") return rest.some((word) => word === "--approve" || word === "-a");
       return (first === "pr" && second === "merge") || (first === "api" && apiMerge(command));
     }
     return (program === "curl" || program === "wget") && apiMerge(command);
@@ -70,7 +75,7 @@ export function main(_args: readonly string[], options: Options = {}): number {
   if (!isRecord(input) || input.tool_name !== "Bash" || !isRecord(input.tool_input)) return EXIT_OK;
   const command = typeof input.tool_input.command === "string" ? input.tool_input.command : "";
   if (!isPrMerge(command)) return EXIT_OK;
-  output.warn("block-pr-merge: this command would merge a pull request. Only the owner merges, on GitHub. Push the branch and open or update the PR instead (npm run pr).");
+  output.warn("block-pr-merge: this command would merge or approve a pull request. Only the owner merges or approves, on GitHub. Push the branch and open or update the PR instead (npm run pr).");
   return HOOK_BLOCK;
 }
 

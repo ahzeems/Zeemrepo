@@ -9,9 +9,18 @@ the tool calls.
 directory and so measures Claude's defaults, not these rules. The wrapper:
 - copies a snapshot of the committed repository (without `evals/`) into each scenario sandbox
   after ECC's own setup, keeping any file the scenario created;
-- runs everything with GitHub and git credentials cut off (no `gh` token, empty `gh` config, no
-  global git config, a fixed sandbox author), so a scenario cannot push or merge anything real;
-- writes each report to `reports/<name>.md`.
+- runs every `claude` call ECC makes (scenarios, spec and scenario generation, classification)
+  under bubblewrap, with credential stores (`~/.config/gh`, `~/.ssh`, `~/.gnupg`, `~/.aws`,
+  `~/.docker`, `~/.kube`, gcloud, `~/.git-credentials`, `~/.netrc`, `~/.npmrc`, `~/.pypirc`), this
+  repository, `~/Github`, Claude session transcripts and `/run/user/<uid>` masked by empty mounts;
+- passes an allowlisted environment (path, home, locale, terminal, XDG and Anthropic auth only), an
+  empty `gh` config, no global git config and a fixed sandbox author;
+- writes each report to `reports/<path-derived name>.md`, for example `rules-zeem-branch-and-merge.md`.
+
+**What it does not hide.** Claude's own login under `~/.claude` stays readable, because `claude`
+needs it; a scenario agent could read that token. Anything else in the home directory that is not in
+the masked list is readable too, so keep secrets in the listed stores or add their path to
+`MASKED_DIRS` or `MASKED_FILES` in `run_comply.py`. bubblewrap must be installed (`bwrap`).
 
 ## Setup (once)
 

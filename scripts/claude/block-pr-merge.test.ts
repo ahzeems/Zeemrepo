@@ -12,6 +12,7 @@ await test("ordinary work stays allowed", () => {
     "git commit -m \"x\n\ngh pr merge was blocked\"", "git commit -F - <<'EOT'\nfix\n\ngh pr merge is blocked\nEOT",
     "gh pr create --body \"do not gh pr merge; owner only\"", "gh pr create --body 'see foo | gh pr merge'",
     "gh pr edit 7 --body \"run: gh pr merge\"", "git log --grep=\"gh pr merge\"", "echo gh pr merge 5",
+    "gh pr review 7 --comment --body 'findings'", "gh pr review 7 --request-changes -b 'fix x'", "gh api repos/o/r/pulls/7/reviews",
   ]) assert.equal(isPrMerge(command), false, command);
 });
 
@@ -27,6 +28,10 @@ await test("common ways to merge a pull request are blocked", () => {
     "gh --repo o/r pr merge 7", "sudo gh pr merge 7", "env GH_TOKEN=x gh pr merge 7", "command gh pr merge 7",
     "nohup gh pr merge 7", "(gh pr merge 7)", "{ gh pr merge 7; }", "if true; then gh pr merge 7; fi",
     "sh -c \"gh pr merge 7\"", "eval 'gh pr merge 7'",
+    "gh pr review 7 --approve", "gh pr review 7 -a", "gh -R o/r pr review --approve 7",
+    "gh api -X POST repos/o/r/pulls/7/reviews -f event=APPROVE",
+    "gh api graphql -f query='mutation { addPullRequestReview(input:{event: APPROVE}) { clientMutationId } }'",
+    "gh api graphql -f query='mutation { submitPullRequestReview(input:{event: APPROVE}) { clientMutationId } }'",
   ]) assert.equal(isPrMerge(command), true, command);
 });
 

@@ -29,9 +29,12 @@ export function classifyLandings(commits: readonly Landing[], merged: MergedChec
 
 // GitHub's own record: the PR is merged and its merge commit is this commit. gh failing
 // (not installed, not logged in, offline) is an error, never a verdict about the landing.
-function githubMerged(cwd: string | undefined, repo: string): MergedCheck {
+// A hung gh (a stalled network, an auth prompt) is stopped instead of stalling npm run audit.
+const GH_TIMEOUT_MS = 60_000;
+
+export function githubMerged(cwd: string | undefined, repo: string, { program = "gh", timeoutMs = GH_TIMEOUT_MS } = {}): MergedCheck {
   return (pr, sha) => {
-    const result = spawnSync("gh", ["pr", "view", String(pr), "--repo", repo, "--json", "state,mergeCommit"], { cwd, encoding: "utf8" });
+    const result = spawnSync(program, ["pr", "view", String(pr), "--repo", repo, "--json", "state,mergeCommit"], { cwd, encoding: "utf8", timeout: timeoutMs });
     if (result.error) throw new Error(`gh could not run: ${result.error.message}`);
     if (result.status !== 0) {
       if (/could not resolve to a pullrequest|no pull requests found/i.test(result.stderr)) return false;

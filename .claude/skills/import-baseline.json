@@ -50,7 +50,7 @@
           "sha256": "61cc3e6d5697324292523bd4f7d56b8c9be856ad782a34f35a7de1eec1610e47",
           "approval": {
             "record": "docs/migration/skill-stocktake.md",
-            "quote": "Approve as proposed (Recommended)"
+            "quote": "Keep the 3 Pocock edits"
           },
           "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
         }
@@ -82,7 +82,7 @@
           "sha256": "4b2d77fa882a70aa6083b2e1edc275d3c1bde0e9670d0bc73098b45bf8ff6a5f",
           "approval": {
             "record": "docs/migration/skill-stocktake.md",
-            "quote": "Approve as proposed (Recommended)"
+            "quote": "Keep the 3 Pocock edits"
           },
           "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
         }
@@ -146,7 +146,7 @@
           "sha256": "9012b8047506322f316675e492b4fa5f11b1f8b30a3b6aebecb7a95daadee3da",
           "approval": {
             "record": "docs/migration/skill-stocktake.md",
-            "quote": "Approve as proposed (Recommended)"
+            "quote": "Keep the 3 Pocock edits"
           },
           "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
         }

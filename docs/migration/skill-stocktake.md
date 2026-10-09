@@ -24,6 +24,8 @@ as their approval record.
 
 | Review-driven consistency fixes to baseline skills (branch-review, manage-branch, resolve-conflicts, write-skill, technical-writing), including technical-writing's tab-indentation line | "Authorize, incl. 2-space indent (Recommended)" |
 
+| Review fixes to the Pocock-derived baseline skills find-deepenings, plan-tickets and wayfinder (required `idea` link; "packages" to "modules") | "Keep the 3 Pocock edits" |
+
 **What follows from the decisions**
 - **TDD.** Zimi's `tdd` content is dropped entirely, and ECC's `.claude/rules/ecc/common/testing.md` governs. This
   replaces the stocktake's "merge into a testing rule" verdict.

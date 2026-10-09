@@ -48,8 +48,9 @@ reviewer compares the quote with the owner's actual words.
   accepts any existing record file that holds the quote and names the skill.
 - `THIRD-PARTY-NOTICES.md` carries the licence for attributed third-party text. The linter
   only permits the file; it does not read it.
-- Removing a name from `userOnly` turns its check off, so a reviewer treats that as a change
-  needing the owner's recorded decision.
+- Removing a name from `userOnly` fails `skills:lint` while the skill still sets
+  `disable-model-invocation: true`. Making a skill model-invocable takes both edits, a
+  `config/` change the owner reviews.
 - Skills need not be linked from a route file. Zimi required that for Codex and OpenCode;
   Claude Code discovers skills from their descriptions, so the check was dropped.
 

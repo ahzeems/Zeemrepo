@@ -40,7 +40,8 @@ behaviour, Markdown and wiki pages are an interface, and interface drift is a Bl
 the repository, minus exclusions that each carry a reason in `config/governance-alignment.json`,
 for phrasings that assert a replaced rule. It runs inside `npm run check`, and the required
 `guards` status check runs main's copy of it on every pull request, so a governance failure
-blocks the merge.
+blocks the merge. It reads the pull request's own `config/governance-alignment.json`, so a change
+to that file is itself a workflow change the owner reviews.
 
 Historical wording is carried two ways: a wiki note marked `status: superseded` that names its
 replacement is read as history, and anything else needs an allowance naming the file, the exact

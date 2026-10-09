@@ -23,7 +23,7 @@ The repository needs memory that outlives any one agent session, and that agent 
 
 Memory is an Obsidian vault in `wiki/` inside this repository. Notes are plain Markdown in five typed memory folders: sessions, runbooks, lessons, decisions and reference. Work records live beside them under `wiki/work/` (see [[ADR-0005 Work records live in the shared vault]]). Every note carries YAML frontmatter with type, summary, namespaced tags, dates, author agent and status. The schema and the allowed tag list live in the `wiki-memory` skill (`.claude/skills/wiki-memory/references/note-schema.md`) and are enforced by `npm run wiki:lint`.
 
-The note types follow Diataxis. Decisions follow the ADR format. Only core Obsidian plugins are configured.
+The note types follow Diataxis. Decisions follow the ADR format. No Obsidian plugins are required, and the repository ships no `.obsidian/` settings.
 
 ## Consequences
 

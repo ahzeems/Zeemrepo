@@ -45,8 +45,9 @@ This replaces Zimi ADR-0002 (one shared instruction file for all agents) and Zim
 - Native Claude Code features become available to the workflow: hooks (for example the
   PreToolUse hook that blocks agent merges), permission deny rules, and subagents for review.
 - Supporting another harness would need a new ADR, not a config file.
-- ECC updates arrive only by changing the pinned ref, so an upstream change cannot alter the
-  repository's behaviour without a reviewed pull request.
+- ECC updates arrive by changing the pinned ref in a reviewed pull request. The pin is a tag, which
+  upstream could move, so an update also checks which commit the tag names (Claude Code cannot pin
+  a marketplace to a commit).
 
 Numbering: Zimi had an unrelated ADR-0024 ("Verify checkout form before loading
 instructions"). It was not migrated (its enduring rule is in

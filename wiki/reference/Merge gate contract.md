@@ -31,8 +31,11 @@ enforces.
 | `check` | `.github/workflows/check.yml`, on `pull_request` and pushes to main | The branch's own `npm run check`, with a read-only token. |
 | `guards` | `.github/workflows/guards.yml`, on `pull_request_target` | Main's copy of `wiki-lint`, `skill-lint`, `governance-guard`, `wiki-compliance`, `changelog-guard` and `repo-memory-guard`, run against the PR's merge ref checked out as data. |
 
-A pull request cannot weaken `guards`: the workflow and scripts come from main, dependencies
-install with `--ignore-scripts`, the token is read-only, and no PR code executes. For
+A pull request cannot change how `guards` runs: the workflow and scripts come from main,
+dependencies install with `--ignore-scripts`, the token is read-only, and no PR code executes.
+The guards do read the PR's own configuration (`config/`, the note schema's allowlists), so a
+PR that loosens an exclusion or drops a stale claim is judged by its loosened config. Those
+files are workflow-critical, and the owner's review is what catches such a change. For
 `dependabot[bot]` pull requests both workflows skip only the two change-record guards. If
 `guards` fails at once with "couldn't find remote ref", GitHub had not built the merge ref
 yet: re-run it.

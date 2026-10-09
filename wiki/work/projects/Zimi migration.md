@@ -47,7 +47,11 @@ compliance evals with ECC `skill-comply`, and closeout. Zimi itself is never mod
 
 ## Observations
 
-- Removing a name from `userOnly` in `config/skill-standards.json` silently drops that skill's
-  `disable-model-invocation` check; only review catches it.
 - `branch-review` (a baseline skill) still says "once CI is configured". Changing it needs an owner
   approval quoted in `import-baseline.json`.
+- Zimi `main` moved past the audited 9fb36b2. Its new lesson "Pre-commit checks must preserve Git
+  state" applies here (a hook-run fixture changed the real branch and git config); port it in the
+  next phase. Its Phase B ticket fields and `ticket-session` skill belong to the autonomous-ticket
+  loop, which is out of scope.
+- `manage-branch` (a baseline skill) opens PRs with `gh pr create` rather than `npm run pr`; the
+  rule in `.claude/rules/zeem/branch-and-merge.md` wins until an owner-approved revision aligns it.

@@ -27,5 +27,6 @@ files and `package-lock.json`, unless the path is workflow-critical. Workflow-cr
 `README.md`, and root tooling files. The single source is `scripts/lib/change-policy.ts`.
 
 The `guards` workflow runs these guards from main's copy against each pull request on
-`pull_request_target`, so a branch can neither weaken the guards nor edit the workflow that runs them. Locally the pre-push hook runs `npm run check`.
+`pull_request_target`, so a branch can neither change the guard code nor edit the workflow that runs them. The guards
+still read the branch's own `config/` and note schema, so a config change needs the owner's review. Locally the pre-push hook runs `npm run check`.
 The steps from branch to merge are in [[Land a change]].

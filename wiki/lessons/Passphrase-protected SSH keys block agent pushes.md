@@ -40,12 +40,11 @@ git -c credential.helper='!gh auth git-credential' push https://github.com/<owne
 ```
 
 The same form works for `fetch`, `clone` and `pull`. After pushing to a URL instead of the named
-remote, the local tracking ref is stale. Refresh it with a fetch through the same helper, or,
-when that is also blocked:
-
-```bash
-git update-ref refs/remotes/origin/<branch> <branch>
-```
+remote, the local tracking ref is stale; refresh it with a fetch through the same helper. Never
+write the tracking ref by hand: `npm run worktree:guard` trusts it to say what is pushed, so a
+hand-set ref can hide work that never reached GitHub. A raw push by URL also slips past the
+`.claude/settings.json` deny rules, which match `git push origin ...`, so the branch name is your
+responsibility.
 
 ## How to apply
 

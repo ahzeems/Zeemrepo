@@ -39,13 +39,14 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
   call whose result in the session stream says `is_error: false` (ECC drops that flag, so the
   wrapper reads it alongside ECC's parser); a call that failed, was denied or blocked by a hook,
   timed out, has no result or ran in the background (`run_in_background`, or output saying so)
-  stays whole, as do a mixed chain (`a && b; c` exits 0 even when `b` never ran) and anything
-  conditional, backgrounded or nested: `||`, `&`, `if`/`for`, subshells, comments and the builtins
-  `exec`, `exit`, `source`/`.`, `eval`, `kill`, `set`, `trap`, with quoted text read as one word
-  (so `e"xit"` counts and a commit subject does not, though a lone quoted keyword such as
-  `-m "done"` still keeps the chain whole); `$(...)`, backticks, heredocs and backslashes count
-  anywhere. This is meant to keep splitting from crediting a step that never ran; the grader can
-  still mislabel a whole call, and a `;` chain credits every part even if one of them failed;
+  stays whole. So does a chain unless every part starts, plainly written, with an ordinary
+  command from `SPLITTABLE_COMMANDS` (`git`, `npm`, `gh`, `ls`, ...): a denylist of builtins
+  kept missing ways to stop the shell early (`e"xit"`, `$'exit'`, `command .`, `shopt -o noexec`,
+  `hash -p`, aliases). A mixed chain (`a && b; c` exits 0 even when `b` never ran), any `$`,
+  backtick, heredoc or backslash, and, outside quotes, `||`, a lone `&`, `if`/`for`, subshells
+  and comments also keep it whole. This is meant to keep splitting from crediting a step that
+  never ran; it under-credits other chains, the grader can still mislabel a whole call, and a `;`
+  chain credits every part even if one of them failed;
 - replaces any symlink a scenario planted on a tooling path (the file or a directory above it), so
   the real file is written in place and never through the link;
 - writes each report to `reports/<path-derived name>.md`, for example `rules-zeem-branch-and-merge.md`.

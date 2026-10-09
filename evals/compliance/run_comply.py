@@ -293,8 +293,13 @@ class Observation:
 # or that nests commands ($(...), backticks, subshells, heredocs) stays whole, as do comments and
 # backslash escapes, because a wrong split could credit a step that never ran.
 SEPARATORS = ("&&", ";", "\n")
-# Checked on the whole command, quotes included: these run or escape even inside double quotes.
-UNSPLITTABLE_ANYWHERE = re.compile(r"<<|\$\(|`|\\")
+# Checked on the whole command, quotes included: these run, expand or escape even inside quotes,
+# and any $ can expand to a builtin name ($X, $'exit').
+UNSPLITTABLE_ANYWHERE = re.compile(r"<<|\$|`|\\")
+# Every part must start with one of these ordinary commands, written plainly. A denylist of builtins
+# kept missing ways to stop the shell early (command ., shopt -o noexec, hash -p, aliases, globs).
+SPLITTABLE_COMMANDS = frozenset({"git", "npm", "npx", "node", "gh", "ls", "cat", "echo", "printf", "mkdir", "touch",
+                                 "cp", "mv", "rm", "grep", "find", "sed", "head", "tail", "wc", "pwd", "cd", "diff", "sort"})
 # Checked with quoted text reduced to one word (see split_command), so a commit message such as
 # "feat(evals): notes for review" does not count but a quoted builtin such as e"xit" still does. A
 # lone & (background; not 2>&1, &> or |&), and exec, exit, source, `.`, eval, kill, coproc, set
@@ -371,7 +376,10 @@ def split_command(command: str) -> list[str]:
     if quote is not None or len(used) > 1 or UNSPLITTABLE.search(unquoted):
         return [command]
     parts.append(current)
-    return [part.strip() for part in parts if part.strip()]
+    stripped = [part.strip() for part in parts if part.strip()]
+    if any(part.split()[0] not in SPLITTABLE_COMMANDS for part in stripped):
+        return [command]
+    return stripped
 
 
 def bash_input(event: object) -> dict[str, object] | None:

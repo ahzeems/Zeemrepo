@@ -176,10 +176,10 @@ class Grading(unittest.TestCase):
 
     def test_eleven_parts_keep_their_order_under_a_text_sort(self) -> None:
         Event = run_comply.Observation
-        command = " && ".join(f"step{n}" for n in range(1, 12))
+        command = " && ".join(f"echo step{n}" for n in range(1, 12))
         split = run_comply.split_observations([Event("T0003", "tool_complete", "Bash", "s", json.dumps({"command": command, "description": "d"}), "ok")], succeeded={"T0003"})
         ordered = sorted(split, key=lambda e: e.timestamp)
-        self.assertEqual([json.loads(e.input)["command"] for e in ordered], [f"step{n}" for n in range(1, 12)])
+        self.assertEqual([json.loads(e.input)["command"] for e in ordered], [f"echo step{n}" for n in range(1, 12)])
         self.assertEqual(json.loads(ordered[0].input)["description"], "d", "other input keys are kept")
 
     def test_successful_calls_are_read_from_the_stream_s_error_flags_in_ecc_s_order(self) -> None:
@@ -222,7 +222,11 @@ class Grading(unittest.TestCase):
         self.assertEqual(run_comply.split_command("git add . && find . -name x"), ["git add .", "find . -name x"])
         for whole in ('git commit -m "$(cat m)" && git push', "echo 'a' && . ./env && b", 'echo "x" && if true; then a; fi',
                       "echo 'unterminated && b", 'e"xit" 0; git push', '"exit" 0 && git push', "'exec' true; git push",
-                      '"." ./env; git push', "echo x\n'source' f\ngit push", "set -n; git push", "trap 'exit 0' DEBUG; git push"):
+                      '"." ./env; git push', "echo x\n'source' f\ngit push", "set -n; git push", "trap 'exit 0' DEBUG; git push",
+                      "$'exit' 0; git push", '$"exit" 0; git push', "command . ./env.sh; git push", "A=1 . ./env.sh; git push",
+                      "shopt -so noexec; git push", "X=exit; $X 0; git push", "hash -p /bin/true git && git push",
+                      "alias git=true\ngit push", "[e]xit 0; git push", "exi? 0; git push",
+                      "env git push && git status", "./run.sh && git push"):
             self.assertEqual(run_comply.split_command(whole), [whole], whole)
 
     def test_a_failed_call_is_not_split_so_steps_that_never_ran_get_no_credit(self) -> None:

@@ -81,6 +81,99 @@ await test("history check", async (t) => {
     assert.match(result.err, /\[mixed\]/);
   });
 
+  // Two open pull requests usually conflict on CHANGELOG.md and a work record at once.
+  const conflictingMerge = (t: TestContext): ReturnType<typeof branch> => {
+    const repo = branch(t);
+    repo.write("scripts/c.ts", "export const c = 1;\n");
+    repo.commit("feat: add c");
+    repo.write("scripts/a.ts", "export const a = 2;\n");
+    repo.commit("feat: branch a");
+    repo.write("wiki/Home.md", "# Branch\n");
+    repo.commit("docs(wiki): branch home");
+    repo.git(["switch", "--quiet", "-c", "main-moved", "refs/remotes/origin/main"]);
+    repo.write("scripts/a.ts", "export const a = 3;\n");
+    repo.write("wiki/Home.md", "# Main\n");
+    repo.git(["update-ref", "refs/remotes/origin/main", repo.commit("main moved both")]);
+    repo.git(["switch", "--quiet", "feature"]);
+    assert.throws(() => repo.git(["merge", "--quiet", "--no-edit", "main-moved"]), "both files conflict");
+    repo.write("scripts/a.ts", "export const a = 3;\nexport const a = 2;\n");
+    repo.write("wiki/Home.md", "# Main\n# Branch\n");
+    return repo;
+  };
+
+  await t.test("a merge that only resolves conflicts in wiki and other files passes", (t) => {
+    const repo = conflictingMerge(t);
+    repo.git(["add", "scripts/a.ts", "wiki/Home.md"]);
+    repo.git(["commit", "--quiet", "--no-edit"]);
+    const result = repo.check();
+    assert.equal(result.code, EXIT_OK, result.err);
+  });
+
+  await t.test("a resolution that writes a new line instead of keeping the sides' lines is mixed", (t) => {
+    const repo = conflictingMerge(t);
+    repo.write("wiki/Home.md", "# Main\n# Branch\n# Written during the merge\n");
+    repo.git(["add", "scripts/a.ts", "wiki/Home.md"]);
+    repo.git(["commit", "--quiet", "--no-edit"]);
+    assert.equal(repo.check().code, EXIT_REFUSED);
+  });
+
+  await t.test("a resolution that also deletes a line beside the conflict is mixed", (t) => {
+    const repo = branch(t);
+    repo.write("scripts/a.ts", "// keep\nexport const a = 1;\n");
+    repo.write("wiki/Home.md", "# Wiki\n");
+    repo.git(["update-ref", "refs/remotes/origin/main", repo.commit("base with a neighbour line")]);
+    repo.write("scripts/a.ts", "// keep\nexport const a = 2;\n");
+    repo.commit("feat: branch a");
+    repo.write("wiki/Home.md", "# Branch\n");
+    repo.commit("docs(wiki): branch home");
+    repo.git(["switch", "--quiet", "-c", "main-moved", "refs/remotes/origin/main"]);
+    repo.write("scripts/a.ts", "// keep\nexport const a = 3;\n");
+    repo.write("wiki/Home.md", "# Main\n");
+    repo.git(["update-ref", "refs/remotes/origin/main", repo.commit("main moved both")]);
+    repo.git(["switch", "--quiet", "feature"]);
+    assert.throws(() => repo.git(["merge", "--quiet", "--no-edit", "main-moved"]), "both files conflict");
+    repo.write("scripts/a.ts", "export const a = 3;\n");
+    repo.write("wiki/Home.md", "# Main\n");
+    repo.git(["add", "scripts/a.ts", "wiki/Home.md"]);
+    repo.git(["commit", "--quiet", "--no-edit"]);
+    assert.equal(repo.check().code, EXIT_REFUSED, "the neighbour line was deleted during the merge");
+  });
+
+  await t.test("a user's diff3 setting cannot turn a resolution to the base text into a pass", (t) => {
+    const repo = conflictingMerge(t);
+    repo.write("scripts/a.ts", "export const a = 1;\n");
+    repo.git(["add", "scripts/a.ts", "wiki/Home.md"]);
+    repo.git(["commit", "--quiet", "--no-edit"]);
+    repo.git(["config", "merge.conflictStyle", "diff3"]);
+    assert.equal(repo.check().code, EXIT_REFUSED, "the base line came from neither side");
+  });
+
+  await t.test("an octopus merge cannot be judged, so it is refused", (t) => {
+    const repo = branch(t);
+    for (const name of ["one", "two"]) {
+      repo.git(["switch", "--quiet", "-c", name, "refs/remotes/origin/main"]);
+      repo.write(`scripts/${name}.ts`, `export const ${name} = 1;\n`);
+      repo.commit(`feat: ${name}`);
+    }
+    repo.git(["switch", "--quiet", "feature"]);
+    repo.git(["merge", "--quiet", "--no-ff", "--no-commit", "one", "two"]);
+    repo.git(["rm", "--quiet", "wiki/Home.md"]);
+    repo.git(["commit", "--quiet", "-m", "Merge one and two"]);
+    const result = repo.check();
+    assert.equal(result.code, EXIT_REFUSED);
+    assert.match(result.err, /octopus/);
+  });
+
+  await t.test("a conflict-resolving merge that also slips in an unrelated edit is still mixed", (t) => {
+    const repo = conflictingMerge(t);
+    repo.write("scripts/c.ts", "export const c = 99;\n");
+    repo.git(["add", "scripts/a.ts", "wiki/Home.md", "scripts/c.ts"]);
+    repo.git(["commit", "--quiet", "--no-edit"]);
+    const result = repo.check();
+    assert.equal(result.code, EXIT_REFUSED);
+    assert.match(result.err, /\[mixed\]/);
+  });
+
   await t.test("a clean merge of main, where both sides touched the same files, is not judged", (t) => {
     const repo = branch(t);
     repo.write("scripts/a.ts", "export const a = 1;\n\n\n\n\n\n// branch\n");

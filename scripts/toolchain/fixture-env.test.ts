@@ -26,7 +26,42 @@ function spawnerNames(file: ts.SourceFile): { names: Set<string>; namespaces: Se
     }
     if (statement.importClause?.name) namespaces.add(statement.importClause.name.text);
   }
+  addAliases(file, names, namespaces);
   return { names, namespaces };
+}
+
+// `const run = execFileSync`, `const run = cp.spawnSync` and `const { spawnSync } = cp` make a
+// spawner under a new name; follow them (and aliases of aliases) until nothing new appears.
+// Not followed: a spawner passed to another function, stored in an object, assigned after its
+// declaration, or read through a computed property; write-guard says so.
+function aliasOf(initializer: ts.Expression, names: ReadonlySet<string>, namespaces: ReadonlySet<string>): boolean {
+  if (ts.isIdentifier(initializer)) return names.has(initializer.text);
+  return ts.isPropertyAccessExpression(initializer) && ts.isIdentifier(initializer.expression)
+    && namespaces.has(initializer.expression.text) && SPAWNERS.has(initializer.name.text);
+}
+
+function addDestructured(pattern: ts.ObjectBindingPattern, names: Set<string>): void {
+  for (const element of pattern.elements) {
+    const property = element.propertyName ?? element.name;
+    if (ts.isIdentifier(property) && SPAWNERS.has(property.text) && ts.isIdentifier(element.name)) names.add(element.name.text);
+  }
+}
+
+function addAliases(file: ts.SourceFile, names: Set<string>, namespaces: ReadonlySet<string>): void {
+  const declarations: ts.VariableDeclaration[] = [];
+  const collect = (node: ts.Node): void => {
+    if (ts.isVariableDeclaration(node) && node.initializer) declarations.push(node);
+    ts.forEachChild(node, collect);
+  };
+  collect(file);
+  for (let size = -1; size !== names.size;) {
+    size = names.size;
+    for (const { name, initializer } of declarations) {
+      if (initializer === undefined) continue;
+      if (ts.isIdentifier(name) && aliasOf(initializer, names, namespaces)) names.add(name.text);
+      if (ts.isObjectBindingPattern(name) && ts.isIdentifier(initializer) && namespaces.has(initializer.text)) addDestructured(name, names);
+    }
+  }
 }
 
 // A spread of cleanGitEnv counts only if nothing can put a GIT_ variable back: no other
@@ -92,6 +127,10 @@ await test("the spawn check sees through aliases, namespaces and quoting, and ac
     'import { spawnSync } from "node:child_process";\nspawnSync("git", args, { env: { ...cleanGitEnv, ...process.env } });',
     'const cp = require("node:child_process");',
     'const cp = await import("child_process");',
+    'import { execFileSync } from "node:child_process";\nconst run = execFileSync;\nrun("git", ["init"]);',
+    'import { execFileSync } from "node:child_process";\nconst run = execFileSync;\nconst again = run;\nagain("git", ["init"]);',
+    'import * as cp from "node:child_process";\nconst run = cp.spawnSync;\nrun("git", args);',
+    'import * as cp from "node:child_process";\nconst { spawnSync: s } = cp;\ns("git", args);',
   ];
   for (const source of offending) assert.equal(unscrubbedSpawns("sample.ts", source).length, 1, source);
   const clean = [

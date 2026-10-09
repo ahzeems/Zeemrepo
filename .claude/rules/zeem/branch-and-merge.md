@@ -36,7 +36,9 @@ These win over the vendored ECC rules and skills where they disagree:
   `git rebase origin/main` and then `--force-with-lease`. Do not do that to a branch that has been pushed; merge
   `main` into it instead.
 - **Commit subjects.** ECC's `<type>: <description>` format applies, and scopes are allowed. Wiki-only commits
-  use `docs(wiki): ...` and contain only wiki files.
+  use `docs(wiki): ...` and contain only wiki files. A merge of `main` may resolve conflicts in wiki and
+  other files together by keeping lines from the two sides, and nothing else (OWNER DECISION,
+  2026-10-09); a line written during the merge goes in its own commit afterwards.
 - **Attribution.** ECC notes that its installs turn commit co-author trailers off. This repository keeps the
   attribution trailers that Claude Code adds to commits and PR bodies.
 - **Approval.** ECC's code-review rule says "Approve" when no CRITICAL or HIGH issue remains. Here that

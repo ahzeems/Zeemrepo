@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { commitViolations, stagedMix } from "./wiki-compliance-validation.ts";
+import { commitViolations, isConflictResolution, stagedMix } from "./wiki-compliance-validation.ts";
 
 const commit = (subject: string, files: string[]) => ({ sha: "a".repeat(40), subject, files });
 
@@ -52,4 +52,34 @@ await test("a docs(wiki) subject on a commit with no wiki files is refused as mi
   const [violation] = commitViolations([commit("docs(wiki): record", ["scripts/a.ts"])]);
   assert.equal(violation?.kind, "subject");
   assert.match(violation?.detail ?? "", /no wiki files/);
+});
+
+await test("a merge that only resolves conflicts may span wiki and other files (owner decision)", () => {
+  const merge = { ...commit("Merge main into feature", ["CHANGELOG.md", "wiki/work/projects/X.md"]), resolutionOnly: true };
+  assert.deepEqual(commitViolations([merge]), []);
+  assert.deepEqual(commitViolations([{ ...merge, files: ["wiki/work/projects/X.md"] }]), [], "nor does it need a docs(wiki) subject");
+  const [violation] = commitViolations([{ ...merge, resolutionOnly: false }]);
+  assert.equal(violation?.kind, "mixed");
+});
+
+await test("a remerge patch counts as a resolution only if every hunk removes conflict markers", () => {
+  const resolved = "diff --git a/x b/x\nremerge CONFLICT (content): Merge conflict in x\nindex 1..2 100644\n--- a/x\n+++ b/x\n@@ -1,5 +1,2 @@\n-<<<<<<< abc (ours)\n-one\n-=======\n-two\n->>>>>>> def (theirs)\n+one\n+two\n";
+  const slipped = "diff --git a/y b/y\n--- a/y\n+++ b/y\n@@ -1 +1 @@\n-old\n+new\n";
+  assert.equal(isConflictResolution(resolved), true);
+  assert.equal(isConflictResolution(resolved + slipped), false, "an unrelated hunk beside a resolution");
+  assert.equal(isConflictResolution(slipped), false);
+  const invented = resolved.replace("+two\n", "+two\n+three, written during the merge\n");
+  assert.equal(isConflictResolution(invented), false, "a resolution may only keep lines from the two sides");
+  const setext = "diff --git a/n.md b/n.md\nindex 1..2 100644\n--- a/n.md\n+++ b/n.md\n@@ -1,3 +1,1 @@\n Title\n-=======\n-require_auth = true\n";
+  assert.equal(isConflictResolution(setext), false, "a marker-like line in a file git did not report as conflicted");
+  const deleted = "diff --git a/d.md b/d.md\nremerge CONFLICT (content): Merge conflict in d.md\ndeleted file mode 100644\n--- a/d.md\n+++ /dev/null\n@@ -1,5 +0,0 @@\n-<<<<<<< a\n-x\n-=======\n-y\n->>>>>>> b\n";
+  assert.equal(isConflictResolution(deleted), false, "deleting a file is not a resolution");
+  const moded = resolved.replace("index 1..2 100644\n", "old mode 100644\nnew mode 100755\nindex 1..2\n");
+  assert.equal(isConflictResolution(moded), false, "a mode change is not a resolution");
+  const partial = resolved.replace("->>>>>>> def (theirs)\n", " >>>>>>> def (theirs)\n");
+  assert.equal(isConflictResolution(partial), false, "a hunk must remove a whole marker set");
+  const dropped = resolved.replace("@@ -1,5 +1,2 @@\n", "@@ -1,6 +1,2 @@\n-an unrelated line beside the conflict\n");
+  assert.equal(isConflictResolution(dropped), false, "a deletion outside the marker block is an edit");
+  assert.equal(isConflictResolution(""), false, "nothing to judge is not a resolution");
+  assert.equal(isConflictResolution("diff --git a/z b/z\nremerge CONFLICT (modify/delete): z deleted in theirs\n"), false, "a file with no hunks");
 });

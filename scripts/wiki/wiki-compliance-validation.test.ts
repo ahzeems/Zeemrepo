@@ -68,6 +68,8 @@ await test("a remerge patch counts as a resolution only if every hunk removes co
   assert.equal(isConflictResolution(resolved), true);
   assert.equal(isConflictResolution(resolved + slipped), false, "an unrelated hunk beside a resolution");
   assert.equal(isConflictResolution(slipped), false);
+  const invented = resolved.replace("+two\n", "+two\n+three, written during the merge\n");
+  assert.equal(isConflictResolution(invented), false, "a resolution may only keep lines from the two sides");
   assert.equal(isConflictResolution(""), false, "nothing to judge is not a resolution");
   assert.equal(isConflictResolution("diff --git a/z b/z\nremerge CONFLICT (modify/delete): z deleted in theirs\n"), false, "a file with no hunks");
 });

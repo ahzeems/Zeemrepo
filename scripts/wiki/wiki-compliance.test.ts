@@ -96,7 +96,7 @@ await test("history check", async (t) => {
     repo.git(["update-ref", "refs/remotes/origin/main", repo.commit("main moved both")]);
     repo.git(["switch", "--quiet", "feature"]);
     assert.throws(() => repo.git(["merge", "--quiet", "--no-edit", "main-moved"]), "both files conflict");
-    repo.write("scripts/a.ts", "export const a = 3;\nexport const b = 2;\n");
+    repo.write("scripts/a.ts", "export const a = 3;\nexport const a = 2;\n");
     repo.write("wiki/Home.md", "# Main\n# Branch\n");
     return repo;
   };
@@ -107,6 +107,14 @@ await test("history check", async (t) => {
     repo.git(["commit", "--quiet", "--no-edit"]);
     const result = repo.check();
     assert.equal(result.code, EXIT_OK, result.err);
+  });
+
+  await t.test("a resolution that writes a new line instead of keeping the sides' lines is mixed", (t) => {
+    const repo = conflictingMerge(t);
+    repo.write("wiki/Home.md", "# Main\n# Branch\n# Written during the merge\n");
+    repo.git(["add", "scripts/a.ts", "wiki/Home.md"]);
+    repo.git(["commit", "--quiet", "--no-edit"]);
+    assert.equal(repo.check().code, EXIT_REFUSED);
   });
 
   await t.test("a conflict-resolving merge that also slips in an unrelated edit is still mixed", (t) => {

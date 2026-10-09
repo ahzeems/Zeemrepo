@@ -45,7 +45,8 @@ Follow `references/session-to-wiki.md` step by step. The short form:
 9. Commit wiki files alone, with a subject starting `docs(wiki): ` (or `docs(wiki)!: ` for a
    breaking restructure). Never mix wiki and other files in one commit; split it. A merge
    commit is judged only on changes it adds itself: it may resolve conflicts in wiki and other
-   files together, but any other change it adds counts as mixing. A file moved across the boundary is added in one commit
+   files together by keeping lines from the two sides; any line written during the merge, or any
+   other change, counts as mixing and goes in a commit of its own. A file moved across the boundary is added in one commit
    and deleted in the next. `npm run wiki:compliance` refuses a branch that breaks this.
 
 ## Rules that are never broken

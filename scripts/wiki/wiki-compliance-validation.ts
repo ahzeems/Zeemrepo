@@ -47,13 +47,23 @@ export function commitViolations(commits: readonly Commit[]): Violation[] {
 // OWNER DECISION, 2026-10-09: a merge may resolve conflicts in wiki and other files at once,
 // because two open pull requests usually conflict on CHANGELOG.md and a work record together;
 // an unrelated edit still makes it mixed. A hunk of the merge's --remerge-diff counts as a
-// resolution only when it removes a conflict marker; a file with no hunk does not count.
-const MARKER = /^-(?:<{7}|={7}|>{7})(?: |$)/m;
+// resolution only when it removes a conflict marker and every line it adds is one of the two
+// sides' lines it removed; a written line belongs in a commit of its own. A file with no hunk
+// (a modify/delete conflict, a mode change) does not count.
+const MARKER = /^(?:<{7}|={7}|>{7})(?: |$)/;
+
+function resolvesOnly(hunk: string): boolean {
+  const lines = hunk.split("\n").slice(1);
+  const removed = lines.filter((line) => line.startsWith("-")).map((line) => line.slice(1));
+  const sides = new Set(removed.filter((line) => !MARKER.test(line)));
+  const added = lines.filter((line) => line.startsWith("+")).map((line) => line.slice(1));
+  return removed.some((line) => MARKER.test(line)) && added.every((line) => sides.has(line));
+}
 
 export function isConflictResolution(patch: string): boolean {
   const files = patch.split(/^diff --git /m).slice(1);
   return files.length > 0 && files.every((file) => {
     const hunks = file.split(/^@@ /m).slice(1);
-    return hunks.length > 0 && hunks.every((hunk) => MARKER.test(hunk));
+    return hunks.length > 0 && hunks.every(resolvesOnly);
   });
 }

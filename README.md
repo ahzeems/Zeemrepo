@@ -1,28 +1,54 @@
 # Zeemrepo
 
-## Claude Code setup: ECC
+A Claude-Code-only repository for agent governance, compliance and evaluation work, migrated
+from the earlier Zimi repository with every kept rule enforced by a check and reviewed by
+[ECC](https://github.com/affaan-m/ECC). The migration audit is in `docs/migration/`.
 
-This repo uses the official [ECC](https://github.com/affaan-m/ECC) plugin (`ecc@ecc`), **scoped to this project only**. It is not installed globally.
+## Rules that never bend
 
-What's included:
-- **Plugin `ecc@ecc`**: 68 agents, about 290 skills and 94 commands (as `/ecc:<name>`), lifecycle hooks (standard profile), and the chrome-devtools MCP server. Declared in `.claude/settings.json` (`extraKnownMarketplaces` + `enabledPlugins`), so anyone who opens this repo in Claude Code is offered the plugin.
-- **Rules**: the complete ECC rule set (`common/` plus every language pack) in `.claude/rules/ecc/`. Plugins can't ship rules, so they're vendored here. Language rules apply only to matching file paths.
+- Nothing is pushed to `main`. Every change is a branch and a pull request; only the owner
+  merges, on GitHub. The `main` ruleset, the git hooks and Claude Code settings all enforce it.
+- `npm run check` must pass. CI runs it, and runs main's copy of the guards against each PR.
 
-Requirements: Claude Code ≥ 2.1, Node.js ≥ 18, git. Python 3 is optional and used by the continuous-learning observer.
+## Setup
 
-### Update
+Requirements: Node 22.18 or later (`.nvmrc` pins 24), git 2.36 or later, `gh` logged in.
+
 ```bash
-claude plugin marketplace update ecc
-claude plugin update ecc@ecc --scope project
-# then refresh the rules from the same checkout:
-rm -rf .claude/rules/ecc && cp -R ~/.claude/plugins/marketplaces/ecc/rules .claude/rules/ecc && rm .claude/rules/ecc/README.md
+npm ci
+git config --get core.hooksPath   # inspect first; then:
+npm run hooks:install
+npm run check
 ```
 
-### Configure hooks
-Run `/plugin configure ecc@ecc` inside Claude Code and set `hooks_enabled` (true/false) and `hook_profile` (`minimal` | `standard` | `strict`).
-For per-session overrides, use the env vars `ECC_HOOK_PROFILE` and `ECC_DISABLED_HOOKS`.
+## Working here
 
-### Not used
-- ECC's `install.sh` / manual install. Don't run it on top of the plugin, or the hooks will run twice.
-- Codex, Cursor, Gemini, OpenCode and other harness integrations, plus the `multi-*` commands, which need the external ccg-workflow runtime.
-- Hermes is deferred (later: `install.sh --target hermes`).
+| Command | What it does |
+|---|---|
+| `npm run check` | Lint, types, tests (80% coverage) and the repository guards |
+| `npm run pr` | Checks the branch, pushes it and opens or reports its pull request; never merges |
+| `npm run audit` | Confirms every commit on main since the PR-only rule landed by merged pull request |
+| `npm run worktree:guard` | Reports checkouts holding the only copy of some work |
+
+The full path from branch to merge is the runbook `wiki/runbooks/Land a change.md`. What each
+branch must record (changelog, work record, operating docs) is `wiki/reference/Change records.md`.
+
+## Layout
+
+| Path | Contents |
+|---|---|
+| `scripts/` | The guards and their tests (`node:test`, run as TypeScript directly) |
+| `config/` | Guard configuration: governance claims, skill standards, landing audit |
+| `wiki/` | Shared memory: notes, decisions, lessons, runbooks and work records (`wiki-memory` skill) |
+| `.claude/skills/` | Repository skills migrated from Zimi; provenance in `import-baseline.json` |
+| `.claude/rules/ecc/` | ECC rules, vendored unchanged |
+| `.github/workflows/` | `check` (the change's own checks) and `guards` (main's guards, `pull_request_target`) |
+| `CHANGELOG.md` | One entry per branch |
+
+## ECC
+
+The ECC plugin (`ecc@ecc`) is enabled for this project only, pinned to the `v2.2.3` release tag
+in `.claude/settings.json`. To update: change that `ref`, then run
+`claude plugin marketplace update ecc` and `claude plugin update ecc@ecc --scope project`, and
+refresh `.claude/rules/ecc/` from the same checkout. Do not also run ECC's `install.sh`, or its
+hooks run twice.

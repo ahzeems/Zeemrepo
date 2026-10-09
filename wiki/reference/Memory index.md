@@ -17,6 +17,8 @@ One line per memory note. Add new notes here; work notes need no entry.
 
 ## Runbooks
 
+- [[Land a change]] - from a feature branch to an owner-merged pull request; nothing is pushed to main
+
 ## Reference
 
 - [[Change records]] - what every branch records before it lands, and which guard checks it

@@ -35,3 +35,19 @@ could not run stays blocked coverage, not a pass.
 
 Add a feature only with its real source path, prerequisite, and observable recipe. Product
 defects go to wiki issues; never rewrite behavior to make this map pass.
+
+## Change records and governance
+
+`scripts/changes/` (changelog-guard, repo-memory-guard, branch-diff) and `scripts/governance/`
+with `config/governance-alignment.json`. Drive with `npm run changelog:guard`,
+`npm run memory:guard` and `npm run governance:check` (exit 0 ok, 1 refused, 2 failed);
+`node scripts/governance/governance-guard.ts --root scripts/fixtures/broken/governance-guard`
+must exit 1. Rules: `wiki/reference/Change records.md`.
+
+## Landing path
+
+`scripts/git/` (branch-guard, pr-ready, landing-audit, worktree-guard), `.githooks/`,
+`.github/workflows/{check,guards}.yml`, and the Claude Code hook `scripts/claude/block-pr-merge.ts`.
+Drive with `npm run pr -- --dry-run`, `npm run audit` and `npm run worktree:guard`; the hooks run
+on commit and push once `npm run hooks:install` is done. CI can only be observed on a pull
+request: `gh pr checks <n>`. Steps: `wiki/runbooks/Land a change.md`.

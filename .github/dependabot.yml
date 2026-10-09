@@ -1,0 +1,7 @@
+# Weekly update PRs for the SHA-pinned GitHub Actions. Nothing merges automatically.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

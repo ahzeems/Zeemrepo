@@ -1,0 +1,8 @@
+#!/bin/sh
+# Refuse pushes to main, rewrites and unlanded deletions, then run every check. git passes
+# the ref updates on stdin, which branch-guard reads. npm run pr has just run the check for
+# the commit it pushes and says so in PR_READY_CHECKED, so it is not run twice.
+set -eu
+node scripts/git/branch-guard.ts push
+if [ "${PR_READY_CHECKED:-}" = "$(git rev-parse HEAD)" ]; then exit 0; fi
+npm run --silent check

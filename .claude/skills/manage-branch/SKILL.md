@@ -43,8 +43,14 @@ Conventional commits (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`). Stage
 
 ## Open the pull request
 
+`npm run pr` refuses on main or a detached HEAD, a dirty tree, or a branch that lacks `origin/main`
+or its own commits; then it runs `npm run check`, checks that `gh` is logged in, pushes the
+branch, and opens the PR (title and body from the commits) or reports the one already open. Then
+set the title and body:
+
 ```bash
-gh pr create --base main --head <feature-branch> --title "<type>(<scope>): <summary>" --body-file <file>
+npm run pr
+gh pr edit <n> --title "<type>(<scope>): <summary>" --body-file <file>
 ```
 
 Run [branch-review](../branch-review/SKILL.md) and [verify-work](../verify-work/SKILL.md) on the committed head before handoff, in a separate session or subagent; if the builder reviews

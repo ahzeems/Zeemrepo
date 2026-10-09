@@ -32,8 +32,8 @@ spec axis reports "no spec available" and infers nothing from the code.
 
 Read package.json, eslint.config.ts, and the TypeScript configs for the checks; `npm run check`
 is the enforcing command. Neither axis reports a rule one of those checks enforces. Cite existing
-command evidence instead (a local `npm run check` result, or the PR's CI checks once CI is
-configured), when its tree matches, and name any FAIL, SKIP, or missing result. Do not run the checks yourself;
+command evidence instead (a local `npm run check` result, or the PR's required `check` and
+`guards` CI checks), when its tree matches, and name any FAIL, SKIP, or missing result. Do not run the checks yourself;
 this route is read-only. verify-work runs them separately.
 
 ## 4. Run the axes separately

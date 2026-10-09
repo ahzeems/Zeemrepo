@@ -28,6 +28,8 @@ evidence:
   - "OWNER DECISION: \"I recommend allowing mixed wiki/non-wiki conflict resolutions in genuine merge commits, while rejecting unrelated edits.\" (2026-10-09); wiki-compliance now allows a merge whose remerge-diff touches only files git reported as content conflicts, each hunk removing a whole marker set, deleting only inside it, and adding only lines from the two sides; octopus merges are refused."
   - "VERIFIED: PR #12 merged by the owner (resolving-merge exception, spawn aliases)."
   - "VERIFIED: Phase 9 wrapper: 7 unittest cases pass; driving ECC's real _setup_sandbox through it gave a sandbox with the rules, settings and merge hook (which blocked gh pr merge with exit 2) and no evals/ folder; no model was called."
+  - "VERIFIED: after a security review showed env scrubbing was not a boundary, every ECC claude call runs under bubblewrap; a probe through the real confine() saw no gh token, SSH keys, this repository or ~/Github, gh logged out, and no secret variables, while claude still ran."
+  - "OWNER DECISION: compliance pilot approved: \"Pilot: 3 targets (Recommended)\" (2026-10-09)."
   - "OWNER DECISION: nothing is pushed to main; work lands by pull request and only the owner merges (2026-10-09)."
 ---
 

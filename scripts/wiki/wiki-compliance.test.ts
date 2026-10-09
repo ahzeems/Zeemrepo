@@ -117,6 +117,22 @@ await test("history check", async (t) => {
     assert.equal(repo.check().code, EXIT_REFUSED);
   });
 
+  await t.test("an octopus merge cannot be judged, so it is refused", (t) => {
+    const repo = branch(t);
+    for (const name of ["one", "two"]) {
+      repo.git(["switch", "--quiet", "-c", name, "refs/remotes/origin/main"]);
+      repo.write(`scripts/${name}.ts`, `export const ${name} = 1;\n`);
+      repo.commit(`feat: ${name}`);
+    }
+    repo.git(["switch", "--quiet", "feature"]);
+    repo.git(["merge", "--quiet", "--no-ff", "--no-commit", "one", "two"]);
+    repo.git(["rm", "--quiet", "wiki/Home.md"]);
+    repo.git(["commit", "--quiet", "-m", "Merge one and two"]);
+    const result = repo.check();
+    assert.equal(result.code, EXIT_REFUSED);
+    assert.match(result.err, /octopus/);
+  });
+
   await t.test("a conflict-resolving merge that also slips in an unrelated edit is still mixed", (t) => {
     const repo = conflictingMerge(t);
     repo.write("scripts/c.ts", "export const c = 99;\n");

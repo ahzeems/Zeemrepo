@@ -27,6 +27,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 from collections.abc import Callable, Mapping, Sequence
 import dataclasses
 import json
@@ -157,13 +158,38 @@ def remove_tree(path: Path) -> None:
     shutil.rmtree(path, ignore_errors=True)
 
 
+# A sandboxed claude that refreshes its login rotates the refresh token, which logs the owner out (the
+# 2026-10-09 re-run). So the copy holds only the access token, and a run needs one that outlasts it.
+REFRESH_FIELDS = ("refreshToken", "refreshTokenExpiresAt")
+LOGIN_MINUTES_NEEDED = 60
+
+
+def access_only(login: dict[str, object]) -> dict[str, object]:
+    oauth = login.get("claudeAiOauth")
+    if not isinstance(oauth, dict):
+        return login
+    return {**login, "claudeAiOauth": {key: value for key, value in oauth.items() if key not in REFRESH_FIELDS}}
+
+
+def require_fresh_login(credentials: Path, now: float) -> None:
+    """Refuse to run unless the login's access token is valid for LOGIN_MINUTES_NEEDED more minutes."""
+    try:
+        expires = json.loads(credentials.read_text())["claudeAiOauth"]["expiresAt"] / 1000
+    except (OSError, ValueError, KeyError, TypeError):
+        expires = 0
+    if expires - now < LOGIN_MINUTES_NEEDED * 60:
+        print(f"run_comply: the Claude login in {credentials} has under {LOGIN_MINUTES_NEEDED} minutes left (or none);"
+              " run `claude` on the host to refresh it, then retry.", file=sys.stderr)
+        raise SystemExit(2)
+
+
 def fresh_claude_home(source: Path, base: Path) -> Path:
     """A new Claude config directory per call holding only the login, so no call can plant for the next."""
     base.mkdir(parents=True, exist_ok=True)
     target = Path(tempfile.mkdtemp(prefix="claude-home-", dir=base))
     credentials = source / ".credentials.json"
     if credentials.is_file():
-        shutil.copy2(credentials, target / ".credentials.json")
+        (target / ".credentials.json").write_text(json.dumps(access_only(json.loads(credentials.read_text()))))
     (target / "plugins").mkdir()
     return target
 
@@ -479,6 +505,7 @@ def main(argv: list[str]) -> None:
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
     require_skill_comply(SKILL_COMPLY)
+    require_fresh_login(Path.home() / ".claude" / ".credentials.json", now=time.time())
     snapshot = repo_snapshot(REPO)
     deps = shared_deps(REPO, Path.home() / ".cache/zeemrepo/comply-deps")
     # Everything the run creates (login copies, the proxy socket, the gh config) lives here and is

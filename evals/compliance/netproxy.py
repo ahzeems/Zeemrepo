@@ -2,7 +2,7 @@
 
 Each confined process gets its own network namespace, so it has no network at all. The one way out
 is a CONNECT proxy on the host, listening on a unix socket bound into the sandbox, that tunnels only
-HTTPS to the Anthropic API and its login-refresh host (see ANTHROPIC). Inside, `python3 netproxy.py forward SOCK PORT -- command...` serves that
+HTTPS to the Anthropic API only (see ANTHROPIC). Inside, `python3 netproxy.py forward SOCK PORT -- command...` serves that
 socket as 127.0.0.1:PORT for HTTPS_PROXY, runs the command, and exits with its status.
 
 Standard library only: the forwarder runs under the read-only system Python inside the sandbox.
@@ -20,10 +20,11 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-# Exact hosts, not domains: the API, and platform.claude.com, where claude refreshes its login token
-# (TOKEN_URL in claude 2.1.295). Everything else is refused, including mcp-proxy.anthropic.com, which
+# Exact hosts, not domains: only the API. platform.claude.com (login refresh) is refused, because a
+# refresh in a sandbox rotates the owner's login (run_comply.py strips the refresh token anyway).
+# Everything else is refused too, including mcp-proxy.anthropic.com, which
 # would hand a scenario the owner's claude.ai connectors (mail, drive, docs), and telemetry.
-ANTHROPIC = ("api.anthropic.com", "platform.claude.com")
+ANTHROPIC = ("api.anthropic.com",)
 HEADER_LIMIT = 8192
 CONNECT_TIMEOUT = 30
 # Only plain hostnames reach the host resolver; anything else (#, @, NUL, brackets) is refused first.

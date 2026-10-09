@@ -13,12 +13,12 @@ import netproxy
 
 
 class Allowlist(unittest.TestCase):
-    def test_only_https_to_the_exact_anthropic_hosts_claude_needs_is_allowed(self) -> None:
-        for host in ("api.anthropic.com", "API.Anthropic.com.", "platform.claude.com"):
+    def test_only_https_to_the_exact_anthropic_api_host_is_allowed(self) -> None:
+        for host in ("api.anthropic.com", "API.Anthropic.com."):
             self.assertTrue(netproxy.allowed(host, 443, netproxy.ANTHROPIC), host)
         for host, port in (("api.anthropic.com", 80), ("evil.com", 443), ("anthropic.com.evil.com", 443),
                            ("mcp-proxy.anthropic.com", 443), ("claude.ai", 443), ("anthropic.com", 443),
-                           ("console.anthropic.com", 443), ("x.platform.claude.com", 443),
+                           ("console.anthropic.com", 443), ("platform.claude.com", 443),
                            ("x.api.anthropic.com", 443), ("127.0.0.1", 443), ("github.com", 443)):
             self.assertFalse(netproxy.allowed(host, port, netproxy.ANTHROPIC), f"{host}:{port}")
 

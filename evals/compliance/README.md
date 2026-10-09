@@ -30,8 +30,9 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
   empty `gh` config, no global git config and a fixed sandbox author;
 - gives every confined process its own empty network namespace with no resolver; the only way out
   is a proxy on the host (`netproxy.py`, reached through a unix socket bound into the sandbox) that
-  tunnels HTTPS to exactly `api.anthropic.com` and `platform.claude.com` (login refresh) and refuses everything
-  else, including `mcp-proxy.anthropic.com` (the owner's claude.ai connectors: mail, drive, docs),
+  tunnels HTTPS to exactly `api.anthropic.com` and refuses everything
+  else, including `platform.claude.com` (login refresh) and `mcp-proxy.anthropic.com` (the
+  owner's claude.ai connectors: mail, drive, docs),
   the internet and this machine's loopback services; it caps connections and drops clients that
   stall, and each run prints the hosts it allowed and refused;
 - splits a uniform chained Bash call (all `&&`, or all `;` and newlines) into one observation per
@@ -52,10 +53,14 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
   that did not run;
 - replaces any symlink a scenario planted on a tooling path (the file or a directory above it), so
   the real file is written in place and never through the link;
-- writes each report to `reports/<path-derived name>.md`, for example `rules-zeem-branch-and-merge.md`.
+- writes each report to `reports/<path-derived name>.md`, for example `rules-zeem-branch-and-merge.md`;
+- gives each call a copy of the login without its refresh token, and refuses to start unless the
+  access token has at least an hour left. On 2026-10-09 the re-run's claude calls began failing
+  as the token reached its expiry, with `platform.claude.com` allowed, and the owner's own Claude
+  then needed a new login; the likely cause is a sandboxed refresh rotating the refresh token.
 
-**Accepted exposure.** The scenario agent can read Claude's login token, because claude needs it,
-but can only send it to the Anthropic API. It cannot see other credentials, this repository, other
+**Accepted exposure.** The scenario agent can read Claude's short-lived access token (never the
+refresh token), because claude needs it, but can only send it to the Anthropic API. It cannot see other credentials, this repository, other
 checkouts, the parent session's sockets or the real home directory, and nothing it writes outside
 its working directory survives the run. bubblewrap must be installed (`bwrap`).
 

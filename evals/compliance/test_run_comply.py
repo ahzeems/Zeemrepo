@@ -348,6 +348,35 @@ class FreshClaudeHome(unittest.TestCase):
             self.assertFalse((second / "CLAUDE.md").exists(), "one call cannot plant instructions for the next")
 
 
+class Login(unittest.TestCase):
+    def test_the_sandbox_copy_holds_no_refresh_token_so_it_cannot_rotate_the_owner_s_login(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source, base = Path(directory) / "real", Path(directory) / "work"
+            source.mkdir()
+            login = {"claudeAiOauth": {"accessToken": "a", "refreshToken": "r", "refreshTokenExpiresAt": 9, "expiresAt": 5, "scopes": []}, "other": 1}
+            (source / ".credentials.json").write_text(json.dumps(login))
+            copy = json.loads((run_comply.fresh_claude_home(source, base) / ".credentials.json").read_text())
+            self.assertEqual(copy, {"claudeAiOauth": {"accessToken": "a", "expiresAt": 5, "scopes": []}, "other": 1})
+            self.assertEqual(json.loads((source / ".credentials.json").read_text()), login, "the owner's file is untouched")
+
+    def test_a_run_refuses_to_start_unless_the_login_outlasts_it(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            credentials = Path(directory) / ".credentials.json"
+            for expires_in, ok in ((3 * 3600, True), (30 * 60, False)):
+                credentials.write_text(json.dumps({"claudeAiOauth": {"expiresAt": int((1_000_000 + expires_in) * 1000)}}))
+                if ok:
+                    run_comply.require_fresh_login(credentials, now=1_000_000)
+                else:
+                    with self.assertRaises(SystemExit):
+                        run_comply.require_fresh_login(credentials, now=1_000_000)
+            for broken in ("{}", "not json"):
+                credentials.write_text(broken)
+                with self.assertRaises(SystemExit):
+                    run_comply.require_fresh_login(credentials, now=1_000_000)
+            with self.assertRaises(SystemExit):
+                run_comply.require_fresh_login(Path(directory) / "missing.json", now=1_000_000)
+
+
 class Confinement(unittest.TestCase):
     def layout(self, root: Path) -> run_comply.Layout:
         for folder in ("home", "claude-home", "plugins", "deps", "work"):

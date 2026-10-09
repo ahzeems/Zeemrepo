@@ -1,0 +1,479 @@
+# Zimi lessons and decisions as ECC instincts (continuous-learning-v2 import format).
+# Source of truth for the Phase 8 import; the imported copies live outside the repository.
+# Bodies never contain a line of three dashes, which the importer reads as a block boundary.
+
+---
+id: zimi-git-hook-routes-child-git
+trigger: "when a git hook or test fixture runs git that spawns its own git commands"
+confidence: 0.85
+domain: git
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Strip every GIT_ variable before a test or helper spawns git, through createRepo, cleanGitEnv or scripts/lib/git.ts with an explicit cwd, because a hook exports GIT_DIR or GIT_INDEX_FILE and child git then acts on the real repository.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/Git hooks route child Git commands to the hooked repository.md). Prevention: scripts/test-support/repo-fixture.ts cleanGitEnv; scripts/toolchain/fixture-env.test.ts fails unscrubbed spawns in test code.
+
+---
+id: zimi-hook-run-check-preserves-state
+trigger: "when a git hook or test fixture runs git during the pre-push check"
+confidence: 0.85
+domain: git
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Treat a push refused by git-state as a leaked fixture: inspect HEAD, the branch, core.bare and local config in this checkout and the main one, restore them, and find the escaping test before pushing again.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/Hook-run checks must preserve Git state.md). Prevention: scripts/git/git-state.ts runs around npm run check in .githooks/pre-push; scripts/git/hooks.test.ts runs the hook with stub checks.
+
+---
+id: zimi-refused-commit-keeps-staging
+trigger: "when a git hook or test fixture runs git and a commit was refused"
+confidence: 0.8
+domain: git
+source_repo: ahzeems/Zimi
+---
+
+## Action
+After a refused commit, inspect the staged paths before retrying, because the index keeps the refused staging and a retry can commit wiki and code files together.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/A refused commit leaves its staging behind.md). Prevention: wiki-compliance --staged in .githooks/pre-commit refuses a mixed staging.
+
+---
+id: zimi-bare-worktree-records
+trigger: "when a git hook or test fixture runs git over every worktree record"
+confidence: 0.8
+domain: git
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Parse git worktree porcelain output as whole -z records and keep the bare attribute, so a bare repository's own record is never inspected as a checkout.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/Bare worktree records are not checkouts.md). Prevention: parseWorktrees in scripts/git/worktree-validation.ts; worktree-guard.test.ts runs from a bare repository's worktree.
+
+---
+id: zimi-prose-rules-need-checks
+trigger: "when changing a repository check or validator that enforces a written rule"
+confidence: 0.85
+domain: testing
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Back every repository rule that matters with a check in the canonical path (npm run check, a hook or CI), because a rule written only in a skill is broken by any agent that has not loaded the skill.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/Prose rules do not enforce themselves.md). Prevention: npm run check runs every guard; CI runs check and guards on each pull request.
+
+---
+id: zimi-advisory-check-cannot-block
+trigger: "when changing a repository check or validator that should stop a commit"
+confidence: 0.85
+domain: testing
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Make a gate exit nonzero and run it where git or CI acts on the result, because a check that prints its finding and exits 0 cannot stop anything.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/An advisory check cannot stop a commit.md). Prevention: Guards exit 0, 1 or 2 through scripts/lib/cli.ts; the hooks use set -eu.
+
+---
+id: zimi-checkers-need-counterexamples
+trigger: "when changing a repository check or validator that judges documents"
+confidence: 0.85
+domain: testing
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Show a checker failing on a deliberately broken control before trusting it, and keep a valid and a broken fixture beside it.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/Documentation checkers need counterexamples.md). Prevention: scripts/fixtures/valid and scripts/fixtures/broken pairs for wiki-lint, skill-lint and governance-guard.
+
+---
+id: zimi-environment-rules-test-in-environment
+trigger: "when changing a repository check or validator whose rule depends on the runtime account or host"
+confidence: 0.8
+domain: testing
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Pass environment-derived inputs such as the account name in as parameters and test the values the deployed environment really has, because a rule built from the environment can pass every local test and fail in production.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/A rule built from the environment needs testing in that environment.md). Prevention: isPersonalAccount in scripts/wiki/redaction.ts takes identity as a parameter, with tests for service accounts.
+
+---
+id: zimi-redaction-covers-all-published-files
+trigger: "when changing a repository check or validator that scans for secrets"
+confidence: 0.85
+domain: testing
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Scan every file the repository publishes, code and config included, plus staged copies, because a redaction sweep limited to notes lets a username or hostname through in a script.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/Redaction checks must cover code, not only notes.md). Prevention: redactionTargets in scripts/wiki/redaction.ts scans tracked and addable files of any extension.
+
+---
+id: zimi-parse-metadata-do-not-grep
+trigger: "when changing a repository check or validator that reads wiki frontmatter"
+confidence: 0.85
+domain: testing
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Parse frontmatter as YAML with exact fences and duplicate-key rejection instead of matching lines, because a line-based reader accepts malformed metadata.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/Wiki validation needs parsed metadata.md). Prevention: parseFrontmatter in scripts/lib/frontmatter.ts with none, invalid and ok results.
+
+---
+id: zimi-normalize-crlf-before-parsing
+trigger: "when changing a repository check or validator that reads text from any checkout"
+confidence: 0.8
+domain: testing
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Normalize CRLF and strip a byte-order mark before parsing frontmatter, so files from Windows checkouts pass the same rules.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/Wiki frontmatter must accept Windows line endings.md). Prevention: parseFrontmatter normalizes line endings; frontmatter.test.ts has a CRLF case.
+
+---
+id: zimi-test-command-finds-tests
+trigger: "when changing a repository check or validator that runs the test suite"
+confidence: 0.85
+domain: testing
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Point the test runner at quoted test-file globs and require a sibling test for every script, because a directory argument can run an index file and exit 0 with no tests.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/Test commands must discover actual tests.md). Prevention: package.json test glob scripts/**/*.test.ts; scripts/toolchain/test-pairing.ts.
+
+---
+id: zimi-memory-guard-is-not-accuracy
+trigger: "when changing a repository check or validator that guards change records"
+confidence: 0.75
+domain: testing
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Read a passing memory guard as proof that a record moved, not that its content is true or current; verify the claims themselves.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/A passing memory guard does not prove current content.md). Prevention: scripts/changes/repo-memory-guard.ts checks record movement and labelled evidence only.
+
+---
+id: zimi-no-sudo-for-agents
+trigger: "when an agent sets up host credentials that need root"
+confidence: 0.8
+domain: security
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Split setup that needs root into a short root step the human runs and a user step the agent runs, because an agent cannot type a sudo password.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/Agents cannot enter a sudo password.md). Prevention: None automated: owner-authority.md forbids answering authorization prompts.
+
+---
+id: zimi-passphrase-ssh-blocks-push
+trigger: "when an agent sets up host credentials for pushing to GitHub"
+confidence: 0.75
+domain: security
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Push over an HTTPS remote with the gh credential helper instead of an SSH key with a passphrase, which an agent cannot type; never hand-set a remote-tracking ref after a URL push.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/Passphrase-protected SSH keys block agent pushes.md). Prevention: Zeemrepo origin is HTTPS; npm run pr pushes to origin by name.
+
+---
+id: zimi-fine-grained-token-no-ssh-keys
+trigger: "when an agent sets up host credentials with a GitHub token"
+confidence: 0.75
+domain: security
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Log in to gh through the browser with the admin:public_key scope to upload SSH keys, because a pasted fine-grained token gets HTTP 403 on /user/keys.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/Fine-grained tokens cannot upload SSH keys.md). Prevention: None automated; verify with gh ssh-key list.
+
+---
+id: zimi-account-permission-needs-account-resource
+trigger: "when an agent sets up host credentials with an API token"
+confidence: 0.7
+domain: security
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Give an API token the account resource that its account-level permissions apply to, because permissions scoped to a zone grant nothing at account level.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/An account-scoped API permission needs an account resource.md). Prevention: None automated; check the token's resources before retrying writes.
+
+---
+id: zimi-sshd-first-value-wins
+trigger: "when an agent sets up host credentials on a server with sshd drop-ins"
+confidence: 0.75
+domain: security
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Ask the running sshd (sudo sshd -T) for the effective setting, because sshd keeps the first value it reads and a lower-numbered drop-in can win.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/sshd takes the first value, so the lowest drop-in wins.md). Prevention: Judge password login by the methods the server lists, not by a BatchMode refusal.
+
+---
+id: zimi-root-shell-hides-user-tools
+trigger: "when an agent sets up host credentials from a root shell"
+confidence: 0.75
+domain: security
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Run gh, git and SSH as the normal user, because a root shell has a different home, PATH and keys.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/Root shell hides user-installed tools.md). Prevention: branch-and-merge.md: do not work as root.
+
+---
+id: zimi-placeholders-copied-literally
+trigger: "when writing skill or documentation text with example commands"
+confidence: 0.7
+domain: documentation
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Write placeholders that cannot be mistaken for values, such as <your-name>, because readers run examples as written.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/Placeholder values get copied literally.md). Prevention: None automated; review examples before publishing.
+
+---
+id: zimi-walkthroughs-link-not-copy
+trigger: "when writing skill or documentation text that walks through a workflow"
+confidence: 0.75
+domain: documentation
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Link to the skill or rule that owns each step instead of copying its rules, and keep one example per route.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/Walkthroughs should not duplicate skill rules.md). Prevention: wiki-and-docs.md: walkthroughs link to the owning skill or rule.
+
+---
+id: zimi-integration-preserves-method
+trigger: "when writing skill or documentation text adapted from an imported skill"
+confidence: 0.8
+domain: documentation
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Keep an imported skill's method and wording, and review each interface substitution (paths, commands, tool names) separately from any change to the method.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/Skill integration must preserve the method.md). Prevention: import-baseline.json hashes plus skills:lint require an owner-approved revision for any change.
+
+---
+id: zimi-restoration-compares-source
+trigger: "when writing skill or documentation text restored from an earlier copy"
+confidence: 0.8
+domain: documentation
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Compare a restored skill against its full supplied source, companion files included, before accepting it, because a valid entry point can still have lost the method.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/Skill restoration needs source comparison.md). Prevention: skills:lint checks SKILL.md hashes and cited paths; companion-file content is not hashed.
+
+---
+id: zimi-owner-merges-pull-requests
+trigger: "when landing work through an owner pull request on GitHub"
+confidence: 0.95
+domain: process
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Push the branch and open the pull request with npm run pr, report it ready for the owner's review, and never push to main, merge or approve.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/decisions/ADR-0008 Owner merges pull requests on GitHub.md). Prevention: GitHub ruleset protect-main, pre-push branch-guard, settings.json deny rules and scripts/claude/block-pr-merge.ts.
+
+---
+id: zimi-changelog-no-post-merge-facts
+trigger: "when landing work through an owner pull request that adds a changelog entry"
+confidence: 0.9
+domain: process
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Write the CHANGELOG.md entry in the same pull request as the change and never cite facts that exist only after the merge, such as the merge commit.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/decisions/ADR-0007 Changelog entries carry no post-merge facts.md). Prevention: npm run changelog:guard.
+
+---
+id: zimi-independent-review-separate-context
+trigger: "when landing work through an owner pull request before handover"
+confidence: 0.9
+domain: process
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Have a separate reviewer context inspect the pinned commit and run its own checks; the builder's own review is never independent, and a new head needs a new review.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/decisions/ADR-0022 Independent review means a separate reviewer context.md). Prevention: .claude/agents/finder.md and verifier.md; ECC reviewer agents.
+
+---
+id: zimi-git-notes-do-not-travel
+trigger: "when landing work through an owner pull request that needs shared evidence"
+confidence: 0.8
+domain: process
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Keep review and check evidence on GitHub (PR reviews, comments and status checks), because git notes do not travel with clone, fetch or pull.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/lessons/Git notes do not travel with fetch or pull.md). Prevention: npm run audit reads merged pull requests from GitHub.
+
+---
+id: zimi-identify-the-checkout
+trigger: "when landing work through an owner pull request from a checkout"
+confidence: 0.85
+domain: process
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Identify the checkout before acting (path, worktree, branch, full HEAD, clean state, loaded instruction files), and give each parallel session its own worktree.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/decisions/ADR-0021 Authority comes from an identified checkout.md). Prevention: npm run worktree:guard before removing a worktree.
+
+---
+id: zimi-wiki-is-repo-vault
+trigger: "when recording wiki memory in the vault of this repository"
+confidence: 0.85
+domain: process
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Record durable project memory as typed notes in wiki/ inside the repository, loaded through the wiki-memory skill.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/decisions/ADR-0001 Wiki is an Obsidian vault in the repository.md). Prevention: npm run wiki:lint enforces the note schema.
+
+---
+id: zimi-work-records-in-vault
+trigger: "when recording wiki memory in the vault for work in progress"
+confidence: 0.85
+domain: process
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Track ideas, plans and tickets as linked work records under wiki/work/ next to the memory notes, not in a separate planning store.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/decisions/ADR-0005 Work records live in the shared vault.md). Prevention: wiki:lint validates work records; memory:guard requires one to move per branch.
+
+---
+id: zimi-workflow-markdown-is-interface
+trigger: "when recording wiki memory in the vault that describes how work lands"
+confidence: 0.85
+domain: process
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Treat documents that state how work is landed, reviewed and verified as an interface: change them with the code, and let governance:check refuse text that still asserts a replaced rule.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/decisions/ADR-0009 Workflow-critical Markdown is an interface.md). Prevention: npm run governance:check with config/governance-alignment.json.
+
+---
+id: zimi-vault-is-interface-editor-optional
+trigger: "when recording wiki memory in the vault for any editor"
+confidence: 0.8
+domain: process
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Keep the repository wiki as the source of truth and treat Obsidian or any other editor as an optional viewer of it.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/decisions/ADR-0011 The vault is the interface, Obsidian is optional.md). Prevention: No .obsidian settings ship; wiki:lint is editor-independent.
+
+---
+id: zimi-claude-code-only-harness
+trigger: "when configuring the agent harness for this repository"
+confidence: 0.9
+domain: tooling
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Configure only Claude Code with the pinned ECC plugin; put repository rules in CLAUDE.md and .claude/rules/zeem, and mark user-only skills with disable-model-invocation and the userOnly list.
+
+## Evidence
+From Zimi (ported to Zeemrepo wiki/decisions/ADR-0024 Claude Code is the only harness.md). Prevention: skills:lint enforces userOnly against disable-model-invocation; settings.json pins ECC to v2.2.3.
+
+---
+id: zimi-zeem-rules-override-ecc
+trigger: "when configuring the agent harness with ECC rules installed"
+confidence: 0.85
+domain: tooling
+source_repo: ahzeems/Zimi
+---
+
+## Action
+Follow the zeem rule where it disagrees with an ECC rule, an ECC or repository skill, or a wiki page, and read each zeem file's Overrides of ECC section.
+
+## Evidence
+From Zimi (ported to Zeemrepo CLAUDE.md and docs/migration/rules-distill.md). Prevention: None automated beyond review; recorded in CLAUDE.md.

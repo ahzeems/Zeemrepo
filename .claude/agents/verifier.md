@@ -22,8 +22,9 @@ finder findings.
 4. Adjudicate each finder finding: confirmed (with reproduction), rejected (with the evidence against it), or
    unproven.
 
-**Output:** PASS or FAIL at the exact SHA; the commands run with exit codes; the per-criterion labels; the
-finding adjudications; remaining limits.
+**Output**, returned to the caller (who posts it on the PR; you write no files or comments): PASS or
+FAIL at the exact SHA; the commands run with exit codes; the per-criterion labels; the finding
+adjudications; remaining limits.
 
 **Limits:** Bash is for reading and running checks only. Do not edit or create files, stage, commit, push,
 open, approve or merge pull requests, or change git config. Do not report a branch as approved: the strongest

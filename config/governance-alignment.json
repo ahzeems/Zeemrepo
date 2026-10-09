@@ -105,12 +105,12 @@
     },
     {
       "id": "bare-root-storage",
-      "pattern": "root is (a )?bare|bare root is storage",
+      "pattern": "\\bstop at the bare root\\b|\\broot is (a )?bare (storage|repository)\\b|\\bbare root is storage\\b",
       "supersededBy": "The root is a normal checkout; authority comes from an identified checkout (ADR-0021, zimi-audit rule 48)"
     },
     {
       "id": "agents-self-merge",
-      "pattern": "agents (merge|land) (through|via|their own)",
+      "pattern": "\\bagents (merge|land) (through|via) (an? |the )?(audited )?gate\\b|\\bagents merge and push main\\b|\\bagents merge their own (branch|branches|work|changes)\\b",
       "supersededBy": "Owner decision 2026-10-09: only the owner merges, on GitHub (ADR-0008)"
     }
   ],
@@ -118,7 +118,7 @@
     {
       "path": "wiki/decisions/ADR-0021 Authority comes from an identified checkout.md",
       "contains": "ADR-0021 The bare root is storage, authority comes from an identified checkout.md",
-      "reason": "Provenance: names the Zimi source file this rewrite replaces; the note itself says the premise was false.",
+      "reason": "Provenance: names the Zimi source file this rewrite replaces; the note records that the bare layout was real on 2026-10-06 and changed later.",
       "claims": [
         "bare-root-storage"
       ]

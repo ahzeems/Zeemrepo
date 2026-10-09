@@ -1,6 +1,6 @@
 # Rules distillation (Phase 7)
 
-ECC `rules-distill`, run on 2026-10-09 over the 71 rules listed in `skill-stocktake.md` ("Rules to distill") and
+ECC `rules-distill`, run on 2026-10-09 over the 68 rules listed in `skill-stocktake.md` ("Rules to distill") and
 the rule catalog in `zimi-audit.md` section 2. Each rule was compared with the vendored ECC rules in
 `.claude/rules/ecc/common/`, and given a verdict:
 - **Rule file**: the rule now lives in a `.claude/rules/zeem/` file.
@@ -52,7 +52,7 @@ Rule files: `branch-and-merge.md` (BM), `change-records.md` (CR), `evidence-and-
 | | Find callers before editing | DP |
 | | Challenge duplicating or boundary-crossing briefs | DP |
 | | Wiki commits separate, `docs(wiki):` | BM; enforced by `wiki:compliance` |
-| | Builder never merges, closes its own item or writes its verdict | BM, ER |
+| | Builder never merges, closes its own item or writes its verdict | BM, ER, CR (an item is done only when the owner merges its PR) |
 | grill-plan | Never infer an owner decision | OA |
 | | Do not ask what a command can settle | OA |
 | learn-from-failure | Prevention runs in an existing command and fails on the defect | ER |
@@ -105,7 +105,8 @@ line in one file.
 | 19, 21 | Plan confirmation; ask before destructive actions | ECC (`/ecc:plan`, Claude Code permissions); OA adds the authorization specifics |
 | 20 | Never answer an owner-authorization prompt | OA |
 | 22-25, 32, 42 | Change records, doc updates, wiki commits, new extensions | CR; enforced by the change guards |
-| 26, 28, 29 | Load wiki-memory; append-only decisions and sessions | WD |
+| 26, 28 | Load wiki-memory; decisions and sessions are not edited after their day | WD |
+| 29 | Write a session note after meaningful work | Skill (`wiki-memory`) |
 | 27 | Redaction | Enforced by `wiki:lint`; OA covers outbound text |
 | 31 | Governance alignment | CR; `governance:check` |
 | 33-37 | Skill library, provenance, standards, user-only, denial | SK; enforced by `skills:lint` |
@@ -121,13 +122,13 @@ Each override is written in the rule file it belongs to, under "Overrides of ECC
 
 | ECC source | Override | File |
 |---|---|---|
-| `development-workflow.md` step 4 "Commit & Push" | Ends at `npm run pr`; the owner merges | BM |
+| `development-workflow.md` steps 4-5, "Commit & Push" then checks | Ends at `npm run pr` (checks, then push); the owner merges | BM |
 | `git-workflow` skill: `git rebase origin/main`, `--force-with-lease` | Not on pushed branches | BM |
 | `git-workflow.md` commit format | Scopes allowed; wiki commits `docs(wiki):` | BM |
 | `git-workflow.md` `includeCoAuthoredBy` note | Attribution trailers are kept | BM |
 | `code-review.md` "Approve" | Means "ready for the owner"; no agent approves | BM |
 | `testing.md` 80% coverage | 80% lines and functions, 70% branches | ER |
 | `testing.md` E2E tests | CLI runs against real temporary repositories | ER |
-| `coding-style.md` "validate all input" | Validate where input enters | DP |
+| `coding-style.md` validation and error handling "at every level" | No defensive checks past the boundaries | DP |
 
 Not an override: nesting depth stays at ECC's 4 (OWNER DECISION, 2026-10-09: "4, as ECC (Recommended)").

@@ -18,8 +18,8 @@ What a branch must carry before it lands. The guards and how to satisfy them are
   reference. Historical records (changelog, decisions, migration docs) stay as written.
 - A rule lives in one file. Changing a rule means editing that file, not restating it elsewhere; the
   governance guard (`config/governance-alignment.json`) refuses text that still asserts a replaced rule.
-- A new file extension updates every place that lists extensions: ESLint, `tsconfig.json`, the redaction
-  sweep and the governance scan.
+- A new source file extension updates every place that names extensions: `eslint.config.ts`,
+  `tsconfig.json` and the globs in `package.json` scripts.
 
 ## Scope discipline
 
@@ -29,4 +29,6 @@ What a branch must carry before it lands. The guards and how to satisfy them are
   as an observation.
 - A cleanup or refactor adds no behavior. If it would, stop and raise it as separate work.
 - Every open work item names a concrete blocker or next action. A pending decision is a work item.
-- A completed item cites the PR that completed it, never only the implementer's summary.
+- A completed item cites the PR that completed it, never only the implementer's summary. A branch may mark
+  its own work item `done` with evidence (the memory guard expects the record to move), but it is done only
+  when the owner merges; never close an item outside its PR.

@@ -12,7 +12,8 @@ separate reviewer context.md`. Steps: `wiki/runbooks/Verify a repository change.
   verification. A number you did not reproduce is unverified.
 - Structural checks (lint, schema, types) do not prove behavior. Report structural, selection and outcome
   results separately, and name the checks you did not run.
-- Every external claim written into the wiki cites a primary source and the date it was read. A search
+- Every claim the wiki takes from an outside source (vendor docs, articles) cites the primary source and the
+  date it was read; a lesson records what was observed and when. A search
   snippet or a roundup article is a lead, not a source.
 - When docs and behavior disagree, decide whether the docs drifted or the product regressed. Never edit docs
   to hide a regression.
@@ -31,8 +32,8 @@ separate reviewer context.md`. Steps: `wiki/runbooks/Verify a repository change.
 ## Review
 
 - The session or agent that wrote a change never certifies it. Review runs in a separate context: the ECC
-  reviewer agents, `/ecc:review-pr`, or this repository's `finder` and `verifier` agents
-  (`.claude/agents/`).
+  reviewer agents, `/ecc:review-pr`, or this repository's `finder` and `verifier` agents used together
+  (`.claude/agents/`; the finder reads, the verifier reruns the checks).
 - Review a pinned commit, not a branch name. A new head needs a new review.
 - A verifier judges the artifact and its own runs, never the implementer's account. It does not edit,
   commit or approve what it judges, and it discloses any self-review.

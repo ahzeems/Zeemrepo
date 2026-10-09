@@ -154,10 +154,19 @@ await test("staged check", async (t) => {
     assert.equal(repo.check("--staged").code, EXIT_OK);
   });
 
-  await t.test("a staged rename across the boundary is mixed", (t) => {
+  await t.test("a staged rename across the boundary is mixed, in either direction", (t) => {
     const repo = branch(t);
     repo.git(["mv", "scripts/a.ts", "wiki/a.ts"]);
     assert.equal(repo.check("--staged").code, EXIT_REFUSED);
+    repo.git(["reset", "--quiet", "--hard"]);
+    repo.git(["mv", "wiki/Home.md", "scripts/Home.md"]);
+    assert.equal(repo.check("--staged").code, EXIT_REFUSED);
+  });
+
+  await t.test("a staged rename inside the wiki is not mixed", (t) => {
+    const repo = branch(t);
+    repo.git(["mv", "wiki/Home.md", "wiki/Start.md"]);
+    assert.equal(repo.check("--staged").code, EXIT_OK);
   });
 
   await t.test("concluding a merge is not refused", (t) => {

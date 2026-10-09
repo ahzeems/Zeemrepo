@@ -27,7 +27,7 @@ Read [the feature map](references/feature-map.md) for the recipe of each feature
 touches. Use the affected entries; a full audit covers every entry. Discovery or dry runs prove
 only their stated boundary, not authenticated model behavior, GUI rendering, or full installation.
 
-- Run `npm run check` on the pinned tree, and once CI is configured read the PR's CI checks
+- Run `npm run check` on the pinned tree, and read the PR's required checks, `check` and `guards`
   (`gh pr checks <n>`). Compare their inputs with step 1's snapshot.
 - For a change to workflow or process, search the declared surfaces (.claude/skills/,
   .claude/rules/, wiki/) for the rule the change replaced. A criterion is not met while one
@@ -64,7 +64,8 @@ could not run what the criteria need, and say what blocked you. `NOT_VERIFIED` a
 
 Re-check the tree first: if it differs from step 1, stop and re-verify. Return the verdict,
 its evidence, limitations, and requested changes in the task, and post it on the pull request
-as a comment (`gh pr comment <n> --body-file <file>`). Never approve the PR. Owner approval
+as a comment (`gh pr comment <n> --body-file <file>`). When you run as the read-only `verifier`
+agent, return it to the caller instead; the caller posts it. Never approve the PR. Owner approval
 and the merge remain separate from verification.
 
 ## What this skill never does

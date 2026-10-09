@@ -102,9 +102,35 @@
       "id": "tab-indented-snippets",
       "pattern": "Indent code snippets with tabs",
       "supersededBy": "Owner decision 2026-10-09: 2-space indentation"
+    },
+    {
+      "id": "bare-root-storage",
+      "pattern": "\\bstop at the bare root\\b|\\broot is (a )?bare (storage|repository)\\b|\\bbare root is storage\\b",
+      "supersededBy": "The root is a normal checkout; authority comes from an identified checkout (ADR-0021, zimi-audit rule 48)"
+    },
+    {
+      "id": "agents-self-merge",
+      "pattern": "\\bagents (merge|land) (through|via) (an? |the )?(audited )?gate\\b|\\bagents merge and push main\\b|\\bagents merge their own (branch|branches|work|changes)\\b",
+      "supersededBy": "Owner decision 2026-10-09: only the owner merges, on GitHub (ADR-0008)"
     }
   ],
   "allowed": [
+    {
+      "path": "wiki/decisions/ADR-0021 Authority comes from an identified checkout.md",
+      "contains": "ADR-0021 The bare root is storage, authority comes from an identified checkout.md",
+      "reason": "Provenance: names the Zimi source file this rewrite replaces; the note records that the bare layout was real on 2026-10-06 and changed later.",
+      "claims": [
+        "bare-root-storage"
+      ]
+    },
+    {
+      "path": "wiki/decisions/ADR-0008 Owner merges pull requests on GitHub.md",
+      "contains": "\"Agents merge through an audited gate\"",
+      "reason": "History: the decision records the Zimi ADR it reverses, quoting that ADR's title.",
+      "claims": [
+        "agents-self-merge"
+      ]
+    },
     {
       "path": ".claude/skills/domain-modeling/ADR-FORMAT.md",
       "contains": "ADRs live in `docs/adr/` and use sequential numbering",

@@ -21,10 +21,9 @@ as their approval record.
 | TDD policy: ECC mandatory or Zimi's opt-in tdd skill | "ECC mandatory, no exceptions" |
 | Em dashes: unslop keeps them, technical-writing and teach ban them | "Avoid em dashes (Recommended)" |
 | Changes to baseline skills (technical-writing, tdd, principle-laziness-protocol, principle-minimize-reader-load, principle-redesign-from-first-principles, teach, write-skill, resolve-conflicts, manage-branch, branch-review, bro) | "Authorize all (Recommended)" |
-
 | Review-driven consistency fixes to baseline skills (branch-review, manage-branch, resolve-conflicts, write-skill, technical-writing), including technical-writing's tab-indentation line | "Authorize, incl. 2-space indent (Recommended)" |
-
 | Review fixes to the Pocock-derived baseline skills find-deepenings, plan-tickets and wayfinder (required `idea` link; "packages" to "modules") | "Keep the 3 Pocock edits" |
+| Nesting depth: ECC's 4 or Zimi coding-standards' 3 | "4, as ECC (Recommended)" |
 
 **What follows from the decisions**
 - **TDD.** Zimi's `tdd` content is dropped entirely, and ECC's `.claude/rules/ecc/common/testing.md` governs. This

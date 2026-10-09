@@ -19,4 +19,6 @@ One line per memory note. Add new notes here; work notes need no entry.
 
 ## Reference
 
+- [[Change records]] - what every branch records before it lands, and which guard checks it
+
 ## Sessions

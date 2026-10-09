@@ -143,6 +143,17 @@ class ConfinedSubprocess:
         return getattr(subprocess, name)
 
 
+def remove_tree(path: Path) -> None:
+    """Delete `path` completely: a sandbox may have made its own folders read-only to keep a login copy."""
+    for root, dirs, _files in os.walk(path):
+        for name in dirs:
+            try:
+                (Path(root) / name).chmod(0o700)
+            except OSError:
+                pass
+    shutil.rmtree(path, ignore_errors=True)
+
+
 def fresh_claude_home(source: Path, base: Path) -> Path:
     """A new Claude config directory per call holding only the login, so no call can plant for the next."""
     base.mkdir(parents=True, exist_ok=True)
@@ -252,7 +263,7 @@ def main(argv: list[str]) -> None:
     finally:
         if proxy is not None:
             proxy.close()
-        shutil.rmtree(work, ignore_errors=True)
+        remove_tree(work)
 
 
 def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Path) -> netproxy.Proxy:

@@ -16,13 +16,14 @@ import socketserver
 import subprocess
 import sys
 import threading
+import time
 from collections.abc import Callable
 from pathlib import Path
 
-# Exact hosts, not domains: the API, and the console for login refresh. Everything else is refused,
-# including mcp-proxy.anthropic.com, which would hand a scenario the owner's claude.ai connectors
-# (mail, drive, docs), and telemetry.
-ANTHROPIC = ("api.anthropic.com", "console.anthropic.com")
+# Exact hosts, not domains: the API, and platform.claude.com, where claude refreshes its login token
+# (TOKEN_URL in claude 2.1.295). Everything else is refused, including mcp-proxy.anthropic.com, which
+# would hand a scenario the owner's claude.ai connectors (mail, drive, docs), and telemetry.
+ANTHROPIC = ("api.anthropic.com", "platform.claude.com")
 HEADER_LIMIT = 8192
 CONNECT_TIMEOUT = 30
 # Only plain hostnames reach the host resolver; anything else (#, @, NUL, brackets) is refused first.
@@ -67,14 +68,28 @@ def splice(a: socket.socket, b: socket.socket) -> None:
     other.join()
 
 
-def read_head(client: socket.socket) -> bytes:
+def read_head(client: socket.socket, deadline: float) -> bytes:
+    """The request header, read within `deadline` seconds in total; a client that trickles bytes times out."""
     head = b""
+    end = time.monotonic() + deadline
     while b"\r\n\r\n" not in head and len(head) < HEADER_LIMIT:
+        remaining = end - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("request header deadline passed")
+        client.settimeout(remaining)
         chunk = client.recv(1024)
         if not chunk:
             break
         head += chunk
     return head
+
+
+def reply(client: socket.socket, status: bytes) -> None:
+    """Send a status line; a client that already left is not an error."""
+    try:
+        client.sendall(status)
+    except OSError:
+        pass
 
 
 class Proxy(socketserver.ThreadingUnixStreamServer):
@@ -118,21 +133,20 @@ def start_proxy(path: Path, allow: Callable[[str, int], bool], header_timeout: f
     class Handler(socketserver.BaseRequestHandler):
         def handle(self) -> None:
             client: socket.socket = self.request
-            client.settimeout(header_timeout)
             try:
-                target = parse_connect(read_head(client).split(b"\r\n", 1)[0])
+                target = parse_connect(read_head(client, header_timeout).split(b"\r\n", 1)[0])
             except OSError:
                 return
             permitted = target is not None and allow(*target)
             if target is not None:
                 server.seen.add((target[0].lower().rstrip("."), target[1], permitted))
             if target is None or not permitted:
-                client.sendall(b"HTTP/1.1 403 Forbidden\r\n\r\n")
+                reply(client, b"HTTP/1.1 403 Forbidden\r\n\r\n")
                 return
             try:
                 upstream = socket.create_connection(target, timeout=CONNECT_TIMEOUT)
             except OSError:
-                client.sendall(b"HTTP/1.1 502 Bad Gateway\r\n\r\n")
+                reply(client, b"HTTP/1.1 502 Bad Gateway\r\n\r\n")
                 return
             upstream.settimeout(None)
             client.settimeout(None)

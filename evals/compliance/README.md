@@ -21,7 +21,7 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
   empty `gh` config, no global git config and a fixed sandbox author;
 - gives every confined process its own empty network namespace with no resolver; the only way out
   is a proxy on the host (`netproxy.py`, reached through a unix socket bound into the sandbox) that
-  tunnels HTTPS to exactly `api.anthropic.com` and `console.anthropic.com` and refuses everything
+  tunnels HTTPS to exactly `api.anthropic.com` and `platform.claude.com` (login refresh) and refuses everything
   else, including `mcp-proxy.anthropic.com` (the owner's claude.ai connectors: mail, drive, docs),
   the internet and this machine's loopback services; it caps connections and drops clients that
   stall, and each run prints the hosts it allowed and refused;

@@ -14,10 +14,11 @@ import netproxy
 
 class Allowlist(unittest.TestCase):
     def test_only_https_to_the_exact_anthropic_hosts_claude_needs_is_allowed(self) -> None:
-        for host in ("api.anthropic.com", "API.Anthropic.com.", "console.anthropic.com"):
+        for host in ("api.anthropic.com", "API.Anthropic.com.", "platform.claude.com"):
             self.assertTrue(netproxy.allowed(host, 443, netproxy.ANTHROPIC), host)
         for host, port in (("api.anthropic.com", 80), ("evil.com", 443), ("anthropic.com.evil.com", 443),
                            ("mcp-proxy.anthropic.com", 443), ("claude.ai", 443), ("anthropic.com", 443),
+                           ("console.anthropic.com", 443), ("x.platform.claude.com", 443),
                            ("x.api.anthropic.com", 443), ("127.0.0.1", 443), ("github.com", 443)):
             self.assertFalse(netproxy.allowed(host, port, netproxy.ANTHROPIC), f"{host}:{port}")
 
@@ -73,6 +74,28 @@ class Limits(unittest.TestCase):
                 self.assertIn(b" 503 ", extra.recv(1024), "beyond the cap, connections are refused at once")
                 for client in (*held, extra, silent):
                     client.close()
+            finally:
+                proxy.close()
+
+    def test_a_client_that_trickles_its_header_is_dropped_at_the_deadline(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            sock = Path(directory) / "p.sock"
+            proxy = netproxy.start_proxy(sock, allow=lambda host, port: True, header_timeout=0.6)
+            try:
+                client = socket.socket(socket.AF_UNIX)
+                client.connect(str(sock))
+                started = time.time()
+                closed = False
+                while time.time() - started < 4:
+                    try:
+                        client.sendall(b"X")
+                    except OSError:
+                        closed = True
+                        break
+                    time.sleep(0.1)
+                self.assertTrue(closed, "a trickling client is cut off after the header deadline")
+                self.assertLess(time.time() - started, 2.5)
+                client.close()
             finally:
                 proxy.close()
 

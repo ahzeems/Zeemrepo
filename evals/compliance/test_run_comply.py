@@ -93,6 +93,18 @@ class Baseline(unittest.TestCase):
                     self.assertIn("core.hooksPath=/dev/null", call)
 
 
+class Cleanup(unittest.TestCase):
+    def test_removes_the_work_dir_even_where_a_sandbox_made_a_folder_read_only(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory) / "work"
+            locked = work / "claude-home-x"
+            locked.mkdir(parents=True)
+            (locked / ".credentials.json").write_text("{}\n")
+            locked.chmod(0o500)
+            run_comply.remove_tree(work)
+            self.assertFalse(work.exists(), "the login copy is gone")
+
+
 class Preflight(unittest.TestCase):
     def test_refuses_to_run_without_a_working_bwrap(self) -> None:
         with self.assertRaises(SystemExit) as raised:

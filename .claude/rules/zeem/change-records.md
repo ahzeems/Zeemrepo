@@ -32,3 +32,9 @@ What a branch must carry before it lands. The guards and how to satisfy them are
 - A completed item cites the PR that completed it, never only the implementer's summary. A branch may mark
   its own work item `done` with evidence (the memory guard expects the record to move), but it is done only
   when the owner merges; never close an item outside its PR.
+
+## Overrides of ECC
+
+- **Dependencies.** ECC's development workflow says to prefer battle-tested libraries over hand-rolled
+  code, and its TypeScript coding style says to use Zod for validation. Here a small script uses the
+  standard library first, and any new dependency needs the justification above.

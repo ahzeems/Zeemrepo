@@ -73,7 +73,9 @@ python3 -m venv ~/.cache/zeemrepo/comply-venv
 
 The venv lives outside the repository, because the governance and redaction checks scan the working
 tree. `npm run evals:test` tests the wrapper with the standard library only,
-so the check needs no venv and makes no model calls.
+so the check needs no venv and makes no model calls. These Python files are the repository's one
+exception to TypeScript: ECC's skill-comply is Python, and the wrapper patches it in-process. They are
+outside `npm run lint`, `typecheck` and coverage; `evals:test` is their only check.
 
 ## Run
 

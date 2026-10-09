@@ -4,7 +4,8 @@ description: "AI-tell catalog: cut slop patterns so shipping prose reads human-w
 ---
 
 This skill owns the catalog of AI tells. Document structure, mode and sentence rules belong to
-[technical-writing](../technical-writing/SKILL.md).
+[technical-writing](../technical-writing/SKILL.md), a user-only skill: apply it only when the user has
+loaded it.
 
 ## What to cut
 

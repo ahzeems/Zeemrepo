@@ -44,3 +44,6 @@ under 50 lines, files under 800, nesting at most 4; OWNER DECISION, 2026-10-09: 
 
 - **Input validation.** ECC's `coding-style.md` asks for validation at system boundaries and for comprehensive
   error handling at every level. Here, do not add defensive checks inside the code past those boundaries.
+- **Planning.** ECC's development workflow asks for the planner agent and planning documents (PRD,
+  architecture, system design, task list) before coding. Here the plan is the three to six lines above,
+  and a task that needs more is too big: say so instead of building.

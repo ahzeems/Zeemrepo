@@ -19,11 +19,14 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
   missing or a trivial confined command fails;
 - passes an allowlisted environment (path, home, locale, terminal and Anthropic auth only), an
   empty `gh` config, no global git config and a fixed sandbox author;
+- gives every confined process its own empty network namespace; the only way out is a proxy on
+  the host (`netproxy.py`, reached through a unix socket bound into the sandbox) that tunnels HTTPS
+  to `*.anthropic.com` and `claude.ai` and refuses everything else, so neither the internet nor
+  services on this machine's loopback are reachable;
 - writes each report to `reports/<path-derived name>.md`, for example `rules-zeem-branch-and-merge.md`.
 
-**Accepted exposure.** The scenario agent can read Claude's login token (claude needs it) and has
-network access (claude needs the API), including loopback services on this machine; one `curl`
-could send the token elsewhere. It cannot see other credentials, this repository, other
+**Accepted exposure.** The scenario agent can read Claude's login token, because claude needs it,
+but can only send it to Anthropic. It cannot see other credentials, this repository, other
 checkouts, the parent session's sockets or the real home directory, and nothing it writes outside
 its working directory survives the run. bubblewrap must be installed (`bwrap`).
 

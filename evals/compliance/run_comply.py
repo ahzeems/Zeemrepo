@@ -30,6 +30,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+import netproxy
+
 REPO = Path(__file__).resolve().parents[2]
 REPORTS = REPO / "evals" / "compliance" / "reports"
 # The private runner function this wraps is ECC's, so the wrapper is pinned to the version it
@@ -74,8 +76,31 @@ class Layout:
     deps: Path | None = None
 
 
-def confine(command: list[str], *, cwd: Path, layout: Layout) -> list[str]:
-    """`command` under bubblewrap: an allowlist of read-only system paths, an empty home, private /tmp."""
+@dataclass(frozen=True)
+class Network:
+    """The host proxy's directory (proxy.sock and a copy of netproxy.py) and the in-sandbox forwarder port."""
+    directory: Path
+    python: Path
+    port: int
+
+
+NET_MOUNT = "/comply-net"
+# Each confined process has its own network namespace, so a fixed port never collides.
+FORWARD_PORT = 18443
+
+
+def proxy_env(port: int) -> dict[str, str]:
+    """Variables that send claude's HTTPS through the forwarder and drop its non-essential traffic."""
+    url = f"http://127.0.0.1:{port}"
+    return {"HTTPS_PROXY": url, "https_proxy": url, "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"}
+
+
+def confine(command: list[str], *, cwd: Path, layout: Layout, network: Network | None = None) -> list[str]:
+    """`command` under bubblewrap: an allowlist of read-only system paths, an empty home, private /tmp.
+
+    With `network`, the process gets its own empty network namespace and reaches the outside only
+    through the forwarder to the host proxy (netproxy.py), which tunnels HTTPS to Anthropic alone.
+    """
     args = ["bwrap"]
     for path in SYSTEM_DIRS:
         if Path(path).is_dir():
@@ -92,7 +117,11 @@ def confine(command: list[str], *, cwd: Path, layout: Layout) -> list[str]:
         args += ["--ro-bind", str(layout.deps), str(layout.deps)]
     args += ["--bind", str(cwd), str(cwd), "--chdir", str(cwd),
              "--unshare-pid", "--unshare-ipc", "--new-session", "--die-with-parent"]
-    return [*args, "--", *command]
+    if network is None:
+        return [*args, "--", *command]
+    args += ["--unshare-net", "--ro-bind", str(network.directory), NET_MOUNT]
+    forwarder = [str(network.python), f"{NET_MOUNT}/netproxy.py", "forward", f"{NET_MOUNT}/proxy.sock", str(network.port), "--"]
+    return [*args, "--", *forwarder, *command]
 
 
 class ConfinedSubprocess:
@@ -212,23 +241,29 @@ def main(argv: list[str]) -> None:
     require_skill_comply(SKILL_COMPLY)
     snapshot = repo_snapshot(REPO)
     deps = shared_deps(REPO, Path.home() / ".cache/zeemrepo/comply-deps")
+    work = Path(tempfile.mkdtemp(prefix="run-comply-"))  # everything the run creates; removed at the end
+    (work / "gh").mkdir()
     caller_env = dict(os.environ)
     os.environ.clear()
-    os.environ.update(isolated_env(caller_env, Path(tempfile.mkdtemp(prefix="run-comply-gh-"))))
+    os.environ.update(isolated_env(caller_env, work / "gh"))
     sys.dont_write_bytecode = True  # no __pycache__ in the plugin cache
     sys.path.insert(0, str(SKILL_COMPLY))
     import scripts.run as ecc_run  # ECC is importable only from here
     import scripts.runner as runner
     from scripts import classifier, scenario_generator, spec_generator
 
-    work = Path(tempfile.mkdtemp(prefix="run-comply-"))
     claude_binary = Path(shutil.which("claude") or "claude").resolve()
     (work / "calls").mkdir()
+    (work / "net").mkdir()
+    shutil.copy2(Path(__file__).with_name("netproxy.py"), work / "net" / "netproxy.py")
+    proxy = netproxy.start_proxy(work / "net" / "proxy.sock", lambda host, port: netproxy.allowed(host, port, netproxy.ANTHROPIC))
+    network = Network(directory=work / "net", python=Path(shutil.which("python3") or "python3").resolve(), port=FORWARD_PORT)
+    os.environ.update(proxy_env(FORWARD_PORT))
 
     def wrap(command: list[str], cwd: Path) -> list[str]:
         layout = Layout(home=Path.home(), claude_home=fresh_claude_home(Path.home() / ".claude", work),
                         claude_binary=claude_binary, plugins=Path.home() / ".claude" / "plugins", deps=deps)
-        return confine(command, cwd=cwd, layout=layout)
+        return confine(command, cwd=cwd, layout=layout, network=network)
 
     confined = ConfinedSubprocess(subprocess.run, wrap, work / "calls")
     require_confinement(lambda: shutil.which("bwrap"), lambda: confined.run(["true"]).returncode == 0)
@@ -247,6 +282,7 @@ def main(argv: list[str]) -> None:
     try:
         ecc_run.main()
     finally:
+        proxy.close()
         shutil.rmtree(work, ignore_errors=True)  # the per-call login copies go with it
 
 

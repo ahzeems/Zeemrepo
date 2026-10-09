@@ -167,6 +167,26 @@ class Confinement(unittest.TestCase):
                 self.assertIn(flag, command)
             self.assertIn(["--ro-bind", "/usr", "/usr"], pairs)
 
+    def test_with_a_network_proxy_the_namespace_has_no_network_but_the_forwarder(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            layout = self.layout(root)
+            (root / "net").mkdir()
+            net = run_comply.Network(directory=root / "net", python=Path("/usr/bin/python3"), port=18443)
+            command = run_comply.confine(["claude", "-p", "hi"], cwd=root / "work", layout=layout, network=net)
+            pairs = [command[i:i + 3] for i in range(len(command))]
+            self.assertIn("--unshare-net", command)
+            self.assertIn(["--ro-bind", str(root / "net"), "/comply-net"], pairs)
+            tail = command[command.index("--") + 1:]
+            self.assertEqual(tail, ["/usr/bin/python3", "/comply-net/netproxy.py", "forward", "/comply-net/proxy.sock", "18443", "--", "claude", "-p", "hi"])
+            self.assertNotIn("--unshare-net", run_comply.confine(["true"], cwd=root / "work", layout=layout), "only when asked")
+
+    def test_proxy_environment_points_claude_at_the_forwarder(self) -> None:
+        env = run_comply.proxy_env(18443)
+        self.assertEqual(env["HTTPS_PROXY"], "http://127.0.0.1:18443")
+        self.assertEqual(env["https_proxy"], "http://127.0.0.1:18443")
+        self.assertEqual(env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"], "1")
+
     def test_every_call_is_confined_in_its_own_working_directory(self) -> None:
         calls: list[tuple[list[str], dict[str, object]]] = []
         shim = run_comply.ConfinedSubprocess(lambda args, **kw: calls.append((list(args), kw)), lambda cmd, cwd: ["bwrap", str(cwd), "--", *cmd], Path("/tmp/default-work"))

@@ -3,8 +3,9 @@
 # the ref updates on stdin, which branch-guard reads. npm run pr has just run the check for
 # the commit it pushes and says so in PR_READY_CHECKED, so it is not run twice.
 # From a linked worktree git exports GIT_DIR here, so a test that forgets to scrub it acts on
-# this repository. git-state snapshots HEAD, the branch, core.bare and local config around the
-# check and refuses if they moved, even when the check itself failed.
+# this repository. git-state snapshots HEAD, the branch, core.bare, local and per-worktree config,
+# refs, the index and the working tree around the check and refuses if they moved, even when
+# the check itself failed.
 set -eu
 node scripts/git/branch-guard.ts push
 if [ "${PR_READY_CHECKED:-}" = "$(git rev-parse HEAD)" ]; then exit 0; fi

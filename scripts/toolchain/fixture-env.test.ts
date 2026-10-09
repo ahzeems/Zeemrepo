@@ -29,9 +29,22 @@ function spawnerNames(file: ts.SourceFile): { names: Set<string>; namespaces: Se
   return { names, namespaces };
 }
 
+// A spread of cleanGitEnv counts only if no GIT_ variable is put back after it.
+const putsGitBack = (property: ts.ObjectLiteralElementLike): boolean =>
+  !ts.isSpreadAssignment(property) && property.name !== undefined && /^["']?GIT_/.test(property.name.getText());
 const isCleanEnv = (node: ts.Expression): boolean =>
   (ts.isIdentifier(node) && node.text === "cleanGitEnv")
-  || (ts.isObjectLiteralExpression(node) && node.properties.some((property) => ts.isSpreadAssignment(property) && ts.isIdentifier(property.expression) && property.expression.text === "cleanGitEnv"));
+  || (ts.isObjectLiteralExpression(node) && !node.properties.some(putsGitBack)
+    && node.properties.some((property) => ts.isSpreadAssignment(property) && ts.isIdentifier(property.expression) && property.expression.text === "cleanGitEnv"));
+
+// require() or import() of child_process hides the spawner from the import scan, so test
+// code may only import it statically.
+function loadsChildProcessDynamically(node: ts.Node): boolean {
+  if (!ts.isCallExpression(node)) return false;
+  const [first] = node.arguments;
+  const loader = (ts.isIdentifier(node.expression) && node.expression.text === "require") || node.expression.kind === ts.SyntaxKind.ImportKeyword;
+  return loader && first !== undefined && ts.isStringLiteralLike(first) && MODULES.has(first.text);
+}
 
 const passesCleanEnv = (call: ts.CallExpression): boolean => call.arguments.some((argument) =>
   ts.isObjectLiteralExpression(argument) && argument.properties.some((property) =>
@@ -46,7 +59,7 @@ function unscrubbedSpawns(path: string, source: string): string[] {
       const callee = node.expression;
       const spawns = (ts.isIdentifier(callee) && names.has(callee.text))
         || (ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.expression) && namespaces.has(callee.expression.text) && SPAWNERS.has(callee.name.text));
-      if (spawns && !passesCleanEnv(node)) found.push(`${path}:${file.getLineAndCharacterOfPosition(node.getStart()).line + 1}`);
+      if ((spawns && !passesCleanEnv(node)) || loadsChildProcessDynamically(node)) found.push(`${path}:${file.getLineAndCharacterOfPosition(node.getStart()).line + 1}`);
     }
     ts.forEachChild(node, visit);
   };
@@ -70,6 +83,9 @@ await test("the spawn check sees through aliases, namespaces and quoting, and ac
     'import * as cp from "node:child_process";\ncp.spawnSync(`git`, args);',
     'import { execSync } from "child_process";\nexecSync("git init"); // cleanGitEnv',
     'import { spawnSync } from "node:child_process";\nspawnSync("sh", ["-c", "git init"], { env: process.env });',
+    'import { spawnSync } from "node:child_process";\nspawnSync("git", args, { env: { ...cleanGitEnv, GIT_DIR: dir } });',
+    'const cp = require("node:child_process");',
+    'const cp = await import("child_process");',
   ];
   for (const source of offending) assert.equal(unscrubbedSpawns("sample.ts", source).length, 1, source);
   const clean = [

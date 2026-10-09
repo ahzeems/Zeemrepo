@@ -25,7 +25,8 @@ Measured in Zeemrepo on 2026-10-09 (git 2.53): a pre-push hook in the main check
 `GIT_DIR`, but a push from a linked worktree under `.worktrees/` exports
 `GIT_DIR=<repo>/.git/worktrees/<name>`, and `.githooks/pre-push` runs `npm run check`, which
 creates hundreds of fixture repositories. Pre-commit exports `GIT_INDEX_FILE` but runs no tests.
-With `GIT_DIR`, `GIT_WORK_TREE` and `GIT_INDEX_FILE` aimed at a decoy clone, all 511 tests passed
+With `GIT_DIR`, `GIT_WORK_TREE` and `GIT_INDEX_FILE` aimed at a decoy clone, every test passed
+(511 then, 538 after this fix)
 and the decoy's HEAD, refs, index, status and config were unchanged, so no current test leaks.
 
 ## Fix

@@ -43,6 +43,7 @@ committing or opening a pull request.
    | `npm run lint` | Type-aware ESLint over `scripts/**/*.ts`: no `any`, casts, non-null assertions, ts-comment suppressions or floating promises; the ECC size and nesting limits (`eslint.config.ts`). |
    | `npm run typecheck` | `tsc` with `strict`, `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`. |
    | `npm test` | `node:test` over `scripts/**/*.test.ts` with the coverage thresholds set in `package.json`. A test also fails if any script lacks a sibling `.test.ts`, since coverage cannot see an untested file. |
+   | `npm run evals:test` | The compliance-eval wrapper (`evals/compliance/run_comply.py`) confines every process a compliance run starts (bubblewrap allowlist, Anthropic-only network); standard-library `unittest`, no model calls. |
    | `npm run wiki:lint` | Note schema, links, tags, agents, evidence labels, and a redaction sweep over every tracked file. |
    | `npm run skills:lint` | Skill structure and provenance; see [[Skill standards]]. |
    | `npm run governance:check` | No text, code or config file asserts a replaced rule. |

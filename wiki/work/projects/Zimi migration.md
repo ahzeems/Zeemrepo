@@ -9,7 +9,7 @@ agent: claude-code
 status: in-progress
 owner: human
 priority: P1
-next_action: "Phase 9: wrap ECC skill-comply so its sandbox loads CLAUDE.md and .claude/, write seeds.md, and run compliance reports for the zeem rules and key skills, write-guard included."
+next_action: "Phase 10: closeout with /ecc:harness-audit, /ecc:security-scan and /ecc:orch-review over the repository; awaiting the owner: re-running the three compliance targets on the fixed harness, and whether write-guard keeps \"prove the gap\" as a separate first step (evals/compliance/reports/summary.md)."
 idea: "[[Migrate Zimi into Zeemrepo]]"
 evidence:
   - "VERIFIED: PRs #1-#5 merged by the owner (audit, toolchain, shared library, wiki system, skills)."
@@ -26,6 +26,14 @@ evidence:
   - "INFERRED: proposed in docs/migration/evolve-review.md, pending the owner's merge: write-guard from two generated skills, one rule line from a third, the other 10 items rejected."
   - "VERIFIED: PR #11 merged by the owner (Phase 8 instincts, evolve review, write-guard)."
   - "OWNER DECISION: \"I recommend allowing mixed wiki/non-wiki conflict resolutions in genuine merge commits, while rejecting unrelated edits.\" (2026-10-09); wiki-compliance now allows a merge whose remerge-diff touches only files git reported as content conflicts, each hunk removing a whole marker set, deleting only inside it, and adding only lines from the two sides; octopus merges are refused."
+  - "VERIFIED: PR #12 merged by the owner (resolving-merge exception, spawn aliases)."
+  - "VERIFIED: Phase 9 wrapper: 7 unittest cases pass; driving ECC's real _setup_sandbox through it gave a sandbox with the rules, settings and merge hook (which blocked gh pr merge with exit 2) and no evals/ folder; no model was called."
+  - "VERIFIED: after a security review showed env scrubbing was not a boundary, every ECC claude call runs under bubblewrap; a probe through the real confine() saw no gh token, SSH keys, this repository or ~/Github, gh logged out, and no secret variables, while claude still ran."
+  - "VERIFIED: compliance pilot re-run on the fixed harness: branch-and-merge 75/50/75%, write-guard 20/20/20%, wiki-memory 43/43/0% (strict ordering, lower bounds); the competing branch-and-merge agent branched and pushed nothing to main; four security reviews and two verifications of the sandbox before any Sonnet run."
+  - "OWNER DECISION: \"Fix what you can\" (2026-10-09) for the harness follow-ups."
+  - "VERIFIED: harness fixes on PR #13 (repository tooling replaces a scenario's copy, planted symlinks on tooling paths removed, generator told the repository's stack and retried on bad YAML, chained Bash calls split only when the stream marks them is_error false and not run_in_background): 39 unittest cases pass and npm run check passes; not yet measured by a re-run."
+  - "OWNER DECISION: network allowlist before the pilot (\"Network allowlist first (Recommended)\") and a full re-run (\"Re-run all 3 (Recommended)\"), 2026-10-09."
+  - "OWNER DECISION: compliance pilot approved: \"Pilot: 3 targets (Recommended)\" (2026-10-09)."
   - "OWNER DECISION: nothing is pushed to main; work lands by pull request and only the owner merges (2026-10-09)."
 ---
 

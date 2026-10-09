@@ -33,7 +33,7 @@ ECC says so under "Overrides of ECC".
 ## Working here
 
 - Node from `.nvmrc`; `npm ci`, then `npm run hooks:install` once per checkout.
-- `npm run check` runs everything CI runs: lint, typecheck, tests with coverage, `wiki:lint`, `skills:lint`,
+- `npm run check` runs everything CI runs: lint, typecheck, tests with coverage, `evals:test`, `wiki:lint`, `skills:lint`,
   `governance:check`, `wiki:compliance`, `changelog:guard`, `memory:guard`.
 - Scripts are TypeScript run directly by Node, under `scripts/<area>/`, each with a sibling `*.test.ts`.
 - The wiki starts at `wiki/Home.md`. Load the `wiki-memory` skill before writing under `wiki/`.

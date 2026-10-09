@@ -45,7 +45,7 @@ yet: re-run it.
 | Backstop | Refuses |
 |---|---|
 | `.githooks/pre-commit` (`branch-guard.ts commit`, `wiki-compliance.ts --staged`) | Commits on main or a detached HEAD, and a staged mix of wiki and other files |
-| `.githooks/pre-push` (`branch-guard.ts push`) | Pushes to main, rewrites of a published branch, deletion of a branch not contained in `origin/main`; then runs `npm run check` and refuses if the check changed HEAD, the branch, `core.bare` or local config (`git-state.ts`) |
+| `.githooks/pre-push` (`branch-guard.ts push`) | Pushes to main, rewrites of a published branch, deletion of a branch not contained in `origin/main`; then runs `npm run check` and refuses if the check changed HEAD, the branch, `core.bare`, git config, refs, the index or the working tree (`git-state.ts`) |
 | `.claude/settings.json` deny rules | `git push origin main`, force pushes, `gh pr merge`, and the REST merge endpoint |
 | `scripts/claude/block-pr-merge.ts` (PreToolUse hook) | Bash commands that merge a PR in other spellings: `gh pr merge` behind wrappers or flags, a PUT to `pulls/<n>/merge` through `gh api`, `curl` or `wget`, the GraphQL merge and auto-merge mutations |
 

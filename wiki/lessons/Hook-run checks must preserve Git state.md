@@ -1,7 +1,7 @@
 ---
 type: lesson
 title: Hook-run checks must preserve Git state
-summary: A test fixture run inside a git hook moved Zimi's real branch and set core.bare; pre-push now refuses when the check changes HEAD, the branch, core.bare or local config.
+summary: A test fixture run inside a git hook moved Zimi's real branch and set core.bare; pre-push now refuses when its check changes the repository's git state.
 tags: [area/git, area/typescript, kind/pitfall]
 created: 2026-10-08
 updated: 2026-10-09
@@ -34,22 +34,27 @@ Fixtures scrub the environment: `cleanGitEnv` in `scripts/test-support/repo-fixt
 every `GIT_*` variable, and `scripts/lib/git.ts` does the same whenever a caller passes `cwd`.
 
 The backstop is `scripts/git/git-state.ts`. `.githooks/pre-push` snapshots `HEAD`, the checked-out
-branch, `core.bare` and the local config before `npm run check` and verifies them afterwards,
-even when the check failed, refusing the push if anything moved. It names changed config keys,
-never their values. `scripts/git/git-state.test.ts` covers each kind of change, and an
-end-to-end run from a linked worktree, with a check that leaked a commit, was refused before
-anything reached the remote.
+branch, `core.bare`, local and per-worktree config, every ref, the index and the working tree
+before `npm run check`, and verifies them afterwards, even when the check failed, refusing the
+push if anything moved. The snapshot holds hashes, and messages name config keys with their
+subsections redacted, so no value or embedded token is printed. `scripts/git/git-state.test.ts`
+covers each kind of change, `scripts/git/hooks.test.ts` runs the hook itself with stub checks,
+and an end-to-end push from a linked worktree, with a check that leaked a commit, was refused
+before anything reached the remote.
+
+A toolchain test, `scripts/toolchain/fixture-env.test.ts`, reads the syntax tree of all test code
+and fails any `child_process` call that does not pass `env: cleanGitEnv`, whatever the command.
 
 ## How to apply
 
 - Spawn git in tests only through `createRepo` or `scripts/lib/git.ts` with an explicit `cwd`.
-  A raw `execFileSync("git", ...)` in a test must pass `env: cleanGitEnv`.
+  Any other child process in test code passes `env: cleanGitEnv`; the toolchain test enforces it.
 - A test that passes on its own proves nothing about running under a hook. To check, run
   `npm test` with `GIT_DIR` aimed at a throwaway clone and compare the clone before and after.
 - If `git-state` refuses a push, stop. Inspect the branch tip, `git config --local --list` and
   `core.bare` in this checkout and the main one, restore them, and find the test that escaped
-  before pushing again. The check detects; it cannot undo, and it does not see every possible
-  git change (other refs, the index, global config).
+  before pushing again. The check detects; it cannot undo, and it does not see global config,
+  hooks or the object store.
 - `npm run pr` runs the check outside any hook, so the snapshot matters only for pushes that run
   the hook's own check.
 

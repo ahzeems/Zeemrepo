@@ -34,7 +34,7 @@ whether it adds something the rule files, the existing skills and agents, or the
 | Generated item | Decision | Reason |
 |---|---|---|
 | skill `changing-check-repository` (9 instincts) | **Proposed, rewritten** as `.claude/skills/write-guard/` | The only cluster that is a procedure: how to add a check that can fail. The generated text had a keyword description ("Use changing check repository validator") that would not route, and no order. The rewrite puts the tests first, links the rule files and design-actions instead of restating them, names every list a new guard must join, and links each lesson. |
-| skill `fixture-git-hook-runs` (4) | **Merged** into `write-guard` step 5 | Only matters while writing tests; too small to route on its own. The rule is also enforced by `scripts/toolchain/fixture-env.test.ts` and `scripts/git/git-state.ts`. |
+| skill `fixture-git-hook-runs` (4) | **Merged** into `write-guard` step 2 | Only matters while writing tests; too small to route on its own. The rule is also enforced by `scripts/toolchain/fixture-env.test.ts` and `scripts/git/git-state.ts`. |
 | skill `documentation-skill-text` (4) | **Rejected**; one line added to `.claude/rules/zeem/wiki-and-docs.md` | Three of four actions are already rules (walkthroughs link, imported skills keep their method, restorations compare the source). The new one, unambiguous placeholders, is now a rule line. |
 | skill `agent-credentials-host-sets` (6) | **Rejected** | Host and credential setup is not work this repository does; the six lessons stay recallable through the wiki-memory skill. |
 | skill `landing-owner-pull-request` (5) | **Rejected** | Duplicates `.claude/rules/zeem/branch-and-merge.md` and `evidence-and-review.md`, and ADR-0008 and ADR-0022. |

@@ -378,7 +378,7 @@ source_repo: ahzeems/Zimi
 Keep review and check evidence on GitHub (PR reviews, comments and status checks), because git notes do not travel with clone, fetch or pull.
 
 ## Evidence
-From Zimi (ported to Zeemrepo wiki/lessons/Git notes do not travel with fetch or pull.md). Check: none needed: Zeemrepo keeps no git-notes evidence, and npm run audit reads merged pull requests from GitHub.
+From Zimi (ported to Zeemrepo wiki/lessons/Git notes do not travel with fetch or pull.md). Check: none: not needed here; Zeemrepo keeps no git-notes evidence, and npm run audit reads merged pull requests from GitHub.
 
 ---
 id: zimi-identify-the-checkout

@@ -42,7 +42,7 @@ detail matters more than the totals.
   guard.
 - **wiki-memory: most bookkeeping was done but not credited (VERIFIED, with limits).** In the
   supportive and neutral runs the agents made wiki-only `docs(wiki):` commits that updated the work
-  record and added a Memory index line, in calls the grader left unlabelled or credited out of order.
+  record and added a Memory index line, in calls the grader left unlabelled, labelled as another step, or labelled but refused by the strict ordering.
   Limits: the
   `wiki:lint` they ran was the scenario's stub (`echo lint ok`), so it proved nothing; and in neutral
   the indexed note was committed empty because its heredoc failed, which the real `wiki:lint` would

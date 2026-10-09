@@ -9,7 +9,7 @@ agent: claude-code
 status: in-progress
 owner: human
 priority: P1
-next_action: "Phase 9: wrap ECC skill-comply so its sandbox loads CLAUDE.md and .claude/, write seeds.md, and run compliance reports for the zeem rules and key skills, write-guard included."
+next_action: "Phase 9: with the owner's approval of the batch, run run_comply.py on the agreed targets and commit the reports to evals/compliance/reports/; low-compliance steps become write-guard candidates."
 idea: "[[Migrate Zimi into Zeemrepo]]"
 evidence:
   - "VERIFIED: PRs #1-#5 merged by the owner (audit, toolchain, shared library, wiki system, skills)."
@@ -26,6 +26,8 @@ evidence:
   - "INFERRED: proposed in docs/migration/evolve-review.md, pending the owner's merge: write-guard from two generated skills, one rule line from a third, the other 10 items rejected."
   - "VERIFIED: PR #11 merged by the owner (Phase 8 instincts, evolve review, write-guard)."
   - "OWNER DECISION: \"I recommend allowing mixed wiki/non-wiki conflict resolutions in genuine merge commits, while rejecting unrelated edits.\" (2026-10-09); wiki-compliance now allows a merge whose remerge-diff touches only files git reported as content conflicts, each hunk removing a whole marker set, deleting only inside it, and adding only lines from the two sides; octopus merges are refused."
+  - "VERIFIED: PR #12 merged by the owner (resolving-merge exception, spawn aliases)."
+  - "VERIFIED: Phase 9 wrapper: 7 unittest cases pass; driving ECC's real _setup_sandbox through it gave a sandbox with the rules, settings and merge hook (which blocked gh pr merge with exit 2) and no evals/ folder; no model was called."
   - "OWNER DECISION: nothing is pushed to main; work lands by pull request and only the owner merges (2026-10-09)."
 ---
 

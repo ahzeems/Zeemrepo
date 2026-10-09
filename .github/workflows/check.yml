@@ -38,8 +38,8 @@ jobs:
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           if [ "$PR_AUTHOR" = "dependabot[bot]" ]; then
-            # Same as npm run check without the change-record guards, which a bot cannot satisfy.
-            npm run lint && npm run typecheck && npm test && npm run evals:test && npm run wiki:lint && npm run skills:lint && npm run governance:check && npm run wiki:compliance
+            # npm run check without the change-record guards, which a bot cannot satisfy.
+            npm run check:base
           else
             npm run check
           fi

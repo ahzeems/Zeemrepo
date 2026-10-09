@@ -4,6 +4,7 @@ import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { cleanGitEnv, createRepo } from "../test-support/repo-fixture.ts";
+import { isRecord } from "../lib/record.ts";
 
 const root = join(import.meta.dirname, "../..");
 const hook = (name: string): string => readFileSync(join(root, ".githooks", name), "utf8");
@@ -72,6 +73,17 @@ await test("guards run from main against the change, never running the change's 
   assert.match(workflow, /node-version-file: trusted\/\.nvmrc/);
   assert.match(workflow, /PR_AUTHOR: \$\{\{ github\.event\.pull_request\.user\.login \}\}/, "the bot exemption reads GitHub's author, not PR content");
   assert.doesNotMatch(workflow, /run: [^\n]*\$\{\{/, "no expression is expanded inside a run script");
+});
+
+await test("CI's bot path reuses check:base, so the check list has one source", () => {
+  const manifest: unknown = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  assert.ok(isRecord(manifest) && isRecord(manifest.scripts));
+  const scripts = manifest.scripts;
+  assert.equal(scripts.check, "npm run check:base && npm run changelog:guard && npm run memory:guard");
+  assert.doesNotMatch(String(scripts["check:base"]), /changelog:guard|memory:guard/);
+  const workflow = readFileSync(join(root, ".github/workflows/check.yml"), "utf8");
+  assert.match(workflow, /npm run check:base\n/);
+  assert.doesNotMatch(workflow, /npm run lint/, "the list is not copied into the workflow");
 });
 
 await test("workflows pin every action to a commit SHA and never persist credentials", () => {

@@ -20,8 +20,9 @@ How work reaches `main`. Decisions: `wiki/decisions/ADR-0008 Owner merges pull r
   gets its own worktree under `.worktrees/`. Run `npm run worktree:guard` before removing one.
 - Keep a published branch current by merging `main` into it. Never rebase or force-push published history.
 - Stage files by name. Never `git add -A` or `git add .` from a tree you have not fully inspected.
-- Never discard, absorb or clean up another session's uncommitted work or worktree. You may delete your own
-  branch once its PR is merged into `origin/main`; any other deletion needs the owner (`owner-authority.md`).
+- Never discard, absorb or clean up another session's uncommitted work or worktree. Without asking, you may
+  delete only your own branch once its PR is merged into `origin/main`, and remove your own clean worktree
+  after `npm run worktree:guard` passes; anything else needs the owner (`owner-authority.md`).
 - Do not work as root. Inspect `git config --get core.hooksPath` before `npm run hooks:install`.
 - Regenerate a generated file (such as `package-lock.json`) from its source; never hand-merge it.
 

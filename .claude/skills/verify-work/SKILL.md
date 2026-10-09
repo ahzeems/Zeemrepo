@@ -64,8 +64,8 @@ could not run what the criteria need, and say what blocked you. `NOT_VERIFIED` a
 
 Re-check the tree first: if it differs from step 1, stop and re-verify. Return the verdict,
 its evidence, limitations, and requested changes in the task, and post it on the pull request
-as a comment (`gh pr comment <n> --body-file <file>`). Run as the read-only `verifier` agent,
-return it to the caller, who posts it. Never approve the PR. Owner approval
+as a comment (`gh pr comment <n> --body-file <file>`). When you run as the read-only `verifier`
+agent, return it to the caller instead; the caller posts it. Never approve the PR. Owner approval
 and the merge remain separate from verification.
 
 ## What this skill never does

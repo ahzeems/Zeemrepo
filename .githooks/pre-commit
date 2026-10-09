@@ -1,0 +1,10 @@
+#!/bin/sh
+# Light checks on every commit; the full npm run check runs at pre-push and in CI.
+set -eu
+node scripts/git/branch-guard.ts commit
+# The history check sees a mixed commit only once it exists; this sees the index before it does.
+node scripts/wiki/wiki-compliance.ts --staged
+npm run --silent lint
+npm run --silent typecheck
+npm run --silent wiki:lint
+npm run --silent skills:lint

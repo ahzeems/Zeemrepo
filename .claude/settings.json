@@ -9,5 +9,18 @@
   },
   "enabledPlugins": {
     "ecc@ecc": true
+  },
+  "permissions": {
+    "deny": [
+      "Bash(git push origin main)",
+      "Bash(git push origin main:*)",
+      "Bash(git push origin HEAD:main)",
+      "Bash(git push origin HEAD:main:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --force-with-lease:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh api -X PUT repos/ahzeems/Zeemrepo/pulls/*/merge:*)"
+    ]
   }
 }

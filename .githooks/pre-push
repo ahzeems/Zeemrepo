@@ -1,0 +1,6 @@
+#!/bin/sh
+# Refuse pushes to main, rewrites and unlanded deletions, then run every check. git passes
+# the ref updates on stdin, which branch-guard reads.
+set -eu
+node scripts/git/branch-guard.ts push
+npm run --silent check

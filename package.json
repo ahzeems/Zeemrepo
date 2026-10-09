@@ -16,7 +16,11 @@
     "skills:lint": "node scripts/skills/skill-lint.ts",
     "changelog:guard": "node scripts/changes/changelog-guard.ts",
     "memory:guard": "node scripts/changes/repo-memory-guard.ts",
-    "governance:check": "node scripts/governance/governance-guard.ts"
+    "governance:check": "node scripts/governance/governance-guard.ts",
+    "pr": "node scripts/git/pr-ready.ts",
+    "audit": "node scripts/git/landing-audit.ts",
+    "worktree:guard": "node scripts/git/worktree-guard.ts",
+    "hooks:install": "git config --local core.hooksPath .githooks"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

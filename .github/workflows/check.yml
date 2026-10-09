@@ -1,0 +1,67 @@
+# Runs on every pull request and on main. The change's own lint, types and tests run from the
+# change; the repository guards run from main's copy, so a pull request cannot weaken the
+# guards that judge it. Actions are pinned to commit SHAs.
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the change
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: change
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check out main's guards
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          path: trusted
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: change/.nvmrc
+
+      - name: Install the change's dependencies
+        working-directory: change
+        run: npm ci
+
+      - name: Install the guards' dependencies
+        working-directory: trusted
+        run: npm ci
+
+      - name: Lint, typecheck and test the change
+        working-directory: change
+        run: |
+          npm run lint
+          npm run typecheck
+          npm test
+
+      - name: Run main's guards against the change
+        working-directory: change
+        run: |
+          set -eu
+          guards=../trusted/scripts
+          node "$guards/wiki/wiki-lint.ts" --root .
+          node "$guards/skills/skill-lint.ts" --root .
+          node "$guards/governance/governance-guard.ts" --root .
+          node "$guards/wiki/wiki-compliance.ts"
+          node "$guards/changes/changelog-guard.ts"
+          node "$guards/changes/repo-memory-guard.ts"

@@ -46,7 +46,10 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
   backtick, heredoc or backslash, and, outside quotes, `||`, a lone `&`, `if`/`for`, subshells
   and comments also keep it whole. This is meant to keep splitting from crediting a step that
   never ran; it under-credits other chains, the grader can still mislabel a whole call, and a `;`
-  chain credits every part even if one of them failed;
+  chain credits every part even if one of them failed or was not found. It assumes a cooperative
+  agent: one that rewrites Claude Code's shell snapshot under its sandbox `~/.claude` (sourced
+  before every Bash call) or puts a fake `git` early in `PATH` can still be credited for a step
+  that did not run;
 - replaces any symlink a scenario planted on a tooling path (the file or a directory above it), so
   the real file is written in place and never through the link;
 - writes each report to `reports/<path-derived name>.md`, for example `rules-zeem-branch-and-merge.md`.

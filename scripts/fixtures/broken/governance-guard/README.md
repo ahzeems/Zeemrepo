@@ -1,4 +1,4 @@
 # Example
 
-When checks pass,
-run npm run gate to land.
+When checks pass, run npm run
+gate to land.

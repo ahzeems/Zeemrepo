@@ -3,7 +3,7 @@
 // One question: do the files that declare how this repository works still agree with how it
 // works? A workflow change that leaves a skill, rule, doc or script asserting the old rule is
 // incomplete, and a search by hand does not reliably catch it.
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
 import { walk } from "../lib/walk.ts";
@@ -14,44 +14,83 @@ export type Options = { output?: Output };
 const CONFIG = "config/governance-alignment.json";
 const REPOSITORY = join(import.meta.dirname, "../..");
 const USAGE = "usage: node scripts/governance/governance-guard.ts [--json] [--root <repository>]";
+// Never authored here: git internals, installed dependencies and other checkouts. Only at
+// the root; a node_modules folder anywhere else is scanned like any other.
+const ROOT_SKIPPED = new Set([".git", "node_modules", ".worktrees"]);
 
-function parseArgs(args: readonly string[]): { json: boolean; root: string } {
-  let json = false;
-  let root = REPOSITORY;
+type Args = { json: boolean; root: string; help: boolean };
+
+function parseArgs(args: readonly string[]): Args {
+  const parsed: Args = { json: false, root: REPOSITORY, help: false };
   for (let index = 0; index < args.length; index++) {
-    if (args[index] === "--json") json = true;
-    else if (args[index] === "--root" && args[index + 1] !== undefined) root = resolve(args[++index] ?? "");
+    const arg = args[index];
+    if (arg === "--json") parsed.json = true;
+    else if (arg === "--help") parsed.help = true;
+    else if (arg === "--root" && args[index + 1] !== undefined) parsed.root = resolve(args[++index] ?? "");
     else throw new Error(USAGE);
   }
-  return { json, root };
+  return parsed;
 }
 
-type Scan = Result & { scanned: string[]; emptySurfaces: string[] };
+function repositoryFiles(root: string): { files: string[]; symlinks: string[] } {
+  const found: { files: string[]; symlinks: string[] } = { files: [], symlinks: [] };
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    if (ROOT_SKIPPED.has(entry.name)) continue;
+    const path = join(root, entry.name);
+    if (entry.isSymbolicLink()) found.symlinks.push(path);
+    else if (entry.isFile()) found.files.push(path);
+    else if (entry.isDirectory()) {
+      const nested = walk(path, { includeDot: true, skipDirs: new Set([".git"]) });
+      found.files.push(...nested.files);
+      found.symlinks.push(...nested.symlinks);
+    }
+  }
+  const rel = (file: string): string => relative(root, file).split("\\").join("/");
+  return { files: found.files.map(rel), symlinks: found.symlinks.map(rel) };
+}
 
-// Files are walked, not taken from git, so a new file is checked before it is staged.
-// Symbolic links are never followed; the governing files are real files.
+type Scan = Result & { scanned: string[]; excluded: number; symlinks: string[]; emptySurfaces: string[]; emptyExclusions: string[] };
+
 function scan(root: string, config: Config): Scan {
-  const files = walk(root, { includeDot: true, skipDirs: new Set([".git", "node_modules", ".worktrees"]) }).files
-    .map((file) => relative(root, file).split("\\").join("/"));
-  const excluded = config.exclude.map(globToRegExp);
-  const candidates = files.filter((path) => !excluded.some((rule) => rule.test(path)));
-  const matchers = config.surfaces.map((surface) => ({ surface, re: globToRegExp(surface) }));
-  const emptySurfaces = matchers.filter(({ re }) => !candidates.some((path) => re.test(path))).map(({ surface }) => surface);
-  const scanned = candidates.filter((path) => matchers.some(({ re }) => re.test(path))).sort();
-  const surfaces = scanned.map((path) => ({ path, text: readFileSync(join(root, path), "utf8") }));
-  return { ...checkGovernance(surfaces, config), scanned, emptySurfaces };
+  const { files, symlinks } = repositoryFiles(root);
+  const exclusions = config.exclude.map((entry) => ({ glob: entry.glob, re: globToRegExp(entry.glob) }));
+  const isExcluded = (path: string): boolean => exclusions.some(({ re }) => re.test(path));
+  const surfaces = config.surfaces.map((surface) => ({ surface, re: globToRegExp(surface) }));
+  const candidates = files.filter((path) => !isExcluded(path));
+  const texts = candidates.filter((path) => surfaces.some(({ re }) => re.test(path)))
+    .map((path) => ({ path, text: readFileSync(join(root, path), "utf8") }))
+    .filter(({ text }) => !text.includes("\0")).sort((a, b) => a.path.localeCompare(b.path));
+  return {
+    ...checkGovernance(texts, config),
+    scanned: texts.map(({ path }) => path),
+    excluded: files.length - candidates.length,
+    symlinks: symlinks.filter((path) => !isExcluded(path)),
+    emptySurfaces: surfaces.filter(({ re }) => !candidates.some((path) => re.test(path))).map(({ surface }) => surface),
+    emptyExclusions: exclusions.filter(({ re }) => !files.some((path) => re.test(path))).map(({ glob }) => glob),
+  };
 }
 
 function reportDrift(found: Scan, output: Output): void {
   for (const violation of found.violations) output.warn(`  x ${violation.path}:${violation.line} [${violation.claim}] ${violation.text}`);
+  for (const link of found.symlinks) output.warn(`  x ${link}: symbolic link; not scanned, replace it with the file`);
   for (const allowance of found.unusedAllowances) output.warn(`  x ${allowance.path}: allowed wording "${allowance.contains}" no longer appears; remove the allowance`);
   for (const surface of found.emptySurfaces) output.warn(`  x surface "${surface}" matches no file; the check is not looking where it claims to`);
-  output.warn(`governance-guard: update the file, or record the wording in ${CONFIG} with a reason.`);
+  for (const glob of found.emptyExclusions) output.warn(`  x exclusion "${glob}" matches no file; remove it`);
+  output.warn(`governance-guard: ${found.excluded} file(s) excluded. Update the file, or record the wording in ${CONFIG} with a reason.`);
+}
+
+function summary(found: Scan): string {
+  const history = found.history.length > 0 ? `; ${found.history.length} superseded wiki note(s) read as history` : "";
+  return `governance-guard: ${found.scanned.length} file(s) aligned with the operating model; ${found.excluded} file(s) excluded${history}`;
 }
 
 export function main(args: readonly string[], options: Options = {}): number {
   const output = options.output ?? consoleOutput;
-  const { json, root } = parseArgs(args);
+  const { json, root, help } = parseArgs(args);
+  if (help) {
+    output.write(USAGE);
+    return EXIT_OK;
+  }
   const parsed: unknown = JSON.parse(readFileSync(join(root, CONFIG), "utf8"));
   const problems = configProblems(parsed);
   if (problems.length > 0) {
@@ -60,9 +99,9 @@ export function main(args: readonly string[], options: Options = {}): number {
     return EXIT_REFUSED;
   }
   const found = scan(root, readConfig(parsed));
-  const aligned = found.violations.length === 0 && found.unusedAllowances.length === 0 && found.emptySurfaces.length === 0;
+  const aligned = [found.violations, found.symlinks, found.unusedAllowances, found.emptySurfaces, found.emptyExclusions].every((list) => list.length === 0);
   if (json) output.write(JSON.stringify({ aligned, ...found }));
-  else if (aligned) output.write(`governance-guard: ${found.scanned.length} declared surface(s) aligned with the operating model`);
+  else if (aligned) output.write(summary(found));
   else reportDrift(found, output);
   return aligned ? EXIT_OK : EXIT_REFUSED;
 }

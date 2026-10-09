@@ -4,14 +4,14 @@ import { join } from "node:path";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
 import type { GitOptions } from "../lib/git.ts";
 import { CHANGELOG } from "../lib/paths.ts";
-import { addedLines, branchBase, changedSince } from "./branch-diff.ts";
+import { addedLineNumbers, branchBase, changedSince } from "./branch-diff.ts";
 import { changelogRefusals } from "./changelog-validation.ts";
 
 export type Options = { cwd?: string; output?: Output; today?: string };
 
 const USAGE = `Usage: node scripts/changes/changelog-guard.ts [--json]
 Requires this branch to add its own ${CHANGELOG} entry, under a date heading between the
-branch's fork point and today (UTC). Exit: 0 allowed, 1 refused, 2 the check could not run.`;
+day the branch started and today (UTC). Exit: 0 allowed, 1 refused, 2 the check could not run.`;
 
 function refusals(options: Options): string[] {
   const gitOptions: GitOptions = options.cwd === undefined ? {} : { cwd: options.cwd };
@@ -19,7 +19,7 @@ function refusals(options: Options): string[] {
   const path = join(options.cwd ?? process.cwd(), CHANGELOG);
   return changelogRefusals({
     changed: changedSince(base.sha, gitOptions),
-    added: addedLines(base.sha, [CHANGELOG], gitOptions),
+    addedLines: existsSync(path) ? addedLineNumbers(base.sha, CHANGELOG, gitOptions) : [],
     changelog: existsSync(path) ? readFileSync(path, "utf8") : "",
     window: { from: base.date, to: options.today ?? new Date().toISOString().slice(0, 10) },
   });

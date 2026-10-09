@@ -52,3 +52,8 @@ compliance evals with ECC `skill-comply`, and closeout. Zimi itself is never mod
 ## Observations
 
 - Skill alignment: [no-doc-change: Land a change and Merge gate contract already describe npm run pr and the required check and guards CI checks; the two skills now match them]
+- `wiki:compliance` refuses a merge of main whose conflict resolution touches both a wiki file and
+  another file (seen on PR #10: CHANGELOG.md and this record). Two open PRs nearly always conflict
+  on both, so the rules "merge main in" and "wiki commits stay separate" collide. Workaround used:
+  a `docs(wiki):` commit taking main's copy before the merge, and the record re-applied after it.
+  Proposed fix for the owner to decide: let a merge resolve conflicts in both kinds of file.

@@ -93,6 +93,24 @@ class Baseline(unittest.TestCase):
                     self.assertIn("core.hooksPath=/dev/null", call)
 
 
+class ScenarioSetup(unittest.TestCase):
+    def test_setup_commands_run_through_a_shell_so_redirection_creates_files(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            sandbox = Path(directory) / "box"
+            (sandbox / "stale").mkdir(parents=True)
+            messages: list[str] = []
+            commands = ("mkdir -p src", "printf 'def f():\\n    return 1\\n' > src/f.py",
+                        "cat > notes.md <<'EOF'\nhello\nEOF", "cd src && touch inside.txt", "false")
+            run_comply.setup_sandbox(sandbox, commands, lambda args, **kw: subprocess.run(args, **kw), messages.append)
+            self.assertFalse((sandbox / "stale").exists(), "a reused sandbox starts empty")
+            self.assertTrue((sandbox / ".git").is_dir())
+            self.assertEqual((sandbox / "src/f.py").read_text(), "def f():\n    return 1\n")
+            self.assertEqual((sandbox / "notes.md").read_text(), "hello\n")
+            self.assertTrue((sandbox / "src/inside.txt").exists())
+            self.assertEqual(len(messages), 1)
+            self.assertIn("false", messages[0], "a failed setup command is reported, not skipped silently")
+
+
 class Cleanup(unittest.TestCase):
     def test_removes_the_work_dir_even_where_a_sandbox_made_a_folder_read_only(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -236,6 +254,7 @@ class Arguments(unittest.TestCase):
     def test_a_real_run_writes_its_report_under_evals_compliance_reports(self) -> None:
         args = run_comply.ecc_arguments(run_comply.REPO / ".claude/rules/zeem/branch-and-merge.md", model="sonnet", gen_model="haiku", dry_run=False)
         self.assertIn("--output", args)
+        self.assertEqual(args[0], ".claude/rules/zeem/branch-and-merge.md", "the report names the target without a home path")
         self.assertTrue(args[args.index("--output") + 1].endswith("evals/compliance/reports/rules-zeem-branch-and-merge.md"))
 
     def test_report_names_come_from_the_path_so_they_never_collide_and_a_dry_run_writes_none(self) -> None:

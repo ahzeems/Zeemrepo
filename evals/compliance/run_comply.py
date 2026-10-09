@@ -26,7 +26,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -213,6 +213,24 @@ def commit_baseline(sandbox: Path, run: Callable[..., object]) -> None:
     step("git", *DISARMED, "update-ref", "refs/remotes/origin/main", "HEAD")
 
 
+# Scenario sessions that follow the rules run npm run check (and npm run pr runs it again), which
+# does not fit ECC's default of 300 seconds per scenario.
+SCENARIO_TIMEOUT = 900
+
+
+def setup_sandbox(sandbox: Path, commands: Sequence[str], run: Callable[..., object], warn: Callable[[str], None]) -> None:
+    """ECC's setup, but each generated command runs through `sh -c`, so redirections and heredocs create
+    the files the scenario needs (ECC splits them without a shell, so `echo x > f` makes nothing).
+    Safe because `run` confines every command; a failed command is reported instead of skipped."""
+    remove_tree(sandbox)
+    sandbox.mkdir(parents=True)
+    run(["git", "init", "--quiet"], cwd=sandbox, check=True, capture_output=True)
+    for command in commands:
+        result = run(["sh", "-c", command], cwd=sandbox, capture_output=True, text=True)
+        if getattr(result, "returncode", 0) != 0:
+            warn(f"run_comply: setup command failed ({getattr(result, 'returncode', '?')}): {command[:120]}")
+
+
 def require_confinement(which: Callable[[], str | None], works: Callable[[], bool]) -> None:
     """Refuse to run anything unless bubblewrap is installed and a trivial confined command succeeds."""
     if which() is None or not works():
@@ -222,7 +240,8 @@ def require_confinement(which: Callable[[], str | None], works: Callable[[], boo
 
 def ecc_arguments(target: Path, *, model: str, gen_model: str, dry_run: bool) -> list[str]:
     """Arguments for ECC's scripts.run; a real run writes its report under evals/compliance/reports."""
-    args = [str(target.resolve()), "--model", model, "--gen-model", gen_model]
+    # Repository-relative, run from the repository root: ECC prints this path in the report header.
+    args = [str(target.resolve().relative_to(REPO)), "--model", model, "--gen-model", gen_model]
     if dry_run:
         return [*args, "--dry-run"]
     return [*args, "--output", str(REPORTS / f"{report_name(target)}.md")]
@@ -295,14 +314,16 @@ def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Pa
     require_confinement(lambda: shutil.which("bwrap"), lambda: confined.run(["true"]).returncode == 0)
     for module in (runner, classifier, scenario_generator, spec_generator):
         module.subprocess = confined
-    original = runner._setup_sandbox
-
     def setup_with_repository(sandbox_dir: Path, scenario: object) -> None:
-        original(sandbox_dir, scenario)
+        commands = getattr(scenario, "setup_commands", ())
+        setup_sandbox(sandbox_dir, commands, confined.run, lambda message: print(message, file=sys.stderr))
         seed_sandbox(sandbox_dir, snapshot, deps)
         commit_baseline(sandbox_dir, confined.run)
 
     runner._setup_sandbox = setup_with_repository
+    run_scenario = runner.run_scenario
+    ecc_run.run_scenario = lambda scenario, model: run_scenario(scenario, model=model, timeout=SCENARIO_TIMEOUT)
+    os.chdir(REPO)
     sys.argv = ["skill-comply", *ecc_arguments(args.target, model=args.model, gen_model=args.gen_model, dry_run=args.dry_run)]
     ecc_run.main()
     for host, port, permitted in sorted(proxy.seen):

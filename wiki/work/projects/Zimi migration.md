@@ -9,7 +9,7 @@ agent: claude-code
 status: in-progress
 owner: human
 priority: P1
-next_action: "Phase 9: with the owner's approval of the batch, run run_comply.py on the agreed targets and commit the reports to evals/compliance/reports/; low-compliance steps become write-guard candidates."
+next_action: "Phase 10: closeout with /ecc:harness-audit, /ecc:security-scan and /ecc:orch-review over the repository; the compliance follow-ups in evals/compliance/reports/summary.md await the owner."
 idea: "[[Migrate Zimi into Zeemrepo]]"
 evidence:
   - "VERIFIED: PRs #1-#5 merged by the owner (audit, toolchain, shared library, wiki system, skills)."
@@ -29,6 +29,8 @@ evidence:
   - "VERIFIED: PR #12 merged by the owner (resolving-merge exception, spawn aliases)."
   - "VERIFIED: Phase 9 wrapper: 7 unittest cases pass; driving ECC's real _setup_sandbox through it gave a sandbox with the rules, settings and merge hook (which blocked gh pr merge with exit 2) and no evals/ folder; no model was called."
   - "VERIFIED: after a security review showed env scrubbing was not a boundary, every ECC claude call runs under bubblewrap; a probe through the real confine() saw no gh token, SSH keys, this repository or ~/Github, gh logged out, and no secret variables, while claude still ran."
+  - "VERIFIED: compliance pilot re-run on the fixed harness: branch-and-merge 75/50/75%, write-guard 20/20/20%, wiki-memory 43/43/0% (strict ordering, lower bounds); the competing branch-and-merge agent branched and pushed nothing to main; four security reviews and two verifications of the sandbox before any Sonnet run."
+  - "OWNER DECISION: network allowlist before the pilot (\"Network allowlist first (Recommended)\") and a full re-run (\"Re-run all 3 (Recommended)\"), 2026-10-09."
   - "OWNER DECISION: compliance pilot approved: \"Pilot: 3 targets (Recommended)\" (2026-10-09)."
   - "OWNER DECISION: nothing is pushed to main; work lands by pull request and only the owner merges (2026-10-09)."
 ---

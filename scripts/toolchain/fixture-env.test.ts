@@ -29,9 +29,13 @@ function spawnerNames(file: ts.SourceFile): { names: Set<string>; namespaces: Se
   return { names, namespaces };
 }
 
-// A spread of cleanGitEnv counts only if no GIT_ variable is put back after it.
-const putsGitBack = (property: ts.ObjectLiteralElementLike): boolean =>
-  !ts.isSpreadAssignment(property) && property.name !== undefined && /^["']?GIT_/.test(property.name.getText());
+// A spread of cleanGitEnv counts only if nothing can put a GIT_ variable back: no other
+// spread, no computed key, and no plain key starting with GIT_.
+function putsGitBack(property: ts.ObjectLiteralElementLike): boolean {
+  if (ts.isSpreadAssignment(property)) return !(ts.isIdentifier(property.expression) && property.expression.text === "cleanGitEnv");
+  if (property.name === undefined || ts.isComputedPropertyName(property.name)) return true;
+  return /^["']?GIT_/.test(property.name.getText());
+}
 const isCleanEnv = (node: ts.Expression): boolean =>
   (ts.isIdentifier(node) && node.text === "cleanGitEnv")
   || (ts.isObjectLiteralExpression(node) && !node.properties.some(putsGitBack)
@@ -84,6 +88,8 @@ await test("the spawn check sees through aliases, namespaces and quoting, and ac
     'import { execSync } from "child_process";\nexecSync("git init"); // cleanGitEnv',
     'import { spawnSync } from "node:child_process";\nspawnSync("sh", ["-c", "git init"], { env: process.env });',
     'import { spawnSync } from "node:child_process";\nspawnSync("git", args, { env: { ...cleanGitEnv, GIT_DIR: dir } });',
+    'import { spawnSync } from "node:child_process";\nspawnSync("git", args, { env: { ...cleanGitEnv, ["GIT_DIR"]: dir } });',
+    'import { spawnSync } from "node:child_process";\nspawnSync("git", args, { env: { ...cleanGitEnv, ...process.env } });',
     'const cp = require("node:child_process");',
     'const cp = await import("child_process");',
   ];

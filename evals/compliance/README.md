@@ -54,6 +54,19 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
 - replaces any symlink a scenario planted on a tooling path (the file or a directory above it), so
   the real file is written in place and never through the link;
 - writes each report to `reports/<path-derived name>.md`, for example `rules-zeem-branch-and-merge.md`;
+- pins each target's spec in `specs/<report name>.json` (generated on the first run, then reused),
+  because ECC writes a new spec every run and totals over different steps cannot be compared; the
+  pinned files are reviewed like code. The 2026-10-09 review removed `report_ready_never_approved`
+  from branch-and-merge (a final-message claim, which tool-call grading cannot see) and, in
+  wiki-memory, made `index_memory_note` optional (only a new memory note needs an index line) and
+  dropped `after_step` links the skill does not impose (`update_work_record`, `lint_wiki`,
+  `commit_wiki_files`), which demoted a done step whenever an unrelated one was missed;
+- gives a sandbox a local bare `origin` (inside `.git`) with `main` pushed, so `npm run pr` can fetch
+  and push there (it still stops at `gh`, which is logged out);
+- shows the grader a split chain's output only on its last command, and a long Bash call as its start
+  and end, because ECC's classifier reads only the first 500 characters of an input;
+- saves each session's raw stream to `~/.cache/zeemrepo/comply-runs/` (outside the repository) for
+  auditing outputs, splits and error flags;
 - gives each call a copy of the login without its refresh token, and refuses to start unless the
   access token has at least an hour left. On 2026-10-09 the re-run's claude calls began failing
   as the token reached its expiry, with `platform.claude.com` allowed, and the owner's own Claude

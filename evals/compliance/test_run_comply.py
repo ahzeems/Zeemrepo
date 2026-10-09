@@ -132,6 +132,9 @@ class Baseline(unittest.TestCase):
             git = lambda *args: subprocess.run(["git", *args], cwd=sandbox, env=env, check=True, capture_output=True, text=True).stdout.strip()
             self.assertEqual(git("symbolic-ref", "--short", "HEAD"), "main")
             self.assertEqual(git("rev-parse", "HEAD"), git("rev-parse", "refs/remotes/origin/main"))
+            self.assertEqual(git("ls-remote", "origin", "refs/heads/main").split()[0], git("rev-parse", "HEAD"),
+                             "a real local origin, so npm run pr can fetch and push in the sandbox")
+            self.assertEqual(git("rev-parse", "--abbrev-ref", "main@{upstream}"), "origin/main")
             self.assertEqual(git("ls-files"), "CLAUDE.md")
             self.assertEqual(git("status", "--porcelain"), "")
 
@@ -171,7 +174,8 @@ class Grading(unittest.TestCase):
         split = run_comply.split_observations(events, succeeded={"T0002"})
         self.assertEqual([e.timestamp for e in split], ["T0001", "T0002.001", "T0002.002"])
         self.assertEqual([json.loads(e.input)["command"] for e in split[1:]], ["git add a", "npm run pr"])
-        self.assertEqual({e.output for e in split[1:]}, {"done"})
+        self.assertEqual([e.output for e in split[1:]], [run_comply.SPLIT_OUTPUT, "done"],
+                         "only the last piece carries the chain's output, so an early piece is not judged by it")
         self.assertEqual(sorted(split, key=lambda e: e.timestamp), split, "the grader's sort keeps the order")
 
     def test_eleven_parts_keep_their_order_under_a_text_sort(self) -> None:
@@ -229,6 +233,17 @@ class Grading(unittest.TestCase):
                       "env git push && git status", "./run.sh && git push"):
             self.assertEqual(run_comply.split_command(whole), [whole], whole)
 
+    def test_a_long_command_keeps_its_start_and_end_within_the_classifier_s_view(self) -> None:
+        Event = run_comply.Observation
+        command = "cat > notes.md <<'EOF'\n" + "line\n" * 400 + "EOF\ngit add notes.md && git commit -m 'docs(wiki): x'"
+        long = Event("T0001", "tool_complete", "Bash", "s", json.dumps({"command": command, "description": "d"}), "ok")
+        short = Event("T0002", "tool_complete", "Bash", "s", json.dumps({"command": "ls"}), "ok")
+        fitted = run_comply.fit_for_classifier([long, short])
+        self.assertLessEqual(len(fitted[0].input), run_comply.CLASSIFIER_INPUT_LIMIT)
+        self.assertIn("cat > notes.md", fitted[0].input)
+        self.assertIn("git commit -m 'docs(wiki): x'", json.loads(fitted[0].input)["command"])
+        self.assertEqual(fitted[1], short)
+
     def test_a_failed_call_is_not_split_so_steps_that_never_ran_get_no_credit(self) -> None:
         Event = run_comply.Observation
         failed = Event("T0004", "tool_complete", "Bash", "s", json.dumps({"command": "npm run check && git commit -m x"}), "Exit code 1\nlint failed")
@@ -262,8 +277,10 @@ class Context(unittest.TestCase):
             with_context = run_comply.with_repo_context(target, Path(directory))
             text = with_context.read_text()
             self.assertTrue(text.startswith("# A skill\n"))
-            for fact in ("TypeScript", "node:test", "npm test", "no pip", "not Python", "no network"):
+            for fact in ("TypeScript", "node:test", "npm test", "no pip", "not Python", "no network",
+                         "created, updated", "scripts/<area>/", "already enforces"):
                 self.assertIn(fact, text)
+            self.assertNotIn("dates", text, "the schema has created and updated, not dates")
             self.assertEqual(target.read_text(), "# A skill\n", "the real file is untouched")
 
 
@@ -447,6 +464,8 @@ class RepositorySnapshot(unittest.TestCase):
             (repo / "evals/compliance/reports").mkdir(parents=True)
             (repo / "evals/compliance/reports/old.md").write_text("an old score\n")
             (repo / "evals/compliance/seeds.md").write_text("expected behaviour\n")
+            (repo / "evals/compliance/specs").mkdir()
+            (repo / "evals/compliance/specs/x.yaml").write_text("steps: []\n")
             (repo / "evals/compliance/run_comply.py").write_text("# wrapper\n")
             git("add", "--all")
             git("commit", "--quiet", "-m", "base")
@@ -456,6 +475,64 @@ class RepositorySnapshot(unittest.TestCase):
             self.assertIn("evals/compliance/run_comply.py", names, "npm run check needs the wrapper's tests")
             self.assertFalse(any(name.startswith("evals/compliance/reports") for name in names))
             self.assertNotIn("evals/compliance/seeds.md", names, "the expected behaviours are not handed to the agent")
+            self.assertFalse(any(name.startswith("evals/compliance/specs") for name in names), "nor are the pinned specs")
+
+
+@dataclasses.dataclass(frozen=True)
+class FakeDetector:
+    description: str
+    after_step: str | None = None
+    before_step: str | None = None
+
+
+@dataclasses.dataclass(frozen=True)
+class FakeStep:
+    id: str
+    description: str
+    required: bool
+    detector: FakeDetector
+
+
+@dataclasses.dataclass(frozen=True)
+class FakeSpec:
+    id: str
+    name: str
+    source_rule: str
+    version: str
+    steps: tuple[FakeStep, ...]
+    threshold_promote_to_hook: float
+
+
+def parse_fake(path: Path) -> FakeSpec:
+    raw = json.loads(path.read_text())
+    steps = tuple(FakeStep(s["id"], s["description"], s["required"], FakeDetector(**s["detector"])) for s in raw["steps"])
+    return FakeSpec(raw["id"], raw["name"], raw["source_rule"], raw["version"], steps, raw["scoring"]["threshold_promote_to_hook"])
+
+
+class PinnedSpec(unittest.TestCase):
+    def test_the_first_run_saves_the_spec_and_later_runs_reuse_it(self) -> None:
+        spec = FakeSpec("s", "S", "rule.md", "1", (FakeStep("a", "do a", True, FakeDetector("sees a", None, "b")),), 0.6)
+        generated: list[int] = []
+
+        def generate() -> FakeSpec:
+            generated.append(1)
+            return spec
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "specs" / "rule.yaml"
+            self.assertEqual(run_comply.pinned_spec(path, generate, parse_fake), spec)
+            self.assertTrue(path.is_file())
+            self.assertEqual(run_comply.pinned_spec(path, generate, parse_fake), spec, "read back exactly")
+            self.assertEqual(generated, [1], "generated once, then pinned")
+
+
+class Streams(unittest.TestCase):
+    def test_each_session_stream_is_kept_for_audit_in_order(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            keep = run_comply.stream_keeper(Path(directory) / "run")
+            keep("first\n")
+            keep("second\n")
+            self.assertEqual([p.read_text() for p in sorted((Path(directory) / "run").iterdir())], ["first\n", "second\n"])
 
 
 class Arguments(unittest.TestCase):

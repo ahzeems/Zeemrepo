@@ -1,0 +1,71 @@
+{
+  "id": "write-guard-test-first",
+  "name": "Write Guard: test-first repository check",
+  "source_rule": "skills/write-guard/SKILL.md",
+  "version": "1.0",
+  "steps": [
+    {
+      "id": "prove_gap",
+      "description": "Plant the violation and run the existing checks to confirm nothing already catches it before writing any guard",
+      "required": true,
+      "detector": {
+        "description": "Run existing repository checks or tests against a deliberately planted violation, before any guard or test file is written",
+        "after_step": null,
+        "before_step": null
+      }
+    },
+    {
+      "id": "write_failing_tests",
+      "description": "Write sibling test files with refusing cases for each rule, and run them to watch them fail for the expected reason",
+      "required": true,
+      "detector": {
+        "description": "Write or Edit a test file (a sibling *.test.ts, not an implementation file) containing cases that refuse the violation",
+        "after_step": "prove_gap",
+        "before_step": "build_guard"
+      }
+    },
+    {
+      "id": "read_inputs_as_they_are",
+      "description": "Parse frontmatter and git paths with the shared helpers instead of grepping raw text, and take environment-derived values as parameters",
+      "required": true,
+      "detector": {
+        "description": "Write guard code that reads files through shared parser or git helper modules rather than raw text search over file contents",
+        "after_step": null,
+        "before_step": null
+      }
+    },
+    {
+      "id": "build_guard",
+      "description": "Build a guard CLI under scripts/ that passes the new tests, exits nonzero on findings, and treats unrunnable git or unreadable input as an error",
+      "required": true,
+      "detector": {
+        "description": "Write or Edit a new guard script under scripts/ (not a test file) that exits with a nonzero code when it finds a violation",
+        "after_step": "write_failing_tests",
+        "before_step": null
+      }
+    },
+    {
+      "id": "wire_into_lists",
+      "description": "Register the guard in package.json, CI workflows, CLAUDE.md, the verification runbook, and the owning reference page",
+      "required": true,
+      "detector": {
+        "description": "Edit package.json to add an npm script for the guard, or edit a CI workflow, CLAUDE.md, or runbook to list it",
+        "after_step": "build_guard",
+        "before_step": null
+      }
+    },
+    {
+      "id": "record_change",
+      "description": "Add the changelog entry and work record for the change",
+      "required": true,
+      "detector": {
+        "description": "Write or Edit a changelog entry or work record document describing the new guard",
+        "after_step": "wire_into_lists",
+        "before_step": null
+      }
+    }
+  ],
+  "scoring": {
+    "threshold_promote_to_hook": 0.6
+  }
+}

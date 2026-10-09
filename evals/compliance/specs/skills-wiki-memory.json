@@ -1,0 +1,71 @@
+{
+  "id": "wiki-memory-recall-record",
+  "name": "Wiki memory recall and record",
+  "source_rule": "not provided",
+  "version": "1.0",
+  "steps": [
+    {
+      "id": "recall_wiki",
+      "description": "Before starting the task, read wiki/Home.md, follow it to the Memory index, and narrow to notes matching the task by metadata (type, tags, status) instead of reading everything",
+      "required": true,
+      "detector": {
+        "description": "Read wiki/Home.md or the Memory index, or search wiki/ by frontmatter fields such as type, tag, summary or status, before doing the task's main work",
+        "after_step": null,
+        "before_step": null
+      }
+    },
+    {
+      "id": "write_memory_note",
+      "description": "At the end of meaningful work, search for an existing note and update it if one fits; otherwise create a new note from the wiki/templates/ template with complete frontmatter, applying the redaction checklist",
+      "required": true,
+      "detector": {
+        "description": "Create or edit a Markdown note under wiki/ (lesson, decision, runbook, reference or session) that was built from a wiki template and contains frontmatter",
+        "after_step": "recall_wiki",
+        "before_step": null
+      }
+    },
+    {
+      "id": "index_memory_note",
+      "description": "Add an entry for each new memory note to wiki/reference/Memory index.md (work notes need no index entry)",
+      "required": false,
+      "detector": {
+        "description": "Edit wiki/reference/Memory index.md to add a line linking a newly created memory note",
+        "after_step": "write_memory_note",
+        "before_step": null
+      }
+    },
+    {
+      "id": "update_work_record",
+      "description": "Update the owning work record under wiki/work/ with its status, next_action and labelled evidence",
+      "required": true,
+      "detector": {
+        "description": "Edit a note under wiki/work/ to change its status, next_action or evidence fields",
+        "after_step": null,
+        "before_step": null
+      }
+    },
+    {
+      "id": "lint_wiki",
+      "description": "Run the wiki lint command and fix every reported error before committing",
+      "required": true,
+      "detector": {
+        "description": "Run the npm script that lints the wiki (wiki:lint), or npm run check, after the wiki notes are written",
+        "after_step": null,
+        "before_step": "commit_wiki_files"
+      }
+    },
+    {
+      "id": "commit_wiki_files",
+      "description": "Commit only wiki files, in a commit whose subject starts with 'docs(wiki): ' (or 'docs(wiki)!: ' for a breaking restructure), never mixed with non-wiki files",
+      "required": true,
+      "detector": {
+        "description": "Run git commit where every staged file is under wiki/ and the message subject begins with the docs(wiki) prefix",
+        "after_step": null,
+        "before_step": null
+      }
+    }
+  ],
+  "scoring": {
+    "threshold_promote_to_hook": 0.6
+  }
+}

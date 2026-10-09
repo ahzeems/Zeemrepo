@@ -1,6 +1,6 @@
 ---
 name: wiki-memory
-description: Recall and record this repository's long-term memory in wiki/. Use at the start of a task to recall, and after meaningful work or "save/document/remember this" to record.
+description: Recall and record long-term memory in wiki/. Use at the start of a task, and after meaningful work or when asked to save, document or remember something.
 ---
 
 # Wiki memory

@@ -1,0 +1,7 @@
+{
+  "note": "Structural standards for .claude/skills, from write-skill's contract. Skills in .claude/skills/import-baseline.json are exempt from the size and frontmatter-key limits; every other check applies to all skills. userOnly is the single list of skills only the user may invoke; their frontmatter must set disable-model-invocation: true, and no other skill may.",
+  "descriptionLimit": 160,
+  "bodyLimit": 6000,
+  "allowances": [],
+  "userOnly": ["bro", "find-deepenings", "teach", "technical-writing"]
+}

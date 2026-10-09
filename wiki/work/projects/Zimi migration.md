@@ -9,7 +9,7 @@ agent: claude-code
 status: in-progress
 owner: human
 priority: P1
-next_action: "Phase 8: write the Zimi instincts file (lessons and decisions, including the git-state lesson), import it with /ecc:instinct-import, and review /ecc:evolve output; the skill alignment is done."
+next_action: "Phase 9: wrap ECC skill-comply so its sandbox loads CLAUDE.md and .claude/, write seeds.md, and run compliance reports for the zeem rules and key skills."
 idea: "[[Migrate Zimi into Zeemrepo]]"
 evidence:
   - "VERIFIED: PRs #1-#5 merged by the owner (audit, toolchain, shared library, wiki system, skills)."
@@ -21,6 +21,9 @@ evidence:
   - "VERIFIED: with GIT_DIR, GIT_WORK_TREE and GIT_INDEX_FILE aimed at a decoy clone, all 511 tests passed and the decoy was unchanged; a pre-push run from a linked worktree whose check leaked a commit was refused by git-state.ts."
   - "VERIFIED: PR #9 merged by the owner (pre-push git-state backstop)."
   - "OWNER DECISION: baseline edits to branch-review and manage-branch approved: \"Approve both (Recommended)\" (2026-10-09); merged branches from PRs #1-#7 deleted after checking each was contained in origin/main; backup branches kept."
+  - "VERIFIED: PR #10 merged by the owner (skill alignment)."
+  - "VERIFIED: Phase 8 imported 34 instincts (dry run 34 new, 0 duplicates); evolve found the 7 designed clusters and generated 13 items (7 skills, 6 agents)."
+  - "INFERRED: proposed in docs/migration/evolve-review.md, pending the owner's merge: write-guard from two generated skills, one rule line from a third, the other 10 items rejected."
   - "OWNER DECISION: nothing is pushed to main; work lands by pull request and only the owner merges (2026-10-09)."
 ---
 

@@ -38,3 +38,5 @@ apply everywhere.
 - A standards page an agent drafted without owner input starts with `> **Status:** draft`, removed only after
   the owner confirms it.
 - Walkthroughs link to the skill or rule that owns a step instead of restating it.
+- Example values cannot be mistaken for real ones: write `<your-name>`, not `Your Name`; readers run
+  examples exactly as written.

@@ -45,8 +45,9 @@ before anything reached the remote.
 
 A toolchain test, `scripts/toolchain/fixture-env.test.ts`, reads the syntax tree of all test code
 and fails any `child_process` call that does not pass `env: cleanGitEnv`, whatever the command,
-including spawners renamed, destructured or taken from a namespace import. A spawner passed
-through another function is not followed.
+including spawners renamed, destructured or taken from a namespace import. A spawner passed to
+another function, stored in an object, assigned later or read through a computed property is not
+followed.
 
 ## How to apply
 

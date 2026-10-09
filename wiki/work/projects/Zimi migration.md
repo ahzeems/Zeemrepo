@@ -25,7 +25,7 @@ evidence:
   - "VERIFIED: Phase 8 imported 34 instincts (dry run 34 new, 0 duplicates); evolve found the 7 designed clusters and generated 13 items (7 skills, 6 agents)."
   - "INFERRED: proposed in docs/migration/evolve-review.md, pending the owner's merge: write-guard from two generated skills, one rule line from a third, the other 10 items rejected."
   - "VERIFIED: PR #11 merged by the owner (Phase 8 instincts, evolve review, write-guard)."
-  - "OWNER DECISION: \"I recommend allowing mixed wiki/non-wiki conflict resolutions in genuine merge commits, while rejecting unrelated edits.\" (2026-10-09); wiki-compliance now allows a merge whose remerge-diff hunks all remove conflict markers."
+  - "OWNER DECISION: \"I recommend allowing mixed wiki/non-wiki conflict resolutions in genuine merge commits, while rejecting unrelated edits.\" (2026-10-09); wiki-compliance now allows a merge whose remerge-diff touches only files git reported as content conflicts, each hunk removing a whole marker set, deleting only inside it, and adding only lines from the two sides; octopus merges are refused."
   - "OWNER DECISION: nothing is pushed to main; work lands by pull request and only the owner merges (2026-10-09)."
 ---
 

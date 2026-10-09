@@ -1,0 +1,6 @@
+{
+  "surfaces": ["README.md", "docs/*.md"],
+  "exclude": [],
+  "staleClaims": [{ "id": "self-merge-gate", "pattern": "npm run gate", "supersededBy": "PR-only landing" }],
+  "allowed": [{ "path": "docs/history.md", "contains": "Zimi landed work with npm run gate", "reason": "Describes the retired workflow as history." }]
+}

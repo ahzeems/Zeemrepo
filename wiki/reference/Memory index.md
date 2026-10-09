@@ -36,6 +36,7 @@ One line per memory note. Add new notes here; work notes need no entry.
 - [[Fine-grained tokens cannot upload SSH keys]] - gh auth login with a pasted fine-grained token fails with HTTP 403 on /user/keys; log in through the browser with the admin:public_key scope instead.
 - [[Git hooks route child Git commands to the hooked repository]] - Tests that spawn git inherit a hook's GIT_DIR and GIT_INDEX_FILE, so under a hook their fixture commands act on the real repository.
 - [[Git notes do not travel with fetch or pull]] - Clone, fetch and pull skip the notes refs, so evidence kept in git notes looks missing in other clones; Zeemrepo keeps review and CI evidence on GitHub instead.
+- [[Hook-run checks must preserve Git state]] - A test fixture run inside a git hook moved Zimi's real branch and set core.bare; pre-push now refuses when its check changes the repository's git state.
 - [[Passphrase-protected SSH keys block agent pushes]] - An agent cannot type an SSH key passphrase, so git push over SSH fails; use an HTTPS remote with the gh credential helper, as Zeemrepo's origin does.
 - [[Placeholder values get copied literally]] - A user ran an example command as written and set their git name to the literal text 'Your Name'; give placeholders that cannot be mistaken for values.
 - [[Prose rules do not enforce themselves]] - A repository rule written only in a skill was broken by the agent that had not yet loaded the skill; only a check running in the canonical path stopped it.

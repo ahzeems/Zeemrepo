@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
+import { cleanGitEnv, createRepo } from "../test-support/repo-fixture.ts";
 
 const root = join(import.meta.dirname, "../..");
 const hook = (name: string): string => readFileSync(join(root, ".githooks", name), "utf8");
@@ -19,13 +21,42 @@ await test("pre-commit refuses commits on main and mixed wiki staging before any
   assert.deepEqual(lines.slice(1, 3), ["node scripts/git/branch-guard.ts commit", "node scripts/wiki/wiki-compliance.ts --staged"]);
 });
 
-await test("pre-push guards the ref updates, then runs the full check", () => {
+await test("pre-push guards the ref updates, then runs the full check and refuses if it changed git state", () => {
   const lines = hook("pre-push").split("\n").filter((line) => line && !line.startsWith("#"));
   assert.deepEqual(lines.slice(1), [
     "node scripts/git/branch-guard.ts push",
     'if [ "${PR_READY_CHECKED:-}" = "$(git rev-parse HEAD)" ]; then exit 0; fi',
-    "npm run --silent check",
+    "before=$(node scripts/git/git-state.ts snapshot)",
+    "status=0",
+    "npm run --silent check || status=$?",
+    'printf \'%s\\n\' "$before" | node scripts/git/git-state.ts verify',
+    'exit "$status"',
   ]);
+});
+
+await test("pre-push itself: the check's status is kept, and a check that moves git state is refused", async (t) => {
+  const stateCli = `node "${join(root, "scripts/git/git-state.ts")}"`;
+  const script = hook("pre-push").replace("node scripts/git/branch-guard.ts push\n", "").replaceAll("node scripts/git/git-state.ts", stateCli);
+  assert.ok(script.includes("npm run --silent check") && !script.includes("branch-guard.ts push"), "the hook shape this test edits");
+  const runWith = (check: string): { code: number | null; err: string } => {
+    const repo = createRepo("pre-push-");
+    t.after(() => repo.cleanup());
+    repo.commit("base");
+    const result = spawnSync("sh", ["-c", script.replace("npm run --silent check", check)], { cwd: repo.dir, env: cleanGitEnv, encoding: "utf8", input: "" });
+    return { code: result.status, err: result.stderr };
+  };
+  await t.test("a passing check that touches nothing passes", () => assert.equal(runWith("true").code, 0));
+  await t.test("a failing check keeps its own exit status", () => assert.equal(runWith("exit 3").code, 3));
+  await t.test("a check that commits is refused even though it passed", () => {
+    const result = runWith("git commit --quiet --allow-empty -m leaked");
+    assert.equal(result.code, 1);
+    assert.match(result.err, /git-state: HEAD moved/);
+  });
+  await t.test("a check that fails after moving state is still reported", () => {
+    const result = runWith("git tag leaked && false");
+    assert.notEqual(result.code, 0);
+    assert.match(result.err, /git-state: refs changed/);
+  });
 });
 
 await test("guards run from main against the change, never running the change's code", () => {

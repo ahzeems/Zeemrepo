@@ -76,3 +76,11 @@ await test("consoleOutput writes to stdout and stderr", async (t) => {
   consoleOutput.warn("b");
   assert.deepEqual(logged, ["out:a", "err:b"]);
 });
+
+await test("isEntryPoint is true only for the script node was started with", async () => {
+  const { isEntryPoint } = await import("./cli.ts");
+  // Under node --test each test file is the started script; cli.ts is only imported.
+  assert.equal(isEntryPoint(import.meta.url), true);
+  assert.equal(isEntryPoint(new URL("./cli.ts", import.meta.url).href), false);
+  assert.equal(isEntryPoint(new URL("./does-not-exist.ts", import.meta.url).href), false);
+});

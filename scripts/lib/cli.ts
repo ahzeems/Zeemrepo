@@ -1,3 +1,5 @@
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { inspect } from "node:util";
 
 // Exit codes shared by every guard, so a hook or CI step can tell "the change was refused"
@@ -51,5 +53,18 @@ export async function runCli(main: () => number | Promise<number>, output: Outpu
     for (const line of lines) output.warn(line);
   } catch {
     // Nothing left to report to; the exit code already says the guard broke.
+  }
+}
+
+// True when the module at `moduleUrl` is the script node was started with, so a CLI can
+// export main() for in-process tests (which coverage can see) and still run as a script.
+export function isEntryPoint(moduleUrl: string): boolean {
+  const script = process.argv[1];
+  if (script === undefined) return false;
+  try {
+    return realpathSync(script) === realpathSync(fileURLToPath(moduleUrl));
+  } catch {
+    // A path that does not resolve is not this module.
+    return false;
   }
 }

@@ -14,6 +14,7 @@ await test("ordinary work stays allowed", () => {
     "gh pr edit 7 --body \"run: gh pr merge\"", "git log --grep=\"gh pr merge\"", "echo gh pr merge 5",
     "gh pr review 7 --comment --body 'findings'", "gh pr review 7 --request-changes -b 'fix x'", "gh api repos/o/r/pulls/7/reviews",
     "gh api -X POST repos/o/r/pulls/7/reviews -f body='we do not approve of this' -f event=COMMENT", "gh pr review 7 -b approve",
+    "gh pr review 7 -bapprove", "gh pr review 7 -Fa.txt",
   ]) assert.equal(isPrMerge(command), false, command);
 });
 
@@ -33,6 +34,7 @@ await test("common ways to merge a pull request are blocked", () => {
     "/usr/bin/gh pr merge 7", "/home/linuxbrew/.linuxbrew/bin/gh pr review 7 --approve",
     "gh api -X POST repos/o/r/pulls/7/reviews -f event=approve",
     "gh pr review 7 --approve=true", "gh pr review 7 -ab ok", "gh api -X POST repos/o/r/pulls/7/reviews --input body.json",
+    "gh api graphql -F query=@review.graphql -f id=x addPullRequestReview", "curl -X POST -d @body.json https://api.github.com/repos/o/r/pulls/7/reviews",
     "gh api -X POST repos/o/r/pulls/7/reviews -f event=APPROVE",
     "gh api graphql -f query='mutation { addPullRequestReview(input:{event: APPROVE}) { clientMutationId } }'",
     "gh api graphql -f query='mutation { submitPullRequestReview(input:{event: APPROVE}) { clientMutationId } }'",

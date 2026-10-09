@@ -3,7 +3,8 @@
 ECC `skill-comply` 2.2.3 through `run_comply.py`, scenarios on Sonnet, generation and grading on Haiku,
 in the confined sandbox (`../README.md`). Owner-approved pilot of three targets. This is the second
 run: the first exposed harness defects (no files created by setup, a 300-second abort, a home path in
-report headers), which were fixed before this run. Reports: `rules-zeem-branch-and-merge.md`,
+report headers), which were fixed before this run, except that generated `printf '---...'` setups
+still produced empty files here; that was fixed after this run (`PRINTF_AS_TEXT` in `run_comply.py`). Reports: `rules-zeem-branch-and-merge.md`,
 `skills-write-guard.md`, `skills-wiki-memory.md`.
 
 ## Scores
@@ -30,34 +31,37 @@ detail matters more than the totals.
   in the report. In the supportive run `npm run pr` ran, chained after the commit in one command, so
   the call was labelled as staging and the PR step counted as missed (VERIFIED from the output). The
   neutral run's "staging" miss is probably the same one-label-per-call effect (INFERRED).
-- **write-guard: the scores mostly measure the scenarios, not the skill (VERIFIED).** "Prove the
-  gap" was detected in all three runs. In neutral and competing the ordering failed at step 2 (a test
-  file was written before the gap was proved), and the competing setup commands failed, so that
-  scenario started without its note files. The supportive scenario asked for a pytest checker in this
-  Node repository: `pip` does not exist in the sandbox, PyPI is refused by design, and the rule it
-  asked for (a `name` field) contradicted the real wiki notes, which use `title`; the agent stopped
-  without writing a test or a guard.
-- **wiki-memory: the bookkeeping was done but not credited (VERIFIED).** In the supportive and neutral
-  runs the agents made wiki-only `docs(wiki):` commits that added the Memory index line and updated
-  the work record, and ran `wiki:lint`, but in calls the grader labelled as other steps, so those steps
-  counted as missed. When the prompt said to leave the wiki alone, nothing was written (competing 0%).
+- **write-guard: the scores measure the scenarios, not the skill (VERIFIED).** All three scenarios
+  started with their planted notes (`wiki/lessons/bad-note.md`, `good-note.md`) empty, because the
+  `printf '---...'` setups failed after truncating them, so no run had a real violation to prove.
+  "Prove the gap" was still credited in all three; in neutral and competing the ordering failed at
+  step 2. The supportive scenario also asked for a pytest checker in this Node repository: `pip` does
+  not exist in the sandbox, PyPI is refused by design, and the rule it asked for (a `name` field)
+  contradicted the real wiki notes, which use `title`; the agent stopped without writing a test or a
+  guard.
+- **wiki-memory: most bookkeeping was done but not credited (VERIFIED, with limits).** In the
+  supportive and neutral runs the agents made wiki-only `docs(wiki):` commits that updated the work
+  record and added a Memory index line, in calls the grader labelled as other steps. Limits: the
+  `wiki:lint` they ran was the scenario's stub (`echo lint ok`), so it proved nothing; and in neutral
+  the indexed note was committed empty because its heredoc failed, which the real `wiki:lint` would
+  have refused. When the prompt said to leave the wiki alone, nothing was written (competing 0%).
 
 ## Harness limits found (INFERRED unless stated)
 
 - Scenario files override the repository's: a scenario's own `package.json` (with a stub `pr`
   script) replaced the real one in the sandbox (VERIFIED), so `npm run pr` and `npm run check`
   there were not the real ones.
-- Some generated setup commands fail: a `git push` to an `origin` the scenario never created, and
-  `printf` formats starting with `---`, which `printf` reads as an option (VERIFIED from the run
-  log); the affected scenarios started without those files.
+- Some generated setup commands fail: a `git push` to an `origin` the scenario never created
+  (VERIFIED from the run log), and `printf` formats starting with `---`, which `printf` reads as an
+  option (VERIFIED: the planted notes were committed empty); `printf` is fixed for later runs.
 - One label per tool call undercounts chained commands; strict ordering turns one early miss into a
   zero.
 
 ## Follow-ups (for the owner to decide)
 
 1. Harness, before trusting any total: let repository tooling win over scenario files
-   (`package.json`, `.claude/`), run generated `printf` formats safely, and tell the scenario
-   generator the repository's language and test runner so scenarios fit it.
+   (`package.json`, `.claude/`), and tell the scenario generator the repository's language and test
+   runner so scenarios fit it; then re-run.
 2. Grading: split chained commands before classification, or ask agents for one action per call in
    the scenario prompt, so a step done inside a chained command is credited.
 3. write-guard: decide whether "prove the gap" stays a separate first step or becomes the first

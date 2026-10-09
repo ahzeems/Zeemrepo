@@ -216,6 +216,9 @@ def commit_baseline(sandbox: Path, run: Callable[..., object]) -> None:
 # Scenario sessions that follow the rules run npm run check (and npm run pr runs it again), which
 # does not fit ECC's default of 300 seconds per scenario.
 SCENARIO_TIMEOUT = 900
+# Generated setups write frontmatter with printf '---...', which printf reads as an option; the
+# redirect has already truncated the file, so the scenario starts with an empty one.
+PRINTF_AS_TEXT = 'printf() { command printf -- "$@"; }\n'
 
 
 def setup_sandbox(sandbox: Path, commands: Sequence[str], run: Callable[..., object], warn: Callable[[str], None]) -> None:
@@ -226,7 +229,7 @@ def setup_sandbox(sandbox: Path, commands: Sequence[str], run: Callable[..., obj
     sandbox.mkdir(parents=True)
     run(["git", "init", "--quiet"], cwd=sandbox, check=True, capture_output=True)
     for command in commands:
-        result = run(["sh", "-c", command], cwd=sandbox, capture_output=True, text=True)
+        result = run(["sh", "-c", PRINTF_AS_TEXT + command], cwd=sandbox, capture_output=True, text=True)
         if getattr(result, "returncode", 0) != 0:
             warn(f"run_comply: setup command failed ({getattr(result, 'returncode', '?')}): {command[:120]}")
 
@@ -280,11 +283,13 @@ def main(argv: list[str]) -> None:
     try:
         run_confined(args, snapshot, deps, work, started)
     finally:
-        for proxy in started:
-            for host, port, permitted in sorted(proxy.seen):
-                print(f"run_comply: network {'allowed' if permitted else 'REFUSED'} {host}:{port}", file=sys.stderr)
-            proxy.close()
-        remove_tree(work)
+        try:
+            for proxy in started:
+                for host, port, permitted in sorted(proxy.seen):
+                    print(f"run_comply: network {'allowed' if permitted else 'REFUSED'} {host}:{port}", file=sys.stderr)
+                proxy.close()
+        finally:
+            remove_tree(work)
 
 
 def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Path, started: list[netproxy.Proxy]) -> None:

@@ -17,9 +17,21 @@ const MERGE_MUTATION = /\b(?:mergePullRequest|enablePullRequestAutoMerge)\b/;
 // Approving is the owner's act too: a review endpoint or mutation counts when its event is APPROVE,
 // or when the body comes from a file the hook cannot read (--input).
 const REVIEW_ENDPOINT = /\bpulls\/\d+\/reviews\b|\b(?:addPullRequestReview|submitPullRequestReview)\b/;
-const APPROVE_EVENT = /\bevent\b\W{0,3}APPROVE\b|--input\b/i;
+// A body read from a file (--input, -F x=@file, curl -d @file) cannot be inspected, so it counts too.
+const APPROVE_EVENT = /\bevent\b\W{0,3}APPROVE\b|--input\b|=@|\s-(?:d|-data(?:-binary|-raw)?)\s*@/i;
+// In a short-flag bundle, -b and -F take the rest of the word as their value (-bapprove is a body).
+const VALUE_FLAGS = new Set(["b", "F"]);
+
 // gh pr review --approve, --approve=..., -a, or a short-flag bundle such as -ab.
-const isApproveFlag = (word: string): boolean => word.startsWith("--approve") || /^-[A-Za-z]*a[A-Za-z]*$/.test(word);
+function isApproveFlag(word: string): boolean {
+  if (word.startsWith("--approve")) return true;
+  if (!/^-[A-Za-z]+$/.test(word)) return false;
+  for (const flag of word.slice(1)) {
+    if (flag === "a") return true;
+    if (VALUE_FLAGS.has(flag)) return false;
+  }
+  return false;
+}
 // bash -c '...' and eval '...' run their argument, so it is lifted out as a command.
 const SHELL_PAYLOAD = /\b(?:bash|sh|zsh)\s+-c\s+(["'])([\s\S]*?)\1|\beval\s+(["'])([\s\S]*?)\3/g;
 // Heredoc bodies and quoted strings are data (commit messages, PR bodies, search terms).

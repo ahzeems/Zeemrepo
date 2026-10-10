@@ -1,11 +1,10 @@
 // npm run rules:check: the vendored ECC rules under .claude/rules/ecc/ are exactly the files the
-// manifest lists, unedited, for the plugin version .claude/settings.json pins. Only the rule sets
-// this repository uses are vendored (common, typescript, python), because Claude Code loads every
-// rule whose paths match the file being edited. After moving the pin, copy those folders from the
-// plugin's rules/ and run with --write to record the new hashes.
+// manifest lists, unedited, for the plugin version .claude/settings.json pins: ECC's whole rules/
+// folder, kept complete (OWNER DECISION, 2026-10-10). After moving the pin, copy the plugin's
+// rules/ in again and run with --write to record the new hashes.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import { EXIT_ERROR, consoleOutput, isEntryPoint, report, runCli, type Output } from "../lib/cli.ts";
+import { EXIT_ERROR, consoleOutput, isEntryPoint, report, rootFrom, runCli, type Output } from "../lib/cli.ts";
 import { isRecord } from "../lib/record.ts";
 import { walk } from "../lib/walk.ts";
 import { provenanceHash } from "../skills/provenance.ts";
@@ -15,6 +14,7 @@ export const MANIFEST_PATH = `${CONFIG_DIR}ecc-rules.json`;
 const RULES_DIR = ".claude/rules/ecc";
 const SETTINGS_PATH = ".claude/settings.json";
 const REPOSITORY = join(import.meta.dirname, "../..");
+const USAGE = "usage: node scripts/governance/ecc-rules.ts [--write | --root <repository>]";
 
 type Manifest = { pluginRef: string; files: Record<string, string> };
 export type Options = { cwd?: string; output?: Output };
@@ -34,17 +34,23 @@ function pinnedRef(root: string): string | null {
   return isRecord(source) && typeof source.ref === "string" ? source.ref : null;
 }
 
-function vendoredHashes(root: string): Record<string, string> {
+// Every entry counts, dot files and folders included; a symlink is never a vendored file.
+function vendored(root: string): { hashes: Record<string, string>; symlinks: string[] } {
   const dir = join(root, RULES_DIR);
-  const entries = walk(dir).files.map((path) => [relative(dir, path), provenanceHash(readFileSync(path, "utf8"))] as const);
-  return Object.fromEntries(entries.sort(([a], [b]) => a.localeCompare(b)));
+  const found = walk(dir, { includeDot: true });
+  const entries = found.files.map((path) => [relative(dir, path), provenanceHash(readFileSync(path, "utf8"))] as const);
+  return {
+    hashes: Object.fromEntries(entries.sort(([a], [b]) => a.localeCompare(b))),
+    symlinks: found.symlinks.map((path) => relative(dir, path)),
+  };
 }
 
 function readManifest(root: string): Manifest | null {
   const value = readJson(join(root, MANIFEST_PATH));
   if (!isRecord(value) || typeof value.pluginRef !== "string" || !isRecord(value.files)) return null;
-  const files = Object.entries(value.files).filter((entry): entry is [string, string] => typeof entry[1] === "string");
-  return { pluginRef: value.pluginRef, files: Object.fromEntries(files) };
+  const files = Object.entries(value.files);
+  if (files.length === 0 || files.some(([, hash]) => typeof hash !== "string")) return null;
+  return { pluginRef: value.pluginRef, files: Object.fromEntries(files.map(([path, hash]) => [path, String(hash)])) };
 }
 
 export function eccRulesErrors(root: string): string[] {
@@ -53,7 +59,8 @@ export function eccRulesErrors(root: string): string[] {
   const errors: string[] = [];
   const ref = pinnedRef(root);
   if (ref !== manifest.pluginRef) errors.push(`${SETTINGS_PATH} pins ECC ${ref ?? "(none)"} but ${MANIFEST_PATH} records ${manifest.pluginRef}`);
-  const actual = vendoredHashes(root);
+  const { hashes: actual, symlinks } = vendored(root);
+  for (const path of symlinks) errors.push(`${RULES_DIR}/${path} is a symlink, which a vendored rule never is`);
   for (const [path, hash] of Object.entries(manifest.files)) {
     if (!(path in actual)) errors.push(`${RULES_DIR}/${path} is missing`);
     else if (actual[path] !== hash) errors.push(`${RULES_DIR}/${path} differs from the vendored copy`);
@@ -66,13 +73,21 @@ export function eccRulesErrors(root: string): string[] {
 
 export function main(args: readonly string[], options: Options = {}): number {
   const output = options.output ?? consoleOutput;
-  const root = options.cwd ?? REPOSITORY;
-  if (args.length > 1 || (args.length === 1 && args[0] !== "--write")) {
-    output.warn("usage: node scripts/governance/ecc-rules.ts [--write]");
+  const write = args.length === 1 && args[0] === "--write";
+  let root: string;
+  try {
+    root = rootFrom(write ? [] : args, options.cwd ?? REPOSITORY, USAGE);
+  } catch {
+    output.warn(USAGE);
     return EXIT_ERROR;
   }
-  if (args[0] === "--write") {
-    const manifest: Manifest = { pluginRef: pinnedRef(root) ?? "", files: vendoredHashes(root) };
+  if (write) {
+    const pluginRef = pinnedRef(root);
+    if (pluginRef === null) {
+      output.warn(`rules-check: ${SETTINGS_PATH} pins no ECC version, so there is nothing to record`);
+      return EXIT_ERROR;
+    }
+    const manifest: Manifest = { pluginRef, files: vendored(root).hashes };
     mkdirSync(dirname(join(root, MANIFEST_PATH)), { recursive: true });
     writeFileSync(join(root, MANIFEST_PATH), `${JSON.stringify(manifest, null, 2)}\n`);
   }

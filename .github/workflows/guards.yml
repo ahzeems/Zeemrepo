@@ -53,6 +53,7 @@ jobs:
           node "$guards/wiki/wiki-lint.ts" --root .
           node "$guards/skills/skill-lint.ts" --root .
           node "$guards/governance/governance-guard.ts" --root .
+          node "$guards/governance/ecc-rules.ts" --root .
           node "$guards/wiki/wiki-compliance.ts"
           # Dependabot cannot write a changelog entry or a work record; its action updates are
           # recorded by the pull request itself. GitHub sets the author, so a PR cannot claim it.

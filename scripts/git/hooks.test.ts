@@ -64,7 +64,7 @@ await test("guards run from main against the change, never running the change's 
   const workflow = readFileSync(join(root, ".github/workflows/guards.yml"), "utf8");
   assert.match(workflow, /^on:\n {2}pull_request_target:\n/m, "the workflow itself comes from main");
   assert.match(workflow, /permissions:\n {2}contents: read/);
-  for (const guard of ["wiki/wiki-lint.ts\" --root .", "skills/skill-lint.ts\" --root .", "governance/governance-guard.ts\" --root .", "wiki/wiki-compliance.ts\"", "changes/changelog-guard.ts\"", "changes/repo-memory-guard.ts\""]) {
+  for (const guard of ["wiki/wiki-lint.ts\" --root .", "skills/skill-lint.ts\" --root .", "governance/governance-guard.ts\" --root .", "governance/ecc-rules.ts\" --root .", "wiki/wiki-compliance.ts\"", "changes/changelog-guard.ts\"", "changes/repo-memory-guard.ts\""]) {
     assert.ok(workflow.includes(`node "$guards/${guard}`), guard);
   }
   assert.match(workflow, /npm ci --ignore-scripts/);

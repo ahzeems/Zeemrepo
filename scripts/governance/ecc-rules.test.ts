@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
@@ -36,6 +36,7 @@ await test("a manifest written from the vendored rules then passes, and records 
     assert.equal(manifest.pluginRef, "v2.2.3");
     assert.deepEqual(eccRulesErrors(root), []);
     assert.equal(main([], { cwd: root, output: quiet() }), EXIT_OK);
+    assert.equal(main(["--root", root], { output: quiet() }), EXIT_OK, "CI runs main's copy against the change with --root");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -69,6 +70,39 @@ await test("a missing or malformed manifest is refused, and bad arguments are an
     put(root, MANIFEST_PATH, "not json");
     assert.match(eccRulesErrors(root).join("\n"), /ecc-rules\.json/);
     assert.equal(main(["--bogus"], { cwd: root, output: quiet() }), EXIT_ERROR);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+await test("a planted dot file, dot folder or symlink under the vendored rules is refused", () => {
+  const root = repository();
+  try {
+    main(["--write"], { cwd: root, output: quiet() });
+    put(root, ".claude/rules/ecc/common/.hidden.md", "# hidden\n");
+    put(root, ".claude/rules/ecc/.sub/a.md", "# a\n");
+    put(root, "elsewhere.md", "# planted\n");
+    symlinkSync(join(root, "elsewhere.md"), join(root, ".claude/rules/ecc/common/zz.md"));
+    const errors = eccRulesErrors(root).join("\n");
+    assert.match(errors, /common\/\.hidden\.md.*not in the manifest/);
+    assert.match(errors, /\.sub\/a\.md.*not in the manifest/);
+    assert.match(errors, /common\/zz\.md.*symlink/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+await test("a manifest with no files or a non-string hash is malformed, and --write refuses without a plugin pin", () => {
+  const root = repository();
+  try {
+    put(root, MANIFEST_PATH, JSON.stringify({ pluginRef: "v2.2.3", files: {} }));
+    assert.match(eccRulesErrors(root).join("\n"), /malformed/);
+    put(root, MANIFEST_PATH, JSON.stringify({ pluginRef: "v2.2.3", files: { "common/testing.md": 5 } }));
+    assert.match(eccRulesErrors(root).join("\n"), /malformed/);
+    put(root, ".claude/settings.json", "{}");
+    rmSync(join(root, MANIFEST_PATH));
+    assert.equal(main(["--write"], { cwd: root, output: quiet() }), EXIT_ERROR);
+    assert.throws(() => readFileSync(join(root, MANIFEST_PATH)), "nothing is written without a pin");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

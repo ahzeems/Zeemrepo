@@ -75,6 +75,12 @@ await test("guards run from main against the change, never running the change's 
   assert.doesNotMatch(workflow, /run: [^\n]*\$\{\{/, "no expression is expanded inside a run script");
 });
 
+await test("Dependabot proposes updates for the pinned actions and the npm dependencies, never merging", () => {
+  const config = readFileSync(join(root, ".github/dependabot.yml"), "utf8");
+  for (const ecosystem of ["github-actions", "npm"]) assert.match(config, new RegExp(`package-ecosystem: ${ecosystem}\\n`));
+  assert.doesNotMatch(config, /auto-?merge/i);
+});
+
 await test("CI's bot path reuses check:base, so the check list has one source", () => {
   const manifest: unknown = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
   assert.ok(isRecord(manifest) && isRecord(manifest.scripts));

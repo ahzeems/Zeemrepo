@@ -4,6 +4,12 @@ Every branch adds its own entry here, under a `## YYYY-MM-DD` heading dated betw
 started and the day it lands (UTC). Entries describe the change; they never cite
 facts that only exist after the owner merges. `npm run changelog:guard` enforces this.
 
+## 2026-10-10
+
+- Closed out the Zimi migration (Phase 10) with ECC's harness audit, security scan and an orch-review, and fixed what they found: the Claude hook now also refuses a push whose destination is main in any refspec form; `npm run audit` stops a hung `gh` after 60 seconds; CI's bot path runs a new `check:base` script instead of a copied check list; the zeem rules record two more overrides of ECC (standard library first; three-to-six-line plans); `verify-work` and `unslop` no longer send an agent to the user-only `technical-writing` skill; `.env` files are ignored.
+- Fixed the compliance harness so a run cannot log the owner out: each sandbox call gets the login without its refresh token, the proxy allows only `api.anthropic.com`, and a run refuses to start with under an hour left on the access token.
+- Fixed the compliance harness defects two re-runs exposed: a local bare `origin` in each sandbox so `npm run pr` can fetch, a split chain's output only on its last command, long commands shown to the grader by start and end, a corrected repository description for the scenario generator, pinned and reviewed specs in `evals/compliance/specs/`, and raw session streams kept outside the repository. Re-ran the three targets and replaced the reports and `summary.md` with that run, each session checked against its sandbox.
+
 ## 2026-10-09
 
 - Added the change-record guards: `changelog:guard` (this file), `memory:guard` (an owning work record with labelled evidence, and an operating document for workflow changes) and `governance:check` (no declared surface, code included, asserts a rule the migration replaced). All three run in `npm run check` and share one exemption list in `scripts/lib/change-policy.ts`.

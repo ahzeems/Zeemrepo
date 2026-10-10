@@ -321,6 +321,18 @@ class Cleanup(unittest.TestCase):
             run_comply.remove_tree(work)
             self.assertFalse(work.exists(), "the login copy is gone")
 
+    def test_a_link_a_sandbox_planted_never_changes_a_folder_outside(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            outside, work = Path(directory) / "outside", Path(directory) / "work"
+            outside.mkdir()
+            outside.chmod(0o755)
+            (work / "box").mkdir(parents=True)
+            (work / "box" / "link").symlink_to(outside, target_is_directory=True)
+            run_comply.remove_tree(work)
+            self.assertEqual(outside.stat().st_mode & 0o777, 0o755, "the cleanup does not follow the link")
+            self.assertTrue(outside.exists())
+            self.assertFalse(work.exists())
+
 
 class Preflight(unittest.TestCase):
     def test_refuses_to_run_without_a_working_bwrap(self) -> None:
@@ -573,9 +585,52 @@ class Wiring(unittest.TestCase):
         self.assertIn("docs(wiki): x", events[2].input)
         self.assertEqual(generated, ["haiku"], "the spec is generated once, then read from its pin")
 
-    def test_the_confined_run_installs_the_wiring(self) -> None:
-        # Structural: run_confined needs bwrap, the proxy and ECC, so its call is checked by reading it.
-        self.assertIn("wire_grading(ecc_run, runner, parse_spec,", inspect.getsource(run_comply.run_confined))
+    def test_every_imported_ecc_module_that_runs_processes_is_confined(self) -> None:
+        confined = object()
+        modules = {"scripts.runner": types.SimpleNamespace(subprocess=subprocess),
+                   "scripts.some_new_module": types.SimpleNamespace(subprocess=subprocess),
+                   "scripts.parser": types.SimpleNamespace(), "json": types.SimpleNamespace(subprocess=subprocess)}
+        run_comply.confine_ecc_modules(modules, confined)
+        self.assertIs(modules["scripts.runner"].subprocess, confined)
+        self.assertIs(modules["scripts.some_new_module"].subprocess, confined, "a module ECC adds later is caught too")
+        self.assertIs(modules["json"].subprocess, subprocess, "only ECC's own modules")
+        self.assertFalse(hasattr(modules["scripts.parser"], "subprocess"))
+
+    def test_a_scenario_sandbox_is_set_up_confined_then_seeded_then_committed(self) -> None:
+        calls: list[list[str]] = []
+
+        def run(args: list[str], **kw: object) -> subprocess.CompletedProcess[str]:
+            calls.append(list(args))
+            return subprocess.CompletedProcess(args, 0, "", "")
+
+        runner = types.SimpleNamespace()
+        with tempfile.TemporaryDirectory() as directory:
+            sandbox = Path(directory) / "box"
+            run_comply.install_setup(runner, run, tar_of({"CLAUDE.md": "c\n"}), deps=None)
+            runner._setup_sandbox(sandbox, types.SimpleNamespace(setup_commands=["echo hi > a.txt"]))
+            self.assertTrue((sandbox / "CLAUDE.md").is_file(), "the repository is seeded")
+        self.assertEqual(calls[0][:2], ["git", "init"])
+        self.assertEqual(calls[1][:2], ["sh", "-c"])
+        self.assertIn("echo hi > a.txt", calls[1][2])
+        self.assertTrue(any(call[0] == "git" and "commit" in call for call in calls[2:]), "then the baseline commit")
+
+    def test_scenario_generation_gets_the_repository_context_and_is_retried(self) -> None:
+        attempts: list[str] = []
+
+        def generate(skill: str, spec_yaml: str, model: str) -> str:
+            attempts.append(Path(skill).read_text())
+            if len(attempts) == 1:
+                raise KeyError("bad yaml")
+            return "scenarios"
+
+        ecc_run = types.SimpleNamespace(generate_scenarios=generate)
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "SKILL.md"
+            target.write_text("# Skill\n")
+            run_comply.install_generation_retry(ecc_run, Path(directory) / "context", errors=(KeyError,))
+            self.assertEqual(ecc_run.generate_scenarios(str(target), "steps: []", model="haiku"), "scenarios")
+        self.assertEqual(len(attempts), 2)
+        self.assertIn("Scenario environment", attempts[0])
 
     def test_a_run_stops_before_anything_else_when_the_login_is_about_to_expire(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -151,8 +151,11 @@ def remove_tree(path: Path) -> None:
     """Delete `path` completely: a sandbox may have made its own folders read-only to keep a login copy."""
     for root, dirs, _files in os.walk(path):
         for name in dirs:
+            folder = Path(root) / name
+            if folder.is_symlink():  # a planted link to a host folder: chmod would follow it
+                continue
             try:
-                (Path(root) / name).chmod(0o700)
+                folder.chmod(0o700)
             except OSError:
                 pass
     shutil.rmtree(path, ignore_errors=True)
@@ -588,17 +591,26 @@ def main(argv: list[str]) -> None:
     # Everything the run creates (login copies, the proxy socket, the gh config) lives here and is
     # removed at the end, however the run ends. /tmp keeps the socket path short.
     work = Path(tempfile.mkdtemp(prefix="run-comply-", dir="/tmp"))
-    started: list[netproxy.Proxy] = []  # filled as soon as the proxy starts, so it closes on any failure
+    proxy: netproxy.Proxy | None = None
     try:
-        run_confined(args, snapshot, deps, work, started)
+        proxy, network = start_network(work)
+        run_confined(args, snapshot, deps, work, network)
     finally:
         try:
-            for proxy in started:
+            if proxy is not None:
+                proxy.close()
                 for host, port, permitted in sorted(proxy.seen):
                     print(f"run_comply: network {'allowed' if permitted else 'REFUSED'} {host}:{port}", file=sys.stderr)
-                proxy.close()
         finally:
             remove_tree(work)
+
+
+def start_network(work: Path) -> tuple[netproxy.Proxy, Network]:
+    """The host proxy for the Anthropic API, and the forwarder every confined call reaches it through."""
+    (work / "net").mkdir()
+    shutil.copy2(Path(__file__).with_name("netproxy.py"), work / "net" / "netproxy.py")
+    proxy = netproxy.start_proxy(work / "net" / "proxy.sock", lambda host, port: netproxy.allowed(host, port, netproxy.ANTHROPIC))
+    return proxy, Network(directory=work / "net", python=Path(shutil.which("python3") or "python3").resolve(), port=FORWARD_PORT)
 
 
 def wire_grading(ecc_run: object, runner: object, parse_spec: Callable[[Path], object], *, spec_path: Path,
@@ -627,54 +639,68 @@ def wire_grading(ecc_run: object, runner: object, parse_spec: Callable[[Path], o
     setattr(ecc_run, "generate_spec", lambda skill, model: pinned_spec(spec_path, lambda: generate_spec(skill, model=model), parse_spec))
 
 
-def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Path, started: list[netproxy.Proxy]) -> None:
-    """Isolate the environment, start the proxy (recorded in `started`), confine ECC's subprocesses and run it."""
-    (work / "gh").mkdir()
-    caller_env = dict(os.environ)
-    os.environ.clear()
-    os.environ.update(isolated_env(caller_env, work / "gh"))
-    sys.dont_write_bytecode = True  # no __pycache__ in the plugin cache
-    sys.path.insert(0, str(SKILL_COMPLY))
-    import scripts.run as ecc_run  # ECC is importable only from here
-    import scripts.runner as runner
-    from scripts import classifier, scenario_generator, spec_generator
+def confine_ecc_modules(modules: Mapping[str, object], confined: object) -> None:
+    """Every imported ECC module that runs processes runs them confined, including one ECC adds later."""
+    for name, module in modules.items():
+        if name.startswith("scripts.") and hasattr(module, "subprocess"):
+            setattr(module, "subprocess", confined)
 
+
+def install_setup(runner: object, run: Callable[..., object], snapshot: bytes, deps: Path | None) -> None:
+    """ECC's sandbox setup, replaced: the scenario's commands run confined, then the repository is
+    seeded and committed as main."""
+    def setup_with_repository(sandbox_dir: Path, scenario: object) -> None:
+        setup_sandbox(sandbox_dir, getattr(scenario, "setup_commands", ()), run, lambda message: print(message, file=sys.stderr))
+        seed_sandbox(sandbox_dir, snapshot, deps)
+        commit_baseline(sandbox_dir, run)
+
+    setattr(runner, "_setup_sandbox", setup_with_repository)
+
+
+def install_generation_retry(ecc_run: object, context_dir: Path, errors: tuple[type[BaseException], ...]) -> None:
+    """Scenario generation sees the repository context, and is retried when the generator model
+    returns YAML that does not parse (an unquoted colon)."""
+    generate_scenarios = getattr(ecc_run, "generate_scenarios")
+    setattr(ecc_run, "generate_scenarios", lambda skill, spec_yaml, model: retry(
+        lambda: generate_scenarios(with_repo_context(Path(skill), context_dir), spec_yaml, model=model),
+        attempts=3, errors=errors))
+
+
+def confined_runner(work: Path, deps: Path, network: Network) -> ConfinedSubprocess:
+    """subprocess.run, but every command runs under bubblewrap with a fresh login copy."""
     claude_binary = Path(shutil.which("claude") or "claude").resolve()
     (work / "calls").mkdir()
-    (work / "net").mkdir()
-    shutil.copy2(Path(__file__).with_name("netproxy.py"), work / "net" / "netproxy.py")
-    started.append(netproxy.start_proxy(work / "net" / "proxy.sock", lambda host, port: netproxy.allowed(host, port, netproxy.ANTHROPIC)))
-    network = Network(directory=work / "net", python=Path(shutil.which("python3") or "python3").resolve(), port=FORWARD_PORT)
-    os.environ.update(proxy_env(FORWARD_PORT))
 
     def wrap(command: list[str], cwd: Path) -> list[str]:
         layout = Layout(home=Path.home(), claude_home=fresh_claude_home(Path.home() / ".claude", work),
                         claude_binary=claude_binary, plugins=Path.home() / ".claude" / "plugins", deps=deps)
         return confine(command, cwd=cwd, layout=layout, network=network)
 
-    confined = ConfinedSubprocess(subprocess.run, wrap, work / "calls")
-    require_confinement(lambda: shutil.which("bwrap"), lambda: confined.run(["true"]).returncode == 0)
-    for module in (runner, classifier, scenario_generator, spec_generator):
-        module.subprocess = confined
-    def setup_with_repository(sandbox_dir: Path, scenario: object) -> None:
-        commands = getattr(scenario, "setup_commands", ())
-        setup_sandbox(sandbox_dir, commands, confined.run, lambda message: print(message, file=sys.stderr))
-        seed_sandbox(sandbox_dir, snapshot, deps)
-        commit_baseline(sandbox_dir, confined.run)
+    return ConfinedSubprocess(subprocess.run, wrap, work / "calls")
 
-    runner._setup_sandbox = setup_with_repository
 
+def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Path, network: Network) -> None:
+    """Isolate the environment, confine ECC's subprocesses, patch its setup, grading and generation, and run it."""
+    (work / "gh").mkdir()
+    caller_env = dict(os.environ)
+    os.environ.clear()
+    os.environ.update(isolated_env(caller_env, work / "gh"))
+    os.environ.update(proxy_env(FORWARD_PORT))
+    sys.dont_write_bytecode = True  # no __pycache__ in the plugin cache
+    sys.path.insert(0, str(SKILL_COMPLY))
+    import yaml  # ECC's own dependency, in the venv
+    import scripts.run as ecc_run  # ECC is importable only from here
+    import scripts.runner as runner
     from scripts.parser import parse_spec
+
+    confined = confined_runner(work, deps, network)
+    require_confinement(lambda: shutil.which("bwrap"), lambda: confined.run(["true"]).returncode == 0)
+    confine_ecc_modules(sys.modules, confined)
+    install_setup(runner, confined.run, snapshot, deps)
     name = report_name(args.target)
     wire_grading(ecc_run, runner, parse_spec, spec_path=SPECS / f"{name}.json",
                  keep_stream=stream_keeper(STREAMS / f"{time.strftime('%Y%m%d-%H%M%S')}-{name}"))
-    generate_scenarios = ecc_run.generate_scenarios
-    import yaml  # ECC's own dependency, in the venv
-
-    # The generator model sometimes returns YAML that does not parse (an unquoted colon); retry it.
-    ecc_run.generate_scenarios = lambda skill, spec_yaml, model: retry(
-        lambda: generate_scenarios(with_repo_context(Path(skill), work / "context"), spec_yaml, model=model),
-        attempts=3, errors=(yaml.YAMLError, KeyError, TypeError))
+    install_generation_retry(ecc_run, work / "context", errors=(yaml.YAMLError, KeyError, TypeError))
     os.chdir(REPO)
     sys.argv = ["skill-comply", *ecc_arguments(args.target, model=args.model, gen_model=args.gen_model, dry_run=args.dry_run)]
     ecc_run.main()

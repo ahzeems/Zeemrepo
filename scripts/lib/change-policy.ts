@@ -10,6 +10,8 @@ const CRITICAL = [
   /^\.githooks\//is,
   /^\.github\//is,
   /^scripts\//is,
+  // The compliance harness confines and grades agent runs; its reports are output, not process.
+  /^evals\/compliance\/(?!reports\/)/is,
   /^config\//is,
   /(^|\/)\.claude\//is,
   /(^|\/)claude(\.local)?\.md$/is,

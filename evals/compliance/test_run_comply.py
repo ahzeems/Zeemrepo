@@ -538,6 +538,20 @@ def parse_fake(path: Path) -> FakeSpec:
     return FakeSpec(raw["id"], raw["name"], raw["source_rule"], raw["version"], steps, raw["scoring"]["threshold_promote_to_hook"])
 
 
+@dataclasses.dataclass(frozen=True)
+class FakeScenario:
+    id: str
+    level: int
+    level_name: str
+    description: str
+    prompt: str
+    setup_commands: tuple[str, ...]
+
+    @staticmethod
+    def from_dict(raw: dict[str, object]) -> "FakeScenario":
+        return FakeScenario(**{**raw, "setup_commands": tuple(raw["setup_commands"])})  # type: ignore[arg-type]
+
+
 class PinnedSpec(unittest.TestCase):
     def test_the_first_run_saves_the_spec_and_later_runs_reuse_it(self) -> None:
         spec = FakeSpec("s", "S", "rule.md", "1", (FakeStep("a", "do a", True, FakeDetector("sees a", None, "b")),), 0.6)
@@ -651,21 +665,42 @@ class Wiring(unittest.TestCase):
         self.assertIn("echo hi > a.txt", calls[1][2])
         self.assertTrue(any(call[0] == "git" and "commit" in call for call in calls[2:]), "then the baseline commit")
 
+    def test_scenarios_are_generated_once_then_read_back_from_their_pin(self) -> None:
+        made: list[str] = []
+
+        def generate(skill: str, spec_yaml: str, model: str) -> list[FakeScenario]:
+            made.append(model)
+            return [FakeScenario("s1", 1, "supportive", "d", "do it", ("git init",))]
+
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "SKILL.md"
+            target.write_text("# Skill\n")
+            pin = Path(directory) / "specs" / "x.scenarios.json"
+            ecc_run = types.SimpleNamespace(generate_scenarios=generate)
+            run_comply.install_scenarios(ecc_run, Path(directory) / "context", errors=(KeyError,), pin_path=pin, build=FakeScenario.from_dict)
+            first = ecc_run.generate_scenarios(str(target), "steps: []", model="haiku")
+            second = ecc_run.generate_scenarios(str(target), "steps: []", model="haiku")
+            self.assertTrue(pin.is_file())
+        self.assertEqual(first, second)
+        self.assertEqual(second[0].setup_commands, ("git init",), "read back with the same types")
+        self.assertEqual(made, ["haiku"], "the generator runs once; later runs grade the same tasks")
+
     def test_scenario_generation_gets_the_repository_context_and_is_retried(self) -> None:
         attempts: list[str] = []
 
-        def generate(skill: str, spec_yaml: str, model: str) -> str:
+        def generate(skill: str, spec_yaml: str, model: str) -> list[FakeScenario]:
             attempts.append(Path(skill).read_text())
             if len(attempts) == 1:
                 raise KeyError("bad yaml")
-            return "scenarios"
+            return []
 
         ecc_run = types.SimpleNamespace(generate_scenarios=generate)
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "SKILL.md"
             target.write_text("# Skill\n")
-            run_comply.install_generation_retry(ecc_run, Path(directory) / "context", errors=(KeyError,))
-            self.assertEqual(ecc_run.generate_scenarios(str(target), "steps: []", model="haiku"), "scenarios")
+            run_comply.install_scenarios(ecc_run, Path(directory) / "context", errors=(KeyError,),
+                                         pin_path=Path(directory) / "pin.json", build=FakeScenario.from_dict)
+            self.assertEqual(ecc_run.generate_scenarios(str(target), "steps: []", model="haiku"), [])
         self.assertEqual(len(attempts), 2)
         self.assertIn("Scenario environment", attempts[0])
 

@@ -3,8 +3,9 @@
 ECC's runner starts each scenario in an empty `git init` directory, so on its own it measures
 Claude's default behaviour, not this repository's rules. This wrapper seeds each sandbox with a
 snapshot of the committed repository (CLAUDE.md, .claude/, scripts and hooks; never earlier
-reports or seeds.md, so neither scores nor expected behaviours leak into a run) after ECC's own setup, without overwriting the scenario's
-files. A generated "competing" prompt may ask the agent to push or merge, and a scenario agent has
+reports, seeds.md or the pinned specs, so neither scores nor expected behaviours leak into a run)
+after ECC's own setup: the repository's tooling replaces a scenario's copy, and the scenario's other
+files are kept. A generated "competing" prompt may ask the agent to push or merge, and a scenario agent has
 Bash as this user, so every process ECC starts (setup commands, scenario runs, generation and
 classification) runs under bubblewrap built as an allowlist: an empty home, a private /tmp, pid
 namespace and session, the system and tool directories read-only, a private copy of Claude's
@@ -486,21 +487,27 @@ def spec_document(spec: object) -> dict[str, object]:
     }
 
 
-def pinned_spec(path: Path, generate: Callable[[], object], parse: Callable[[Path], object]) -> object:
-    """ECC writes a new spec every run, so totals from two runs grade different steps. The first run
-    saves its spec here (JSON, which ECC's YAML parser reads); later runs reuse it, edited or not."""
+def pin(path: Path, produce: Callable[[], object], read: Callable[[Path], object]) -> object:
+    """Read `path`, or write `produce()` there as JSON first. A result that `read` refuses is never
+    pinned, so the next run produces it again."""
     if path.is_file():
-        return parse(path)
+        return read(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     candidate = path.with_name(path.name + ".new")
-    candidate.write_text(json.dumps(spec_document(generate()), indent=2) + "\n")
+    candidate.write_text(json.dumps(produce(), indent=2) + "\n")
     try:
-        spec = parse(candidate)
+        result = read(candidate)
     except BaseException:
         candidate.unlink()
         raise
-    candidate.rename(path)  # pinned only once it parses
-    return spec
+    candidate.rename(path)
+    return result
+
+
+def pinned_spec(path: Path, generate: Callable[[], object], parse: Callable[[Path], object]) -> object:
+    """ECC writes a new spec every run, so totals from two runs grade different steps. The first run
+    saves its spec here (JSON, which ECC's YAML parser reads); later runs reuse it, edited or not."""
+    return pin(path, lambda: spec_document(generate()), parse)
 
 
 def stream_keeper(directory: Path) -> Callable[[str], None]:
@@ -659,13 +666,21 @@ def install_setup(runner: object, run: Callable[..., object], snapshot: bytes, d
     setattr(runner, "_setup_sandbox", setup_with_repository)
 
 
-def install_generation_retry(ecc_run: object, context_dir: Path, errors: tuple[type[BaseException], ...]) -> None:
-    """Scenario generation sees the repository context, and is retried when the generator model
-    returns YAML that does not parse (an unquoted colon)."""
+def install_scenarios(ecc_run: object, context_dir: Path, errors: tuple[type[BaseException], ...], *, pin_path: Path,
+                      build: Callable[[dict[str, object]], object]) -> None:
+    """Scenarios are generated once with the repository context, retried when the generator returns
+    YAML that does not parse, and pinned at `pin_path`, so later runs grade the same tasks."""
     generate_scenarios = getattr(ecc_run, "generate_scenarios")
-    setattr(ecc_run, "generate_scenarios", lambda skill, spec_yaml, model: retry(
-        lambda: generate_scenarios(with_repo_context(Path(skill), context_dir), spec_yaml, model=model),
-        attempts=3, errors=errors))
+
+    def generate(skill: str, spec_yaml: str, model: str) -> object:
+        def produce() -> list[dict[str, object]]:
+            made = retry(lambda: generate_scenarios(with_repo_context(Path(skill), context_dir), spec_yaml, model=model),
+                         attempts=3, errors=errors)
+            return [dataclasses.asdict(scenario) for scenario in made]  # type: ignore[attr-defined]
+
+        return pin(pin_path, produce, lambda path: [build(raw) for raw in json.loads(path.read_text())])
+
+    setattr(ecc_run, "generate_scenarios", generate)
 
 
 def confined_runner(work: Path, deps: Path, network: Network) -> ConfinedSubprocess:
@@ -694,6 +709,10 @@ def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Pa
     import scripts.run as ecc_run  # ECC is importable only from here
     import scripts.runner as runner
     from scripts.parser import parse_spec
+    from scripts.scenario_generator import Scenario
+
+    def scenario_from(raw: dict[str, object]) -> object:
+        return Scenario(**{**raw, "setup_commands": tuple(raw["setup_commands"])})  # type: ignore[arg-type]
 
     confined = confined_runner(work, deps, network)
     require_confinement(lambda: shutil.which("bwrap"), lambda: confined.run(["true"]).returncode == 0)
@@ -702,7 +721,8 @@ def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Pa
     name = report_name(args.target)
     wire_grading(ecc_run, runner, parse_spec, spec_path=SPECS / f"{name}.json",
                  keep_stream=stream_keeper(STREAMS / f"{time.strftime('%Y%m%d-%H%M%S')}-{name}"))
-    install_generation_retry(ecc_run, work / "context", errors=(yaml.YAMLError, KeyError, TypeError))
+    install_scenarios(ecc_run, work / "context", errors=(yaml.YAMLError, KeyError, TypeError),
+                      pin_path=SPECS / f"{name}.scenarios.json", build=scenario_from)
     os.chdir(REPO)
     sys.argv = ["skill-comply", *ecc_arguments(args.target, model=args.model, gen_model=args.gen_model, dry_run=args.dry_run)]
     ecc_run.main()

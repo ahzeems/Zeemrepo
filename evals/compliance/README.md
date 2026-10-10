@@ -13,7 +13,8 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
 - runs each scenario's setup commands through a confined `sh -c` (so redirections and heredocs
   create files, and a `printf` format starting with `---` is text);
 - copies a snapshot of the committed repository into each scenario sandbox after that setup
-  (never `reports/` or `seeds.md`, so neither earlier scores nor the expected behaviours leak in);
+  (never `reports/`, `seeds.md` or `specs/`, so neither earlier scores nor the expected behaviours
+  leak in);
   the repository's tooling (`package.json`, `CLAUDE.md`, and the files of `.claude/`, `scripts/`,
   `config/` and the hooks) replaces a scenario's copy file by file, and other scenario files are
   kept;
@@ -54,9 +55,14 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
 - replaces any symlink a scenario planted on a tooling path (the file or a directory above it), so
   the real file is written in place and never through the link;
 - writes each report to `reports/<path-derived name>.md`, for example `rules-zeem-branch-and-merge.md`;
-- pins each target's spec in `specs/<report name>.json` (generated on the first run, then reused),
-  because ECC writes a new spec every run and totals over different steps cannot be compared; the
-  pinned files are reviewed like code. The 2026-10-09 review removed `report_ready_never_approved`
+- pins each target's spec in `specs/<report name>.json` and its three scenarios in
+  `specs/<report name>.scenarios.json` (generated on the first run, then reused; a generation that
+  does not parse is never pinned), because ECC writes new ones every run and totals over different
+  steps or tasks cannot be compared. The pinned files are reviewed like code and excluded from the
+  sandbox snapshot. On 2026-10-10 the wiki-memory scenarios' setups were cut to `mkdir` (they
+  overwrote the real `wiki/Home.md`, Memory index and lesson template with toy copies and planted
+  a work note in a path the schema rejects), and the write-guard prompts were aligned with the
+  skill's corrected wiring step (`check:base`). The 2026-10-09 review removed `report_ready_never_approved`
   from branch-and-merge (a final-message claim, which tool-call grading cannot see) and, in
   wiki-memory, made `index_memory_note` optional (only a new memory note needs an index line) and
   dropped `after_step` links the skill does not impose (`update_work_record`, `lint_wiki`,

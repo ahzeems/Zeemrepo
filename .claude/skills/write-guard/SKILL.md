@@ -59,9 +59,8 @@ Run them and watch them fail for the reason you expect.
 
 ## 5. Wire it into every list
 
-- `package.json`: an npm script, appended to `check`.
-- `.github/workflows/check.yml`: the Dependabot branch repeats the check list by hand; add it there
-  unless a bot cannot satisfy it.
+- `package.json`: an npm script, added to `check:base`, which CI also runs for Dependabot pull
+  requests. Only a guard a bot cannot satisfy (like the change-record guards) goes in `check` instead.
 - `.github/workflows/guards.yml`, if it judges pull requests. That workflow comes from main
   (`pull_request_target`), installs main's dependencies and runs with `--root .` against the PR as
   data, so the new guard runs there only after this PR merges, and its dependencies must already be

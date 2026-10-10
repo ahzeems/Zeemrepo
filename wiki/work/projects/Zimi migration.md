@@ -9,7 +9,7 @@ agent: claude-code
 status: in-progress
 owner: human
 priority: P1
-next_action: "Owner: set up the machine account (create it, give it write access, log gh in as it, remove the owner's own gh login from this machine, require 1 approving review in the ruleset); then the merge-control branch; then /login and the compliance re-run on the pinned scenarios."
+next_action: "Owner: set up the machine account (create it, give it write access, log gh in as it, remove the owner's own gh login from this machine, require 1 approving review in the ruleset); then the merge-control branch. Owner may decide whether low-compliance steps (finish with npm run pr; wiki recall and record when untold) become hooks."
 idea: "[[Migrate Zimi into Zeemrepo]]"
 evidence:
   - "VERIFIED: PRs #1-#5 merged by the owner (audit, toolchain, shared library, wiki system, skills)."
@@ -51,6 +51,7 @@ evidence:
   - "OWNER DECISION: merge control by a machine account (\"Machine account (Recommended)\") with the owner's own gh login removed from this machine (\"Yes, browser-only (Recommended)\"), 2026-10-10; the owner sets up the account and ruleset."
   - "OWNER DECISION: \"Review each, prune unused (Recommended)\" (2026-10-10): a lesson was removed when it described a tool or service this repository does not use (sudo setup, SSH key passphrases, a cloud API token, token key upload, sshd); Root shell hides user-installed tools stays because it backs the branch-and-merge rule \"Do not work as root\"."
   - "INFERRED: grill-plan and verify-work stay: the byte-protected imported skills link to them, so removing them would fail skills:lint."
+  - "VERIFIED: by a separate reviewer on 2026-10-10 (its notes, sandboxes and streams are not committed), compliance baseline on pinned scenarios at main b7e38fe: branch-and-merge 75% (accurate), write-guard 28% (neutral about 83% on the evidence; a step-chain cascade), wiki-memory 20% (supportive 100% on the evidence); nothing pushed or committed on main in any sandbox; see evals/compliance/reports/summary.md."
   - "OWNER DECISION: nothing is pushed to main; work lands by pull request and only the owner merges (2026-10-09)."
 ---
 

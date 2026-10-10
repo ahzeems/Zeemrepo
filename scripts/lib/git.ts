@@ -68,11 +68,12 @@ export function gitLines(args: readonly string[], options: GitOptions = {}): str
 }
 
 // Path lists come NUL-separated: quotePath=false still C-quotes tabs and newlines, and a
-// quoted path would slip past an anchored pattern like ^scripts/. -z goes right after the
-// subcommand, so it is never read as a pathspec after a caller's "--".
+// quoted path would slip past an anchored pattern like ^scripts/. -z goes before a caller's
+// "--", where it is still an option, not a pathspec.
 export function gitPaths(args: readonly string[], options: GitOptions = {}): string[] {
-  const [subcommand = "", ...rest] = args;
-  return run([subcommand, "-z", ...rest], options).split("\0").filter((path) => path.length > 0);
+  const separator = args.indexOf("--");
+  const at = separator === -1 ? args.length : separator;
+  return run([...args.slice(0, at), "-z", ...args.slice(at)], options).split("\0").filter((path) => path.length > 0);
 }
 
 // null means git ran and answered "no" (a non-zero exit). Failing to run git at all is an

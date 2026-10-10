@@ -6,10 +6,9 @@ tags: [area/planning, tool/ecc]
 created: 2026-10-09
 updated: 2026-10-10
 agent: claude-code
-status: in-progress
+status: done
 owner: human
 priority: P1
-next_action: "Owner: turn on Require review from Code Owners in protect-main (after CODEOWNERS lands on main), remove the SSH key ~/.ssh/id_ed25519 registered to the owner account (from GitHub or this machine), confirm the bypass list is empty, enable two-factor authentication on the machine account; then the migration is done. Optional: decide whether low-compliance steps become hooks."
 idea: "[[Migrate Zimi into Zeemrepo]]"
 evidence:
   - "VERIFIED: PRs #1-#5 merged by the owner (audit, toolchain, shared library, wiki system, skills)."
@@ -57,6 +56,9 @@ evidence:
   - "VERIFIED: PRs #19 (Dependabot ignores TypeScript minors and majors, Node types majors) and #20 (compliance baseline) merged by the owner."
   - "VERIFIED: machine account zimmybot has write access; protect-main requires 1 approving review, dismisses stale approvals, requires approval of the most recent push (gh api rulesets, 2026-10-10; the bypass list is visible only to the owner, who is to confirm it is empty); gh on this machine is logged in as zimmybot only and the owner's login was removed (gh auth status)."
   - "VERIFIED: npm run pr refuses when gh is logged in as the repository owner (scripts/git/pr-ready.test.ts, shown failing first); ADR-0025 supersedes ADR-0008."
+  - "VERIFIED: PR #21 opened by zimmybot, approved and merged by the owner; protect-main now requires code-owner review (gh api rulesets, 2026-10-10), the owner's account has no SSH key registered (gh api users/<owner>/keys returns 0), and gh here is logged in as zimmybot only; npm run audit reported 20 commits on main since its base, all landed by merged pull request."
+  - "UNKNOWN: the empty bypass list and two-factor authentication on zimmybot are not visible to the machine account's token; the owner reported both steps done (\"i did the steps\", 2026-10-10)."
+  - "INFERRED: the migration is done when the owner merges the pull request that marks it done; whether low-compliance steps become hooks stays an optional owner decision, not a blocker."
   - "OWNER DECISION: nothing is pushed to main; work lands by pull request and only the owner merges (2026-10-09)."
 ---
 

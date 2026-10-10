@@ -89,6 +89,13 @@ await test("Dependabot proposes updates for the pinned actions and the npm depen
   assert.doesNotMatch(config, /auto-?merge/i);
 });
 
+await test("Dependabot never proposes a major TypeScript or Node types update, which the linter and Node 24 cannot take", () => {
+  const config = readFileSync(join(root, ".github/dependabot.yml"), "utf8");
+  for (const name of ["typescript", "@types/node"]) {
+    assert.match(config, new RegExp(`- dependency-name: "${name.replace("/", "\\/")}"\\n\\s+update-types: \\["version-update:semver-major"\\]`), name);
+  }
+});
+
 await test("CI's bot path reuses check:base, so the check list has one source", () => {
   const manifest: unknown = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
   assert.ok(isRecord(manifest) && isRecord(manifest.scripts));

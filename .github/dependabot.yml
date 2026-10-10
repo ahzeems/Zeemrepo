@@ -14,3 +14,10 @@ updates:
     groups:
       dev-dependencies:
         dependency-type: development
+    # A major TypeScript must be supported by typescript-eslint first, and @types/node follows the
+    # Node major in .nvmrc (hooks.test.ts holds the two together); both are upgraded on purpose.
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]

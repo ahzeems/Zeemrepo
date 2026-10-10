@@ -62,8 +62,8 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
   cannot see); wiki-memory's spec makes `index_memory_note` optional (only a new memory note needs
   an index line) and has no `after_step` links the skill does not impose, which demoted a done step
   whenever an unrelated one was missed; wiki-memory's scenario setups only create `scripts/text`
-  (the generated ones overwrote the real wiki with toy copies); and write-guard's prompts name
-  `check:base`, as the skill's wiring step does. The CHANGELOG records when each changed;
+  (the generated ones overwrote the real wiki with toy copies); and write-guard's supportive prompt
+  names `check:base`, as the skill's wiring step does. The CHANGELOG records when each changed;
 - gives a sandbox a local bare `origin` (inside `.git`) with `main` pushed, so `npm run pr` can fetch
   and push there (it still stops at `gh`, which is logged out);
 - shows the grader a split chain's output only on its last command, and a long Bash call as its start

@@ -15,6 +15,8 @@ await test("ordinary work stays allowed", () => {
     "gh pr review 7 --comment --body 'findings'", "gh pr review 7 --request-changes -b 'fix x'", "gh api repos/o/r/pulls/7/reviews",
     "gh api -X POST repos/o/r/pulls/7/reviews -f body='we do not approve of this' -f event=COMMENT", "gh pr review 7 -b approve",
     "gh pr review 7 -bapprove", "gh pr review 7 -Fa.txt", "gh api graphql -f query='{ viewer { login } }'",
+    "git commit -m 'never run $(gh pr merge 5)'", "git commit -m \"never run \\$(gh pr merge 5)\"",
+    "git commit -F - <<'EOT'\nfix: block $(gh pr merge 5)\nEOT",
   ]) assert.equal(isPrMerge(command), false, command);
 });
 
@@ -47,6 +49,8 @@ await test("common ways to merge a pull request are blocked", () => {
     "sudo -u owner gh pr merge 5", "\"gh\" pr merge 5", "'gh' pr merge 5",
     "\\gh pr merge 5", "/usr/bin/env gh pr merge 5", "/usr/bin/sudo gh pr merge 5", "gh api repos/o/r/pulls/1/merge -X 'PUT'",
     "gh api repos/o/r/pulls/1/merge -X \"PUT\"", "bash -lc 'gh pr merge 5'", "bash -ec \"gh pr merge 5\"",
+    "bash -l -c 'gh pr merge 5'", "bash -c -- 'gh pr merge 5'", "/usr/bin/env -S gh pr merge 5", "doas gh pr merge 5",
+    "echo \"$(gh pr merge 5)\"", "x=$(gh pr merge 5)",
   ]) assert.equal(isPrMerge(command), true, command);
 });
 

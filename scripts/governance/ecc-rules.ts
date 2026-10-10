@@ -1,7 +1,8 @@
 // npm run rules:check: the vendored ECC rules under .claude/rules/ecc/ are exactly the files the
-// manifest lists, unedited, for the plugin version .claude/settings.json pins: ECC's whole rules/
-// folder, kept complete (OWNER DECISION, 2026-10-10). After moving the pin, copy the plugin's
-// rules/ in again and run with --write to record the new hashes.
+// manifest lists, unedited, for the plugin version .claude/settings.json pins: every rule set in
+// ECC's rules/ folder, kept complete (OWNER DECISION, 2026-10-10), plus the plugin's LICENSE.
+// rules/README.md stays out, because Claude Code would load it as a rule. After moving the pin,
+// copy the rule set folders in again and run with --write to record the new hashes.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { EXIT_ERROR, consoleOutput, isEntryPoint, report, rootFrom, runCli, type Output } from "../lib/cli.ts";

@@ -35,7 +35,7 @@ function isApproveFlag(word: string): boolean {
   return false;
 }
 // bash -c '...' and eval '...' run their argument, so it is lifted out as a command.
-const SHELL_PAYLOAD = /\b(?:bash|sh|zsh)\s+-[a-z]*c\s+(["'])([\s\S]*?)\1|\beval\s+(["'])([\s\S]*?)\3/g;
+const SHELL_PAYLOAD = /\b(?:bash|sh|zsh)\s+(?:-[a-z]+\s+)*-[a-z]*c(?:\s+--)?\s+(["'])([\s\S]*?)\1|\beval\s+(["'])([\s\S]*?)\3/g;
 // Heredoc bodies are data. A quoted string is joined into its word with only word characters kept,
 // as the shell joins it: "gh" is still gh and 'HEAD:main' still a refspec, while a quoted commit
 // message becomes one harmless word and its separators split nothing.
@@ -43,13 +43,17 @@ const HEREDOC = /<<-?\s*(["']?)(\w+)\1[^\n]*\n[\s\S]*?\n\2(?=\n|$)/g;
 const QUOTED = /'[^']*'|"(?:\\.|[^"\\])*"/g;
 const NOT_WORD = /[^\w.:/+@^~-]/g;
 const BACKTICKS = /`([^`]*)`/g;
+// $(...) runs its content as a command, inside double quotes too, so each one is also judged as a
+// command line of its own. Not when it cannot run: escaped (\$), single-quoted or in a heredoc.
+const SUBSTITUTION = /(?<!\\)\$\(([^()]*)\)/g;
+const SINGLE_QUOTED = /'[^']*'/g;
 // Separators: &&, ||, ;, |, newline, brackets, and a lone & (background; not 2>&1 or &>).
 const SEPARATOR = /&&|\|\||[;|\n(){}]|(?<![&>])&(?![&>])/;
 // Words that run a later word as the command, with the options each takes a value for and how many
 // plain arguments come before the command (timeout's duration).
-const WRAPPERS = new Set(["sudo", "env", "command", "nohup", "exec", "time", "then", "do", "else", "!", "timeout", "nice", "xargs", "setsid", "stdbuf"]);
+const WRAPPERS = new Set(["sudo", "env", "command", "nohup", "exec", "time", "then", "do", "else", "!", "timeout", "nice", "xargs", "setsid", "stdbuf", "doas"]);
 const WRAPPER_VALUE_FLAGS: Record<string, ReadonlySet<string>> = {
-  sudo: new Set(["-u", "-g", "-h", "-p", "-C"]), env: new Set(["-u", "-C", "-S"]), nice: new Set(["-n"]),
+  sudo: new Set(["-u", "-g", "-h", "-p", "-C"]), doas: new Set(["-u", "-C"]), env: new Set(["-u", "-C"]), nice: new Set(["-n"]),
   timeout: new Set(["-s", "-k", "--signal", "--kill-after"]), xargs: new Set(["-I", "-n", "-L", "-P", "-d", "-E", "-s", "-a"]),
 };
 const WRAPPER_ARGUMENTS: Record<string, number> = { timeout: 1 };
@@ -57,7 +61,9 @@ const GH_FLAGS_WITH_VALUE = new Set(["-R", "--repo", "--hostname"]);
 
 function commandParts(command: string): string[][] {
   const lifted = command.replace(SHELL_PAYLOAD, (_match, _q1, first: string | undefined, _q2, second: string | undefined) => `\n${first ?? second ?? ""}\n`);
-  const code = lifted.replace(HEREDOC, " ").replace(BACKTICKS, (_match, inner: string) => `\n${inner}\n`)
+  const runnable = lifted.replace(HEREDOC, " ").replace(SINGLE_QUOTED, " ");
+  const substituted = [...runnable.matchAll(SUBSTITUTION)].map((match) => match[1] ?? "");
+  const code = [lifted, ...substituted].join("\n").replace(HEREDOC, " ").replace(BACKTICKS, (_match, inner: string) => `\n${inner}\n`)
     .replace(QUOTED, (quoted) => quoted.slice(1, -1).replace(NOT_WORD, ""));
   return code.split(SEPARATOR).map((part) => part.trim().split(/\s+/).filter(Boolean));
 }

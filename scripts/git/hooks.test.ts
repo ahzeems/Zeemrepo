@@ -75,6 +75,14 @@ await test("guards run from main against the change, never running the change's 
   assert.doesNotMatch(workflow, /run: [^\n]*\$\{\{/, "no expression is expanded inside a run script");
 });
 
+await test("the declared, tested and typed Node versions are the same major", () => {
+  const major = readFileSync(join(root, ".nvmrc"), "utf8").trim();
+  const manifest: unknown = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  assert.ok(isRecord(manifest) && isRecord(manifest.engines) && isRecord(manifest.devDependencies));
+  assert.equal(manifest.engines.node, `>=${major}.0.0`, "engines claims only what CI (node-version-file: .nvmrc) tests");
+  assert.match(String(manifest.devDependencies["@types/node"]), new RegExp(`^\\^${major}\\.`));
+});
+
 await test("Dependabot proposes updates for the pinned actions and the npm dependencies, never merging", () => {
   const config = readFileSync(join(root, ".github/dependabot.yml"), "utf8");
   for (const ecosystem of ["github-actions", "npm"]) assert.match(config, new RegExp(`package-ecosystem: ${ecosystem}\\n`));

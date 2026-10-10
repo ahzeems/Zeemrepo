@@ -2,8 +2,8 @@
 //
 // The rule is always on. Zimi switched it on with a policy file, which meant a branch could
 // switch it off by deleting that file; there is no switch to delete here.
-import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
-import { git, gitLines, gitPaths, mergeBase, refExists, type GitOptions } from "../lib/git.ts";
+import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, readMode, runCli, type Output } from "../lib/cli.ts";
+import { git, gitLines, gitOptionsAt, gitPaths, mergeBase, refExists, type GitOptions } from "../lib/git.ts";
 import { commitViolations, isConflictResolution, stagedMix, type Commit, type Violation } from "./wiki-compliance-validation.ts";
 
 export type Options = { cwd?: string; output?: Output };
@@ -16,13 +16,11 @@ const SPLIT_ADVICE = "Commit the wiki/ files alone and the rest separately; to m
 
 // --no-renames: a rename is otherwise reported only at its destination, so moving a note out
 // of wiki/ would hide the wiki side of a mixed commit.
-// A merge is judged only on what it adds itself: --cc lists files that differ from every
-// parent, which is empty for a clean merge of main and catches changes slipped in during one.
 // A merge is judged only on what its author changed by hand: --remerge-diff compares the
 // merge with git's own automatic merge of its parents, so a clean merge of main lists
 // nothing, while conflict resolutions and changes slipped in during a merge are listed.
 // (--cc is not enough: it lists files whose hunks came from both sides even when git merged
-// them cleanly.) Requires git 2.36 or later.
+// them cleanly.) Requires git 2.36 or later; an older git fails the check as an error (exit 2).
 // The conflict style is pinned so a user's diff3 setting cannot add base lines to "the sides".
 const REMERGE = ["-c", "merge.conflictStyle=merge", "show", "--remerge-diff"];
 
@@ -81,16 +79,10 @@ function checkHistory(options: GitOptions, output: Output, json: boolean): numbe
 
 export function main(args: readonly string[], options: Options = {}): number {
   const output = options.output ?? consoleOutput;
-  const gitOptions: GitOptions = options.cwd === undefined ? {} : { cwd: options.cwd };
-  const [first, ...rest] = args;
-  if (rest.length > 0 || (first !== undefined && !["--help", "--json", "--staged"].includes(first))) {
-    output.warn("wiki-compliance: pass no arguments, --json or --staged. See --help.");
-    return EXIT_ERROR;
-  }
-  if (first === "--help") {
-    output.write(USAGE);
-    return EXIT_OK;
-  }
+  const gitOptions = gitOptionsAt(options.cwd);
+  const parsed = readMode(args, { name: "wiki-compliance", usage: USAGE, modes: ["--json", "--staged"] }, output);
+  if ("exit" in parsed) return parsed.exit;
+  const first = parsed.mode;
   if (first === "--staged") return checkStaged(gitOptions, output);
   if (first !== "--json") return checkHistory(gitOptions, output, false);
   try {

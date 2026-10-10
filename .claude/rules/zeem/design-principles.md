@@ -44,6 +44,12 @@ under 50 lines, files under 800, nesting at most 4; OWNER DECISION, 2026-10-09: 
 
 - **Input validation.** ECC's `coding-style.md` asks for validation at system boundaries and for comprehensive
   error handling at every level. Here, do not add defensive checks inside the code past those boundaries.
+- **Research before building.** ECC's development workflow makes a GitHub, registry and web search
+  mandatory before any implementation. Here it is required only before adding a dependency or a new
+  subsystem; a change inside existing code starts from the nearest existing module instead.
+- **Size limits.** ECC counts lines; `eslint.config.ts` skips blank lines and comments for the
+  function limit, and lifts it for test files, whose cases group inside long `test()` callbacks. The
+  800-line file limit applies to tests too.
 - **Planning.** ECC's development workflow asks for the planner agent and planning documents (PRD,
   architecture, system design, task list) before coding. Here the plan is the three to six lines above,
   and a task that needs more is too big: say so instead of building.

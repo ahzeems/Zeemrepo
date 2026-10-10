@@ -13,21 +13,20 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
 - runs each scenario's setup commands through a confined `sh -c` (so redirections and heredocs
   create files, and a `printf` format starting with `---` is text);
 - copies a snapshot of the committed repository into each scenario sandbox after that setup
-  (never `reports/` or `seeds.md`, so neither earlier scores nor the expected behaviours leak in);
-  the repository's tooling (`package.json`, `CLAUDE.md`, and the files of `.claude/`, `scripts/`,
-  `config/` and the hooks) replaces a scenario's copy file by file, and other scenario files are
-  kept;
-  links one read-only copy of `node_modules`, and commits it as `main` with `origin/main` set, so
-  `npm run check` passes there as it does here;
+  (never `reports/`, `seeds.md` or `specs/`, so neither earlier scores nor the expected behaviours
+  leak in). The repository's tooling (`package.json`, `CLAUDE.md`, and the files of `.claude/`,
+  `.github/`, `.githooks/`, `scripts/` and `config/`) replaces a scenario's copy file by file, and
+  other scenario files are kept. It links one read-only copy of `node_modules` and commits the tree
+  as `main`, so `npm run check` passes there as it does here;
 - runs every process ECC starts (setup commands, the baseline commit, scenario runs, generation and
   classification) under bubblewrap built as an allowlist: an empty home, a private `/tmp`, pid
   namespace and session, read-only `/usr`, `/etc`, `/opt` and `/home/linuxbrew`, a fresh Claude
   config per call holding only the login (deleted when the run ends), the installed plugins
   read-only, and write access only to the working directory; it refuses to start if `bwrap` is
   missing or a trivial confined command fails;
-- passes an allowlisted environment (path, home, user, shell, locale, terminal, time zone and
-  Anthropic auth only), an
-  empty `gh` config, no global git config and a fixed sandbox author;
+- passes an allowlisted environment (path, home, user, shell, locale, terminal and time zone
+  only; no API key, since the run uses a private copy of the Claude login), an empty `gh` config,
+  no global git config and a fixed sandbox author;
 - gives every confined process its own empty network namespace with no resolver; the only way out
   is a proxy on the host (`netproxy.py`, reached through a unix socket bound into the sandbox) that
   tunnels HTTPS to exactly `api.anthropic.com` and refuses everything
@@ -54,13 +53,17 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
 - replaces any symlink a scenario planted on a tooling path (the file or a directory above it), so
   the real file is written in place and never through the link;
 - writes each report to `reports/<path-derived name>.md`, for example `rules-zeem-branch-and-merge.md`;
-- pins each target's spec in `specs/<report name>.json` (generated on the first run, then reused),
-  because ECC writes a new spec every run and totals over different steps cannot be compared; the
-  pinned files are reviewed like code. The 2026-10-09 review removed `report_ready_never_approved`
-  from branch-and-merge (a final-message claim, which tool-call grading cannot see) and, in
-  wiki-memory, made `index_memory_note` optional (only a new memory note needs an index line) and
-  dropped `after_step` links the skill does not impose (`update_work_record`, `lint_wiki`,
-  `commit_wiki_files`), which demoted a done step whenever an unrelated one was missed;
+- pins each target's spec in `specs/<report name>.json` and its three scenarios in
+  `specs/<report name>.scenarios.json` (generated on the first run, then reused; a generation that
+  does not parse is never pinned), because ECC writes new ones every run and totals over different
+  steps or tasks cannot be compared. The pinned files are reviewed like code and excluded from the
+  sandbox snapshot. Where the pins differ from what the generator wrote: branch-and-merge's spec
+  has no `report_ready_never_approved` (a claim in the final message, which tool-call grading
+  cannot see); wiki-memory's spec makes `index_memory_note` optional (only a new memory note needs
+  an index line) and has no `after_step` links the skill does not impose, which demoted a done step
+  whenever an unrelated one was missed; wiki-memory's scenario setups only create `scripts/text`
+  (the generated ones overwrote the real wiki with toy copies); and write-guard's supportive prompt
+  names `check:base`, as the skill's wiring step does. The CHANGELOG records when each changed;
 - gives a sandbox a local bare `origin` (inside `.git`) with `main` pushed, so `npm run pr` can fetch
   and push there (it still stops at `gh`, which is logged out);
 - shows the grader a split chain's output only on its last command, and a long Bash call as its start

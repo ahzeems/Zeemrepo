@@ -1,7 +1,8 @@
 // CLI for the changelog rule. Read-only; run with npm run changelog:guard.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
+import { EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, readMode, runCli, type Output } from "../lib/cli.ts";
+import { gitOptionsAt } from "../lib/git.ts";
 import { CHANGELOG } from "../lib/paths.ts";
 import { addedLineNumbers, atRepositoryRoot, branchBase, changedSince } from "./branch-diff.ts";
 import { changelogRefusals } from "./changelog-validation.ts";
@@ -13,7 +14,7 @@ Requires this branch to add its own ${CHANGELOG} entry, under a date heading bet
 day the branch started and today (UTC). Exit: 0 allowed, 1 refused, 2 the check could not run.`;
 
 function refusals(options: Options): string[] {
-  const { gitOptions, root } = atRepositoryRoot(options.cwd === undefined ? {} : { cwd: options.cwd });
+  const { gitOptions, root } = atRepositoryRoot(gitOptionsAt(options.cwd));
   const base = branchBase(gitOptions);
   const path = join(root, CHANGELOG);
   return changelogRefusals({
@@ -26,16 +27,10 @@ function refusals(options: Options): string[] {
 
 export function main(args: readonly string[], options: Options = {}): number {
   const output = options.output ?? consoleOutput;
-  if (args[0] === "--help") {
-    output.write(USAGE);
-    return EXIT_OK;
-  }
-  if (args.length > 1 || (args.length === 1 && args[0] !== "--json")) {
-    output.warn("changelog-guard: pass no arguments, or --json. See --help.");
-    return EXIT_ERROR;
-  }
+  const parsed = readMode(args, { name: "changelog-guard", usage: USAGE, modes: ["--json"] }, output);
+  if ("exit" in parsed) return parsed.exit;
   const found = refusals(options);
-  if (args[0] === "--json") output.write(JSON.stringify({ allowed: found.length === 0, refusals: found }));
+  if (parsed.mode === "--json") output.write(JSON.stringify({ allowed: found.length === 0, refusals: found }));
   else if (found.length === 0) output.write(`changelog-guard: this branch records its own ${CHANGELOG} entry`);
   else for (const refusal of found) output.warn(`changelog-guard: ${refusal}`);
   return found.length === 0 ? EXIT_OK : EXIT_REFUSED;

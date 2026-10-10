@@ -1,7 +1,11 @@
 import { execFileSync } from "node:child_process";
 
-// `head` defaults to HEAD; only mergeBase reads it.
-export type GitOptions = { cwd?: string; head?: string };
+export type GitOptions = { cwd?: string };
+
+/** Options for a repository named by `cwd`, or for the current one when there is none. */
+export function gitOptionsAt(cwd: string | undefined): GitOptions {
+  return cwd === undefined ? {} : { cwd };
+}
 
 export class GitError extends Error {
   readonly args: readonly string[];
@@ -28,7 +32,7 @@ export class GitError extends Error {
 // index that `git commit -a` uses. Omit cwd there.
 const INJECTION = /^GIT_(CONFIG_|REPLACE_REF_BASE$|GRAFT_FILE$|NO_REPLACE_OBJECTS$)/;
 
-function environmentFor(options: GitOptions): NodeJS.ProcessEnv {
+export function environmentFor(options: GitOptions): NodeJS.ProcessEnv {
   const drop = options.cwd === undefined ? (key: string) => INJECTION.test(key) : (key: string) => key.startsWith("GIT_");
   return Object.fromEntries(Object.entries(process.env).filter(([key]) => !drop(key)));
 }
@@ -69,9 +73,12 @@ export function gitLines(args: readonly string[], options: GitOptions = {}): str
 }
 
 // Path lists come NUL-separated: quotePath=false still C-quotes tabs and newlines, and a
-// quoted path would slip past an anchored pattern like ^scripts/.
+// quoted path would slip past an anchored pattern like ^scripts/. -z goes before a caller's
+// "--", where it is still an option, not a pathspec.
 export function gitPaths(args: readonly string[], options: GitOptions = {}): string[] {
-  return run(["-c", "core.quotePath=false", ...args, "-z"], options).split("\0").filter((path) => path.length > 0);
+  const separator = args.indexOf("--");
+  const at = separator === -1 ? args.length : separator;
+  return run([...args.slice(0, at), "-z", ...args.slice(at)], options).split("\0").filter((path) => path.length > 0);
 }
 
 // null means git ran and answered "no" (a non-zero exit). Failing to run git at all is an
@@ -99,12 +106,10 @@ export function refExists(ref: string, options: GitOptions = {}): boolean {
 const BASE_REFS = ["refs/remotes/origin/main", "refs/heads/main"];
 
 export function mergeBase(options: GitOptions = {}): string {
-  const head = options.head ?? "HEAD";
-  assertNotOption(head);
   for (const ref of BASE_REFS) {
     if (!refExists(ref, options)) continue;
-    const base = tryGit(["merge-base", ref, head], options);
-    if (base === null) throw new Error(`${ref} and ${head} have no common history`);
+    const base = tryGit(["merge-base", ref, "HEAD"], options);
+    if (base === null) throw new Error(`${ref} and HEAD have no common history`);
     return base;
   }
   throw new Error(`no base ref: none of ${BASE_REFS.join(", ")} exists`);

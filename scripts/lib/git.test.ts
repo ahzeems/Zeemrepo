@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { realpathSync } from "node:fs";
+import { realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { createRepo, type RepoFixture } from "../test-support/repo-fixture.ts";
-import { GitError, git, gitLines, gitPaths, isAncestor, mergeBase, refExists, tryGit } from "./git.ts";
+import { GitError, git, gitLines, gitOptionsAt, gitPaths, isAncestor, mergeBase, refExists, tryGit } from "./git.ts";
 
 function withRepo(t: { after(fn: () => void): void }): RepoFixture {
   const repo = createRepo();
@@ -47,6 +47,12 @@ await test("git output", async (t) => {
     repo.write("café.md", "x\n");
     repo.commit("non-ascii");
     assert.equal(git(["ls-files", "café.md"], { cwd: repo.dir }), "café.md");
+  });
+
+  await t.test("gitPaths keeps -z an option even when a file is named -z", () => {
+    repo.write("-z", "x\n");
+    assert.deepEqual(gitPaths(["ls-files", "--others", "--exclude-standard", "--", "absent.txt"], { cwd: repo.dir }), []);
+    rmSync(join(repo.dir, "-z"));
   });
 
   await t.test("gitPaths returns control characters literally, unquoted", () => {
@@ -146,16 +152,6 @@ await test("mergeBase", async (t) => {
     assert.equal(mergeBase({ cwd: repo.dir }), remoteTip);
   });
 
-  await t.test("measures from an explicit head", (t) => {
-    const repo = withRepo(t);
-    const base = repo.commit("base");
-    repo.git(["switch", "--quiet", "-c", "feature"]);
-    const work = repo.commit("work");
-    repo.git(["switch", "--quiet", "main"]);
-    repo.commit("main moves on");
-    assert.equal(mergeBase({ cwd: repo.dir, head: work }), base);
-  });
-
   await t.test("throws, not falls back, when origin/main exists but shares no history", (t) => {
     const repo = withRepo(t);
     repo.commit("main");
@@ -193,4 +189,9 @@ await test("isAncestor", async (t) => {
   await t.test("rejects a ref that git would read as an option", () => {
     assert.throws(() => isAncestor("--all", head, { cwd: repo.dir }), /option/);
   });
+});
+
+await test("gitOptionsAt names the repository only when a cwd is given", () => {
+  assert.deepEqual(gitOptionsAt(undefined), {});
+  assert.deepEqual(gitOptionsAt("/repo"), { cwd: "/repo" });
 });

@@ -8,12 +8,12 @@ import { readStandards, type SkillStandards } from "./skill-standards.ts";
 
 // Structural checks for the skill library, from write-skill's contract. Structure only:
 // whether the model actually selects and follows a skill is measured by ECC skill-comply.
-export type SkillValidation = { errors: string[]; skillCount: number };
+type SkillValidation = { errors: string[]; skillCount: number };
 
 type Skill = { name: string; dir: string; file: string; body: string; data: Readonly<Record<string, unknown>>; baseline: boolean };
 type Context = { standards: SkillStandards; used: Set<string>; errors: string[] };
 
-export const SKILLS_DIR = ".claude/skills";
+const SKILLS_DIR = ".claude/skills";
 const KEYS = new Set(["name", "description", "disable-model-invocation"]);
 const EM_DASH = "\u2014";
 const OTHER_HARNESS = /(^|\/)(openai\.ya?ml|opencode[^/]*)$/i;

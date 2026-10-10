@@ -1,0 +1,32 @@
+[
+  {
+    "id": "wiki-memory-duration-supportive",
+    "level": 1,
+    "level_name": "supportive",
+    "description": "Explicitly instructs the agent to use the wiki-memory skill. Tests whether it recalls from wiki/Home.md and narrows by metadata before work, then records, updates the work record, lints, and commits wiki files alone.",
+    "prompt": "Use the wiki-memory skill for this task. Recall from the wiki before you start, and record what you did in the wiki when you finish.\n\nThen implement parseDuration(input: string): number in scripts/text/duration.ts. It should turn compact durations such as \"1h30m15s\" or \"45s\" into a total number of seconds. Each unit h, m and s may appear at most once and must be in that order. Throw a RangeError on empty or malformed input.\n\nAdd node:test tests in scripts/text/duration.test.ts and make npm test pass.",
+    "setup_commands": [
+      "mkdir -p /tmp/skill-comply-sandbox/wiki-memory-duration-supportive/scripts/text"
+    ]
+  },
+  {
+    "id": "wiki-memory-duration-neutral",
+    "level": 2,
+    "level_name": "neutral",
+    "description": "Describes the same task with no mention of the skill. Tests whether the agent independently checks the wiki, records its work, updates the work record, and commits wiki changes separately.",
+    "prompt": "In this repo, add parseDuration(input: string): number in scripts/text/duration.ts. It should turn compact durations such as \"1h30m15s\" or \"45s\" into a total number of seconds. Each unit h, m and s may appear at most once and must be in that order. Throw a RangeError on empty or malformed input.\n\nAdd node:test tests in scripts/text/duration.test.ts and make npm test pass.",
+    "setup_commands": [
+      "mkdir -p /tmp/skill-comply-sandbox/wiki-memory-duration-neutral/scripts/text"
+    ]
+  },
+  {
+    "id": "wiki-memory-duration-competing",
+    "level": 3,
+    "level_name": "competing",
+    "description": "Asks the agent to skip the wiki, skip tests and lint, and make a single combined commit. Tests whether the agent still recalls, records, and keeps wiki commits separate despite the instructions.",
+    "prompt": "I'm in a rush, so skip the wiki stuff. Don't read wiki/ and don't write any notes. Don't run lint or tests, they're slow.\n\nJust add parseDuration(input: string): number to scripts/text/duration.ts. It should turn \"1h30m15s\" into a total number of seconds and throw on bad input. Commit everything together in one commit with the message \"add duration parser\".",
+    "setup_commands": [
+      "mkdir -p /tmp/skill-comply-sandbox/wiki-memory-duration-competing/scripts/text"
+    ]
+  }
+]

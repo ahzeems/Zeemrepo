@@ -1,4 +1,5 @@
 import { isExempt, isOperatingDoc, isWorkflowCritical } from "../lib/change-policy.ts";
+import { STRONG_EVIDENCE } from "../lib/evidence.ts";
 import { isStringArray, stringValue } from "../lib/record.ts";
 import { CHANGELOG, WORK_DIR } from "../lib/paths.ts";
 
@@ -11,12 +12,11 @@ import { CHANGELOG, WORK_DIR } from "../lib/paths.ts";
 type Fields = Readonly<Record<string, unknown>>;
 /** A changed work record: its frontmatter and text at the base (null if new) and now (null if deleted). */
 export type RecordChange = { path: string; before: Fields | null; after: Fields | null; beforeText: string; afterText: string };
-export type MemoryInput = { changed: readonly string[]; records: readonly RecordChange[]; addedOperatingDocLines: readonly string[] };
+type MemoryInput = { changed: readonly string[]; records: readonly RecordChange[]; addedOperatingDocLines: readonly string[] };
 
 // Only a checked result or an owner decision counts. Phrases that say the check did not
 // happen void the item; they are scoped to such phrases so an unrelated clause
 // ("npm run check passes; CI is not configured yet") keeps its result.
-const EVIDENCE = /^(VERIFIED|OWNER DECISION):\s*\S/;
 const ABSENT = new RegExp([
   "\\b(todo|tbd|fixme|pending|unverified|skipped)\\b", "\\bn/?a\\b", "\\bno evidence\\b",
   "\\b(not|never|cannot be|could not be)\\s+(yet\\s+)?(run|verified|checked)\\b",
@@ -31,7 +31,7 @@ const evidenceOf = (fields: Fields | null): string[] => isStringArray(fields?.ev
 
 function hasNewEvidence(record: RecordChange): boolean {
   const old = new Set(evidenceOf(record.before));
-  return evidenceOf(record.after).some((item) => !old.has(item) && EVIDENCE.test(item) && !ABSENT.test(item));
+  return evidenceOf(record.after).some((item) => !old.has(item) && STRONG_EVIDENCE.test(item) && !ABSENT.test(item));
 }
 
 function hasStatusChange(record: RecordChange): boolean {

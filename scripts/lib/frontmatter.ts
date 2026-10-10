@@ -3,7 +3,7 @@ import { isRecord } from "./record.ts";
 
 // "none" and "invalid" are different answers: a guard that skipped both would let a record
 // opt out of checking by corrupting its own frontmatter (a duplicate key, a stray fence).
-export type Frontmatter =
+type Frontmatter =
   | { kind: "none" }
   | { kind: "invalid"; reason: string }
   | { kind: "ok"; data: Readonly<Record<string, unknown>>; body: string };

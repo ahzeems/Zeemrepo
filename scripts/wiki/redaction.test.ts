@@ -68,6 +68,17 @@ await test("a service account is not redacted as a personal identifier", () => {
   assert.equal(redactionChecks({ host: "ci", user: "node" }).some((check) => /machine/.test(check.name)), false);
 });
 
+await test("a generic hostname is not checked, and a user with no passwd entry is not an error", () => {
+  for (const host of ["localhost", "runner", "buildkitsandbox", "LOCALHOST"]) {
+    assert.equal(redactionChecks({ host, user: "bob" }).some((check) => /hostname/.test(check.name)), false, host);
+  }
+  assert.equal(redactionChecks({ host: "build-box-7", user: "bob" }).some((check) => /hostname/.test(check.name)), true);
+  const noPasswd = (): never => {
+    throw new Error("ENOENT: no such file or directory, uv_os_get_passwd");
+  };
+  assert.equal(currentIdentity(noPasswd).user, "", "a container uid without a passwd entry has no username to check");
+});
+
 await test("currentIdentity reads this machine", () => {
   const { host, user } = currentIdentity();
   assert.ok(host.length > 0 && user.length > 0);

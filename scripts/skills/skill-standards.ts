@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isRecord } from "../lib/record.ts";
+import { CONFIG_DIR } from "../lib/paths.ts";
 
 // Structural standards for the skill library, from write-skill's contract. Zimi also listed
 // "routes" (documents that had to link every skill) because OpenCode and Codex only found
@@ -14,7 +15,7 @@ export type SkillStandards = {
   userOnly: string[];
 };
 
-export const STANDARDS_PATH = "config/skill-standards.json";
+const STANDARDS_PATH = `${CONFIG_DIR}skill-standards.json`;
 const ALLOWANCE_RULES = ["descriptionLimit", "bodyLimit"] as const;
 type AllowanceRule = (typeof ALLOWANCE_RULES)[number];
 const FIELDS = new Set(["note", "descriptionLimit", "bodyLimit", "allowances", "userOnly"]);

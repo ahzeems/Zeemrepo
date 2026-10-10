@@ -7,7 +7,7 @@ reports any recipe it could not run as blocked.
 ## Launch and evidence
 
 Run from the selected feature checkout. Before each recipe, inspect `git status --short`,
-`node --version` and `npm --version`; use Node >=22.18 (package.json `engines`) and
+`node --version` and `npm --version`; use Node 24 (`.nvmrc`; package.json `engines`) and
 dependencies installed with `npm ci`. Confirm the pinned tree from step 1 has not changed.
 
 Every repo CLI exits 0 when the check passes, 1 when it refuses, and 2 when the tool itself
@@ -28,8 +28,11 @@ Paths are relative to the repository root.
 
 ## Coverage boundaries
 
-`npm run check` runs lint, typecheck, tests with coverage, `wiki:lint`, `skills:lint` and
-`wiki:compliance`.
+`npm run check` runs lint, typecheck, tests with coverage, `evals:test`, `wiki:lint`,
+`skills:lint`, `governance:check`, `rules:check`, `wiki:compliance`, `changelog:guard` and
+`memory:guard` (the list in `package.json`; CI runs `check:base`, the same without the last two, for
+Dependabot). The compliance harness (`evals/compliance/`) is tested by `evals:test` without a model;
+a live compliance run spends model time and needs the owner's approval.
 It does not prove Obsidian rendering, model behavior, or GitHub permissions. A recipe that
 could not run stays blocked coverage, not a pass.
 
@@ -46,7 +49,7 @@ must exit 1. Rules: `wiki/reference/Change records.md`.
 
 ## Landing path
 
-`scripts/git/` (branch-guard, pr-ready, landing-audit, worktree-guard), `.githooks/`,
+`scripts/git/` (branch-guard, git-state, pr-ready, landing-audit, worktree-guard), `.githooks/`,
 `.github/workflows/{check,guards}.yml`, and the Claude Code hook `scripts/claude/block-pr-merge.ts`.
 Drive with `npm run pr -- --dry-run`, `npm run audit` and `npm run worktree:guard`; the hooks run
 on commit and push once `npm run hooks:install` is done. CI can only be observed on a pull

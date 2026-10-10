@@ -13,6 +13,10 @@
       "reason": "Vendored ECC rules, refreshed verbatim from upstream; they are not this repository's operating model and never carried Zimi's rules."
     },
     {
+      "glob": "config/ecc-rules.json",
+      "reason": "Generated hashes of the vendored ECC rules above (npm run rules:check); its paths are ECC's file names, such as common/agents.md."
+    },
+    {
       "glob": "docs/migration/**",
       "reason": "Migration history: the audit and stocktake quote the replaced rules on purpose."
     },
@@ -51,7 +55,7 @@
     {
       "id": "wiki-colon-subject",
       "pattern": "(subject|message)[^.\\n]{0,40}[`\"']wiki:",
-      "supersededBy": "Wiki commits use docs(wiki): (plan D5)"
+      "supersededBy": "Wiki commits use docs(wiki):"
     },
     {
       "id": "codex-branch-prefix",
@@ -61,7 +65,7 @@
     {
       "id": "agents-md-config",
       "pattern": "\\bAGENTS\\.md\\b",
-      "supersededBy": "Claude Code only; CLAUDE.md and .claude/ (plan D11)"
+      "supersededBy": "Claude Code only; CLAUDE.md and .claude/"
     },
     {
       "id": "intent-md",
@@ -71,22 +75,22 @@
     {
       "id": "agents-skills-dir",
       "pattern": "\\.agents/skills",
-      "supersededBy": "Skills live in .claude/skills (plan D6)"
+      "supersededBy": "Skills live in .claude/skills"
     },
     {
       "id": "opencode-config",
       "pattern": "opencode\\.json|\\.opencode/",
-      "supersededBy": "Claude Code only (plan D6)"
+      "supersededBy": "Claude Code only"
     },
     {
       "id": "today-only-changelog",
-      "pattern": "today'?s (utc )?heading",
-      "supersededBy": "Changelog entries may sit under any date from the fork point to today (plan D3)"
+      "pattern": "today'?s[*_ ]+(utc[*_ ]+)?heading",
+      "supersededBy": "Changelog entries may sit under any date from the fork point to today"
     },
     {
       "id": "recommended-evidence-label",
       "pattern": "VERIFIED, INFERRED, RECOMMENDED",
-      "supersededBy": "Evidence labels are VERIFIED, INFERRED, UNKNOWN, OWNER DECISION (plan D9)"
+      "supersededBy": "Evidence labels are VERIFIED, INFERRED, UNKNOWN, OWNER DECISION"
     },
     {
       "id": "docs-work-paths",

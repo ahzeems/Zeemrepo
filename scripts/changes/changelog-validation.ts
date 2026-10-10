@@ -8,8 +8,8 @@ import { CHANGELOG } from "../lib/paths.ts";
 // Entries are judged by their position in the file, never by their text, so a line that
 // repeats an older entry cannot borrow that entry's date.
 
-export type Window = { from: string; to: string };
-export type ChangelogInput = { changed: readonly string[]; changelog: string; addedLines: readonly number[]; window: Window };
+type Window = { from: string; to: string };
+type ChangelogInput = { changed: readonly string[]; changelog: string; addedLines: readonly number[]; window: Window };
 
 const ENTRY = /^\s*[-*]\s+\S/;
 const DATE_HEADING = /^##\s+(\d{4}-\d{2}-\d{2})\s*$/;

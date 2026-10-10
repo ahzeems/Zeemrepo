@@ -3,15 +3,16 @@
 // notes, which do not travel with fetch; this asks GitHub, which records every merge.
 import { spawnSync } from "node:child_process";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
-import { git, gitLines, type GitOptions } from "../lib/git.ts";
+import { git, gitLines, gitOptionsAt, type GitOptions } from "../lib/git.ts";
 import { isRecord } from "../lib/record.ts";
+import { CONFIG_DIR } from "../lib/paths.ts";
 
-export type Landing = { sha: string; subject: string };
-export type Verdict = Landing & { verdict: "ok" | "no-pr" | "unverified-pr"; pr: number | null };
-export type MergedCheck = (pr: number, sha: string) => boolean;
+type Landing = { sha: string; subject: string };
+type Verdict = Landing & { verdict: "ok" | "no-pr" | "unverified-pr"; pr: number | null };
+type MergedCheck = (pr: number, sha: string) => boolean;
 export type Options = { cwd?: string; output?: Output; merged?: MergedCheck };
 
-const CONFIG = "config/landing-audit.json";
+const CONFIG = `${CONFIG_DIR}landing-audit.json`;
 
 /** The PR number in a GitHub merge-commit or squash-merge subject. */
 export function prNumberOf(subject: string): number | null {
@@ -64,7 +65,7 @@ export function main(args: readonly string[], options: Options = {}): number {
     output.warn("landing-audit: takes no arguments. See --help.");
     return EXIT_ERROR;
   }
-  const gitOptions: GitOptions = options.cwd === undefined ? {} : { cwd: options.cwd };
+  const gitOptions = gitOptionsAt(options.cwd);
   const config = auditConfig(gitOptions);
   const first = config.since;
   const commits = gitLines(["log", "--first-parent", "--format=%H%x09%s", `${first}..refs/remotes/origin/main`], gitOptions)

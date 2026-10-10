@@ -79,6 +79,9 @@ await test("a superseded wiki note is reported as history only when it names its
   const noReplacement = "---\nstatus: superseded\n---\nRun npm run gate.\n";
   assert.equal(checkGovernance([{ path: "wiki/decisions/ADR-0001 Old.md", text: noReplacement }], config).violations.length, 1);
   assert.equal(checkGovernance([{ path: ".claude/skills/x/SKILL.md", text: replaced }], config).violations.length, 1);
+  const duplicated = "---\nstatus: active\nstatus: superseded\nsuperseded_by: \"[[ADR-0002 New]]\"\n---\nRun npm run gate.\n";
+  assert.equal(checkGovernance([{ path: "wiki/decisions/ADR-0001 Old.md", text: duplicated }], config).violations.length, 1,
+    "frontmatter wiki:lint rejects (a duplicate key) cannot declare the note history");
 });
 
 await test("globToRegExp matches exact paths, stars, odd characters and newlines", () => {

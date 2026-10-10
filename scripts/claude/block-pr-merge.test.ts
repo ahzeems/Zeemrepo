@@ -15,6 +15,8 @@ await test("ordinary work stays allowed", () => {
     "gh pr review 7 --comment --body 'findings'", "gh pr review 7 --request-changes -b 'fix x'", "gh api repos/o/r/pulls/7/reviews",
     "gh api -X POST repos/o/r/pulls/7/reviews -f body='we do not approve of this' -f event=COMMENT", "gh pr review 7 -b approve",
     "gh pr review 7 -bapprove", "gh pr review 7 -Fa.txt", "gh api graphql -f query='{ viewer { login } }'",
+    "git commit -m 'never run $(gh pr merge 5)'", "git commit -m \"never run \\$(gh pr merge 5)\"",
+    "git commit -F - <<'EOT'\nfix: block $(gh pr merge 5)\nEOT",
   ]) assert.equal(isPrMerge(command), false, command);
 });
 
@@ -42,6 +44,13 @@ await test("common ways to merge a pull request are blocked", () => {
     "gh api -X POST repos/o/r/pulls/7/reviews -f event=APPROVE",
     "gh api graphql -f query='mutation { addPullRequestReview(input:{event: APPROVE}) { clientMutationId } }'",
     "gh api graphql -f query='mutation { submitPullRequestReview(input:{event: APPROVE}) { clientMutationId } }'",
+    "true & gh pr merge 5", "x=`gh pr merge 5`", "env -i gh pr merge 5", "timeout 5 gh pr merge 5", "nice gh pr merge 5",
+    "nice -n 5 gh pr merge 5", "echo 5 | xargs gh pr merge", "setsid gh pr merge 5", "stdbuf -oL gh pr merge 5",
+    "sudo -u owner gh pr merge 5", "\"gh\" pr merge 5", "'gh' pr merge 5",
+    "\\gh pr merge 5", "/usr/bin/env gh pr merge 5", "/usr/bin/sudo gh pr merge 5", "gh api repos/o/r/pulls/1/merge -X 'PUT'",
+    "gh api repos/o/r/pulls/1/merge -X \"PUT\"", "bash -lc 'gh pr merge 5'", "bash -ec \"gh pr merge 5\"",
+    "env -S 'gh pr merge 5'", "/usr/bin/env -S \"gh pr merge 5\"", "bash -l -c 'gh pr merge 5'", "bash -c -- 'gh pr merge 5'", "/usr/bin/env -S gh pr merge 5", "doas gh pr merge 5",
+    "echo \"$(gh pr merge 5)\"", "x=$(gh pr merge 5)",
   ]) assert.equal(isPrMerge(command), true, command);
 });
 
@@ -52,6 +61,7 @@ await test("a push whose destination is main is blocked; other pushes are not", 
     "git push --force origin feat/x main", "git push --all origin", "git push --mirror origin", "cd x && git push origin main",
     "git push -o ci.skip origin main", "git push origin :main", "git push origin feat/x:refs/heads/main",
     "git --git-dir .git push origin main", "git --work-tree x push origin main", "git --namespace n push origin main",
+    "git push origin \"main\"", "git push origin 'HEAD:main'", "\"git\" push origin main", "timeout 30 git push origin main", "\\git push origin main",
   ]) assert.equal(isPushingToMain(command), true, command);
   for (const command of [
     "git push", "git push origin", "git push -u origin feat/x", "git push origin feat/main-fix", "git push origin main:feat/x",

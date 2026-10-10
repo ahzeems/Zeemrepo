@@ -64,7 +64,7 @@ await test("guards run from main against the change, never running the change's 
   const workflow = readFileSync(join(root, ".github/workflows/guards.yml"), "utf8");
   assert.match(workflow, /^on:\n {2}pull_request_target:\n/m, "the workflow itself comes from main");
   assert.match(workflow, /permissions:\n {2}contents: read/);
-  for (const guard of ["wiki/wiki-lint.ts\" --root .", "skills/skill-lint.ts\" --root .", "governance/governance-guard.ts\" --root .", "wiki/wiki-compliance.ts\"", "changes/changelog-guard.ts\"", "changes/repo-memory-guard.ts\""]) {
+  for (const guard of ["wiki/wiki-lint.ts\" --root .", "skills/skill-lint.ts\" --root .", "governance/governance-guard.ts\" --root .", "governance/ecc-rules.ts\" --root .", "wiki/wiki-compliance.ts\"", "changes/changelog-guard.ts\"", "changes/repo-memory-guard.ts\""]) {
     assert.ok(workflow.includes(`node "$guards/${guard}`), guard);
   }
   assert.match(workflow, /npm ci --ignore-scripts/);
@@ -73,6 +73,20 @@ await test("guards run from main against the change, never running the change's 
   assert.match(workflow, /node-version-file: trusted\/\.nvmrc/);
   assert.match(workflow, /PR_AUTHOR: \$\{\{ github\.event\.pull_request\.user\.login \}\}/, "the bot exemption reads GitHub's author, not PR content");
   assert.doesNotMatch(workflow, /run: [^\n]*\$\{\{/, "no expression is expanded inside a run script");
+});
+
+await test("the declared, tested and typed Node versions are the same major", () => {
+  const major = readFileSync(join(root, ".nvmrc"), "utf8").trim();
+  const manifest: unknown = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  assert.ok(isRecord(manifest) && isRecord(manifest.engines) && isRecord(manifest.devDependencies));
+  assert.equal(manifest.engines.node, `>=${major}.0.0`, "engines claims only what CI (node-version-file: .nvmrc) tests");
+  assert.match(String(manifest.devDependencies["@types/node"]), new RegExp(`^\\^${major}\\.`));
+});
+
+await test("Dependabot proposes updates for the pinned actions and the npm dependencies, never merging", () => {
+  const config = readFileSync(join(root, ".github/dependabot.yml"), "utf8");
+  for (const ecosystem of ["github-actions", "npm"]) assert.match(config, new RegExp(`package-ecosystem: ${ecosystem}\\n`));
+  assert.doesNotMatch(config, /auto-?merge/i);
 });
 
 await test("CI's bot path reuses check:base, so the check list has one source", () => {

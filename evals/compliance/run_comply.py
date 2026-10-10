@@ -3,8 +3,9 @@
 ECC's runner starts each scenario in an empty `git init` directory, so on its own it measures
 Claude's default behaviour, not this repository's rules. This wrapper seeds each sandbox with a
 snapshot of the committed repository (CLAUDE.md, .claude/, scripts and hooks; never earlier
-reports or seeds.md, so neither scores nor expected behaviours leak into a run) after ECC's own setup, without overwriting the scenario's
-files. A generated "competing" prompt may ask the agent to push or merge, and a scenario agent has
+reports, seeds.md or the pinned specs, so neither scores nor expected behaviours leak into a run)
+after ECC's own setup: the repository's tooling replaces a scenario's copy, and the scenario's other
+files are kept. A generated "competing" prompt may ask the agent to push or merge, and a scenario agent has
 Bash as this user, so every process ECC starts (setup commands, scenario runs, generation and
 classification) runs under bubblewrap built as an allowlist: an empty home, a private /tmp, pid
 namespace and session, the system and tool directories read-only, a private copy of Claude's
@@ -18,10 +19,13 @@ Usage (from the repository root, with the venv described in evals/compliance/REA
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import hashlib
 import io
-import re
+import itertools
+import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -29,9 +33,6 @@ import tarfile
 import tempfile
 import time
 from collections.abc import Callable, Mapping, Sequence
-import dataclasses
-import json
-from dataclasses import dataclass
 from pathlib import Path
 
 import netproxy
@@ -44,8 +45,9 @@ ECC_VERSION = "2.2.3"
 SKILL_COMPLY = Path.home() / ".claude/plugins/cache/ecc/ecc" / ECC_VERSION / "skills/skill-comply"
 # An allowlist, not a denylist: anything else (tokens, SSH agent sockets, D-Bus, the parent Claude
 # session's messaging variables) is dropped.
-KEPT = {"PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "LANGUAGE", "TERM", "TZ",
-        "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"}
+# A run authenticates with the owner's Claude login (require_fresh_login), so an API key in the
+# caller's environment is a credential the sandbox does not need, and stays out.
+KEPT = {"PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "LANGUAGE", "TERM", "TZ"}
 KEPT_PREFIXES = ("LC_",)
 # Read-only system and tool directories visible inside the confinement, when they exist.
 # Not /run/systemd/resolve: its world-writable query socket would let DNS carry data out, and the
@@ -72,7 +74,7 @@ def isolated_env(base: Mapping[str, str], gh_config_dir: Path) -> dict[str, str]
     return env
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class Layout:
     """Host paths the confinement exposes: everything else is invisible."""
     home: Path
@@ -82,7 +84,7 @@ class Layout:
     deps: Path | None = None
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class Network:
     """The host proxy's directory (proxy.sock and a copy of netproxy.py) and the in-sandbox forwarder port."""
     directory: Path
@@ -151,8 +153,11 @@ def remove_tree(path: Path) -> None:
     """Delete `path` completely: a sandbox may have made its own folders read-only to keep a login copy."""
     for root, dirs, _files in os.walk(path):
         for name in dirs:
+            folder = Path(root) / name
+            if folder.is_symlink():  # a planted link to a host folder: chmod would follow it
+                continue
             try:
-                (Path(root) / name).chmod(0o700)
+                folder.chmod(0o700)
             except OSError:
                 pass
     shutil.rmtree(path, ignore_errors=True)
@@ -200,7 +205,11 @@ def shared_deps(repo: Path, cache: Path) -> Path:
     lock = hashlib.sha256((repo / "package-lock.json").read_bytes()).hexdigest()[:16]
     target = cache / lock / "node_modules"
     if not target.is_dir():
-        shutil.copytree(repo / "node_modules", target, symlinks=True)
+        # Copied beside the target and renamed into place, so an interrupted copy is never reused.
+        partial = target.with_name("node_modules.partial")
+        remove_tree(partial)
+        shutil.copytree(repo / "node_modules", partial, symlinks=True)
+        partial.rename(target)
     return target
 
 
@@ -220,6 +229,7 @@ TOOLING_DIRS = (".claude/", ".githooks/", ".github/", "scripts/", "config/")
 
 
 def is_tooling(name: str) -> bool:
+    """A repository tooling path (see TOOLING_FILES and TOOLING_DIRS), which replaces a scenario's copy."""
     return name in TOOLING_FILES or name.startswith(TOOLING_DIRS)
 
 
@@ -309,17 +319,6 @@ def require_confinement(which: Callable[[], str | None], works: Callable[[], boo
         raise SystemExit(2)
 
 
-@dataclass(frozen=True)
-class Observation:
-    """The fields of ECC's ObservationEvent, for tests; the real events are ECC's own frozen dataclass."""
-    timestamp: str
-    event: str
-    tool: str
-    session: str
-    input: str
-    output: str
-
-
 # Split only plain chains. Anything whose meaning depends on how earlier parts ended (||, if, while)
 # or that nests commands ($(...), backticks, subshells, heredocs) stays whole, as do comments and
 # backslash escapes, because a wrong split could credit a step that never ran.
@@ -336,9 +335,10 @@ SPLITTABLE_COMMANDS = frozenset({"git", "npm", "npx", "node", "gh", "ls", "cat",
 # lone & (background; not 2>&1, &> or |&), and exec, exit, source, `.`, eval, kill, coproc, set
 # and trap, also change which parts run.
 UNSPLITTABLE = re.compile(r"\|\||#|[(){}]|(?<![&>|])&(?![&>])|(?:^|[\s;&])(?:if|then|else|elif|fi|for|while|until|do|done|case|esac|exec|exit|return|source|eval|kill|coproc|set|trap)(?=\s|;|$)|(?:^|[;&\n])\s*\.(?=\s)")
-# Claude Code's Bash tool starts the output of a failed call with its exit code.
 # Inside quotes, any other character becomes `_`, so quoted text joins its word as the shell joins it.
 QUOTED_WORD_CHAR = re.compile(r"[A-Za-z0-9./-]")
+# Claude Code's Bash tool answers a backgrounded call at once, and starts a failed call's output
+# with its exit code; either way the chain's later parts may not have run.
 BACKGROUND_OUTPUT = re.compile(r"^\s*Command running in background")
 FAILED_OUTPUT = re.compile(r"^\s*Exit code [1-9]")
 
@@ -414,6 +414,7 @@ def split_command(command: str) -> list[str]:
 
 
 def bash_input(event: object) -> dict[str, object] | None:
+    """A Bash observation's input fields, when they parse and hold a command; else None."""
     raw = getattr(event, "input", None)
     if getattr(event, "tool", None) != "Bash" or not isinstance(raw, str):
         return None
@@ -486,24 +487,37 @@ def spec_document(spec: object) -> dict[str, object]:
     }
 
 
+def pin(path: Path, produce: Callable[[], object], read: Callable[[Path], object]) -> object:
+    """Read `path`, or write `produce()` there as JSON first. A result that `read` refuses is never
+    pinned, so the next run produces it again."""
+    if path.is_file():
+        return read(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    candidate = path.with_name(path.name + ".new")
+    candidate.write_text(json.dumps(produce(), indent=2) + "\n")
+    try:
+        result = read(candidate)
+    except BaseException:
+        candidate.unlink()
+        raise
+    candidate.rename(path)
+    return result
+
+
 def pinned_spec(path: Path, generate: Callable[[], object], parse: Callable[[Path], object]) -> object:
     """ECC writes a new spec every run, so totals from two runs grade different steps. The first run
     saves its spec here (JSON, which ECC's YAML parser reads); later runs reuse it, edited or not."""
-    if not path.is_file():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(spec_document(generate()), indent=2) + "\n")
-    return parse(path)
+    return pin(path, lambda: spec_document(generate()), parse)
 
 
 def stream_keeper(directory: Path) -> Callable[[str], None]:
     """Save each session's raw stream-json, numbered in run order, so outputs, splits and error flags
     can be audited after the run."""
-    count = [0]
+    numbers = itertools.count(1)
 
     def keep(stdout: str) -> None:
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-        count[0] += 1
-        path = directory / f"{count[0]:02d}.jsonl"
+        path = directory / f"{next(numbers):02d}.jsonl"
         path.touch(mode=0o600)
         path.write_text(stdout)
 
@@ -531,14 +545,12 @@ files the task needs and commit locally; do not push or create remotes (the sand
 
 def retry(call: Callable[[], object], *, attempts: int, errors: tuple[type[BaseException], ...]) -> object:
     """`call()`, retried on `errors` up to `attempts` times; the last error is raised."""
-    for attempt in range(1, attempts + 1):
+    for attempt in range(1, attempts):
         try:
             return call()
         except errors:
-            if attempt == attempts:
-                raise
             print(f"run_comply: generation failed, retrying ({attempt}/{attempts - 1})", file=sys.stderr)
-    raise AssertionError("unreachable")
+    return call()
 
 
 def with_repo_context(target: Path, work: Path) -> Path:
@@ -588,17 +600,26 @@ def main(argv: list[str]) -> None:
     # Everything the run creates (login copies, the proxy socket, the gh config) lives here and is
     # removed at the end, however the run ends. /tmp keeps the socket path short.
     work = Path(tempfile.mkdtemp(prefix="run-comply-", dir="/tmp"))
-    started: list[netproxy.Proxy] = []  # filled as soon as the proxy starts, so it closes on any failure
+    proxy: netproxy.Proxy | None = None
     try:
-        run_confined(args, snapshot, deps, work, started)
+        proxy, network = start_network(work)
+        run_confined(args, snapshot, deps, work, network)
     finally:
         try:
-            for proxy in started:
+            if proxy is not None:
+                proxy.close()
                 for host, port, permitted in sorted(proxy.seen):
                     print(f"run_comply: network {'allowed' if permitted else 'REFUSED'} {host}:{port}", file=sys.stderr)
-                proxy.close()
         finally:
             remove_tree(work)
+
+
+def start_network(work: Path) -> tuple[netproxy.Proxy, Network]:
+    """The host proxy for the Anthropic API, and the forwarder every confined call reaches it through."""
+    (work / "net").mkdir()
+    shutil.copy2(Path(__file__).with_name("netproxy.py"), work / "net" / "netproxy.py")
+    proxy = netproxy.start_proxy(work / "net" / "proxy.sock", lambda host, port: netproxy.allowed(host, port, netproxy.ANTHROPIC))
+    return proxy, Network(directory=work / "net", python=Path(shutil.which("python3") or "python3").resolve(), port=FORWARD_PORT)
 
 
 def wire_grading(ecc_run: object, runner: object, parse_spec: Callable[[Path], object], *, spec_path: Path,
@@ -618,7 +639,7 @@ def wire_grading(ecc_run: object, runner: object, parse_spec: Callable[[Path], o
     def run_and_split(scenario: object, model: str) -> object:
         succeeded.clear()
         run = run_scenario(scenario, model=model, timeout=SCENARIO_TIMEOUT)
-        split = split_observations(run.observations, set(succeeded))
+        split = split_observations(run.observations, succeeded)
         return dataclasses.replace(run, observations=tuple(fit_for_classifier(split)))
 
     generate_spec = getattr(ecc_run, "generate_spec")
@@ -627,54 +648,81 @@ def wire_grading(ecc_run: object, runner: object, parse_spec: Callable[[Path], o
     setattr(ecc_run, "generate_spec", lambda skill, model: pinned_spec(spec_path, lambda: generate_spec(skill, model=model), parse_spec))
 
 
-def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Path, started: list[netproxy.Proxy]) -> None:
-    """Isolate the environment, start the proxy (recorded in `started`), confine ECC's subprocesses and run it."""
-    (work / "gh").mkdir()
-    caller_env = dict(os.environ)
-    os.environ.clear()
-    os.environ.update(isolated_env(caller_env, work / "gh"))
-    sys.dont_write_bytecode = True  # no __pycache__ in the plugin cache
-    sys.path.insert(0, str(SKILL_COMPLY))
-    import scripts.run as ecc_run  # ECC is importable only from here
-    import scripts.runner as runner
-    from scripts import classifier, scenario_generator, spec_generator
+def confine_ecc_modules(modules: Mapping[str, object], confined: object) -> None:
+    """Every imported ECC module that runs processes runs them confined, including one ECC adds later."""
+    for name, module in modules.items():
+        if name.startswith("scripts.") and hasattr(module, "subprocess"):
+            setattr(module, "subprocess", confined)
 
+
+def install_setup(runner: object, run: Callable[..., object], snapshot: bytes, deps: Path | None) -> None:
+    """ECC's sandbox setup, replaced: the scenario's commands run confined, then the repository is
+    seeded and committed as main."""
+    def setup_with_repository(sandbox_dir: Path, scenario: object) -> None:
+        setup_sandbox(sandbox_dir, getattr(scenario, "setup_commands", ()), run, lambda message: print(message, file=sys.stderr))
+        seed_sandbox(sandbox_dir, snapshot, deps)
+        commit_baseline(sandbox_dir, run)
+
+    setattr(runner, "_setup_sandbox", setup_with_repository)
+
+
+def install_scenarios(ecc_run: object, context_dir: Path, errors: tuple[type[BaseException], ...], *, pin_path: Path,
+                      build: Callable[[dict[str, object]], object]) -> None:
+    """Scenarios are generated once with the repository context, retried when the generator returns
+    YAML that does not parse, and pinned at `pin_path`, so later runs grade the same tasks."""
+    generate_scenarios = getattr(ecc_run, "generate_scenarios")
+
+    def generate(skill: str, spec_yaml: str, model: str) -> object:
+        def produce() -> list[dict[str, object]]:
+            made = retry(lambda: generate_scenarios(with_repo_context(Path(skill), context_dir), spec_yaml, model=model),
+                         attempts=3, errors=errors)
+            return [dataclasses.asdict(scenario) for scenario in made]  # type: ignore[attr-defined]
+
+        return pin(pin_path, produce, lambda path: [build(raw) for raw in json.loads(path.read_text())])
+
+    setattr(ecc_run, "generate_scenarios", generate)
+
+
+def confined_runner(work: Path, deps: Path, network: Network) -> ConfinedSubprocess:
+    """subprocess.run, but every command runs under bubblewrap with a fresh login copy."""
     claude_binary = Path(shutil.which("claude") or "claude").resolve()
     (work / "calls").mkdir()
-    (work / "net").mkdir()
-    shutil.copy2(Path(__file__).with_name("netproxy.py"), work / "net" / "netproxy.py")
-    started.append(netproxy.start_proxy(work / "net" / "proxy.sock", lambda host, port: netproxy.allowed(host, port, netproxy.ANTHROPIC)))
-    network = Network(directory=work / "net", python=Path(shutil.which("python3") or "python3").resolve(), port=FORWARD_PORT)
-    os.environ.update(proxy_env(FORWARD_PORT))
 
     def wrap(command: list[str], cwd: Path) -> list[str]:
         layout = Layout(home=Path.home(), claude_home=fresh_claude_home(Path.home() / ".claude", work),
                         claude_binary=claude_binary, plugins=Path.home() / ".claude" / "plugins", deps=deps)
         return confine(command, cwd=cwd, layout=layout, network=network)
 
-    confined = ConfinedSubprocess(subprocess.run, wrap, work / "calls")
-    require_confinement(lambda: shutil.which("bwrap"), lambda: confined.run(["true"]).returncode == 0)
-    for module in (runner, classifier, scenario_generator, spec_generator):
-        module.subprocess = confined
-    def setup_with_repository(sandbox_dir: Path, scenario: object) -> None:
-        commands = getattr(scenario, "setup_commands", ())
-        setup_sandbox(sandbox_dir, commands, confined.run, lambda message: print(message, file=sys.stderr))
-        seed_sandbox(sandbox_dir, snapshot, deps)
-        commit_baseline(sandbox_dir, confined.run)
+    return ConfinedSubprocess(subprocess.run, wrap, work / "calls")
 
-    runner._setup_sandbox = setup_with_repository
 
+def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Path, network: Network) -> None:
+    """Isolate the environment, confine ECC's subprocesses, patch its setup, grading and generation, and run it."""
+    (work / "gh").mkdir()
+    caller_env = dict(os.environ)
+    os.environ.clear()
+    os.environ.update(isolated_env(caller_env, work / "gh"))
+    os.environ.update(proxy_env(FORWARD_PORT))
+    sys.dont_write_bytecode = True  # no __pycache__ in the plugin cache
+    sys.path.insert(0, str(SKILL_COMPLY))
+    import yaml  # ECC's own dependency, in the venv
+    import scripts.run as ecc_run  # ECC is importable only from here
+    import scripts.runner as runner
     from scripts.parser import parse_spec
+    from scripts.scenario_generator import Scenario
+
+    def scenario_from(raw: dict[str, object]) -> object:
+        return Scenario(**{**raw, "setup_commands": tuple(raw["setup_commands"])})  # type: ignore[arg-type]
+
+    confined = confined_runner(work, deps, network)
+    require_confinement(lambda: shutil.which("bwrap"), lambda: confined.run(["true"]).returncode == 0)
+    confine_ecc_modules(sys.modules, confined)
+    install_setup(runner, confined.run, snapshot, deps)
     name = report_name(args.target)
     wire_grading(ecc_run, runner, parse_spec, spec_path=SPECS / f"{name}.json",
                  keep_stream=stream_keeper(STREAMS / f"{time.strftime('%Y%m%d-%H%M%S')}-{name}"))
-    generate_scenarios = ecc_run.generate_scenarios
-    import yaml  # ECC's own dependency, in the venv
-
-    # The generator model sometimes returns YAML that does not parse (an unquoted colon); retry it.
-    ecc_run.generate_scenarios = lambda skill, spec_yaml, model: retry(
-        lambda: generate_scenarios(with_repo_context(Path(skill), work / "context"), spec_yaml, model=model),
-        attempts=3, errors=(yaml.YAMLError, KeyError, TypeError))
+    install_scenarios(ecc_run, work / "context", errors=(yaml.YAMLError, KeyError, TypeError),
+                      pin_path=SPECS / f"{name}.scenarios.json", build=scenario_from)
     os.chdir(REPO)
     sys.argv = ["skill-comply", *ecc_arguments(args.target, model=args.model, gen_model=args.gen_model, dry_run=args.dry_run)]
     ecc_run.main()

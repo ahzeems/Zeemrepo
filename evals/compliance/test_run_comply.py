@@ -5,6 +5,7 @@ import inspect
 import io
 import json
 import os
+import shutil
 import subprocess
 import tarfile
 import tempfile
@@ -26,6 +27,17 @@ def tar_of(files: dict[str, str]) -> bytes:
             archive.addfile(info, io.BytesIO(data))
     return buffer.getvalue()
 
+
+
+@dataclasses.dataclass(frozen=True)
+class Observation:
+    """The fields of ECC's ObservationEvent; the real events are ECC's own frozen dataclass."""
+    timestamp: str
+    event: str
+    tool: str
+    session: str
+    input: str
+    output: str
 
 class SeedSandbox(unittest.TestCase):
     def test_repository_tooling_replaces_a_scenarios_copy_and_other_scenario_files_are_kept(self) -> None:
@@ -170,7 +182,7 @@ class Grading(unittest.TestCase):
             self.assertEqual(run_comply.split_command(whole), [whole], whole)
 
     def test_each_part_of_a_chained_bash_call_becomes_its_own_observation(self) -> None:
-        Event = run_comply.Observation
+        Event = Observation
         events = [Event(timestamp="T0001", event="tool_complete", tool="Read", session="s", input='{"file_path": "a"}', output="x"),
                   Event(timestamp="T0002", event="tool_complete", tool="Bash", session="s",
                         input=json.dumps({"command": "git add a && npm run pr"}), output="done")]
@@ -182,7 +194,7 @@ class Grading(unittest.TestCase):
         self.assertEqual(sorted(split, key=lambda e: e.timestamp), split, "the grader's sort keeps the order")
 
     def test_eleven_parts_keep_their_order_under_a_text_sort(self) -> None:
-        Event = run_comply.Observation
+        Event = Observation
         command = " && ".join(f"echo step{n}" for n in range(1, 12))
         split = run_comply.split_observations([Event("T0003", "tool_complete", "Bash", "s", json.dumps({"command": command, "description": "d"}), "ok")], succeeded={"T0003"})
         ordered = sorted(split, key=lambda e: e.timestamp)
@@ -206,7 +218,7 @@ class Grading(unittest.TestCase):
         self.assertEqual(run_comply.successful_calls(stream), {"T0002"}, "no flag, an error, or no result is not a success")
 
     def test_a_refused_or_unfinished_call_is_not_split(self) -> None:
-        Event = run_comply.Observation
+        Event = Observation
         refused = Event("T0007", "tool_complete", "Bash", "s", json.dumps({"command": "git add -A && git commit -m x && git push origin main"}),
                         "Permission to use Bash has been denied.")
         self.assertEqual(run_comply.split_observations([refused], succeeded={"T0001"}), [refused])
@@ -215,12 +227,12 @@ class Grading(unittest.TestCase):
             self.assertEqual(run_comply.split_command(whole), [whole], whole)
 
     def test_a_backgrounded_call_is_not_split_because_it_has_not_finished(self) -> None:
-        Event = run_comply.Observation
+        Event = Observation
         background = Event("T0002", "tool_complete", "Bash", "s",
                            json.dumps({"command": "npm run check && git commit -m x && npm run pr", "run_in_background": True}),
                            "Command running in background with ID: b1")
         self.assertEqual(run_comply.split_observations([background], succeeded={"T0002"}), [background])
-        moved = dataclasses.replace(background, input=json.dumps({"command": "a && b"}))
+        moved = dataclasses.replace(background, input=json.dumps({"command": "git status && git log -1"}))
         self.assertEqual(run_comply.split_observations([moved], succeeded={"T0002"}), [moved], "the output alone also counts")
 
     def test_quoted_text_does_not_keep_a_chain_whole(self) -> None:
@@ -237,7 +249,7 @@ class Grading(unittest.TestCase):
             self.assertEqual(run_comply.split_command(whole), [whole], whole)
 
     def test_a_long_command_keeps_its_start_and_end_within_the_classifier_s_view(self) -> None:
-        Event = run_comply.Observation
+        Event = Observation
         command = "cat > notes.md <<'EOF'\n" + "line\n" * 400 + "EOF\ngit add notes.md && git commit -m 'docs(wiki): x'"
         long = Event("T0001", "tool_complete", "Bash", "s", json.dumps({"command": command, "description": "d"}), "ok")
         short = Event("T0002", "tool_complete", "Bash", "s", json.dumps({"command": "ls"}), "ok")
@@ -248,7 +260,7 @@ class Grading(unittest.TestCase):
         self.assertEqual(fitted[1], short)
 
     def test_a_failed_call_is_not_split_so_steps_that_never_ran_get_no_credit(self) -> None:
-        Event = run_comply.Observation
+        Event = Observation
         failed = Event("T0004", "tool_complete", "Bash", "s", json.dumps({"command": "npm run check && git commit -m x"}), "Exit code 1\nlint failed")
         self.assertEqual(run_comply.split_observations([failed], succeeded={"T0004"}), [failed])
         odd = Event("T0005", "tool_complete", "Bash", "s", None, "x")  # type: ignore[arg-type]
@@ -321,6 +333,18 @@ class Cleanup(unittest.TestCase):
             run_comply.remove_tree(work)
             self.assertFalse(work.exists(), "the login copy is gone")
 
+    def test_a_link_a_sandbox_planted_never_changes_a_folder_outside(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            outside, work = Path(directory) / "outside", Path(directory) / "work"
+            outside.mkdir()
+            outside.chmod(0o755)
+            (work / "box").mkdir(parents=True)
+            (work / "box" / "link").symlink_to(outside, target_is_directory=True)
+            run_comply.remove_tree(work)
+            self.assertEqual(outside.stat().st_mode & 0o777, 0o755, "the cleanup does not follow the link")
+            self.assertTrue(outside.exists())
+            self.assertFalse(work.exists())
+
 
 class Preflight(unittest.TestCase):
     def test_refuses_to_run_without_a_working_bwrap(self) -> None:
@@ -341,9 +365,9 @@ class IsolatedEnvironment(unittest.TestCase):
         }
         env = run_comply.isolated_env(base, Path("/tmp/empty-gh"))
         for key in ("GH_TOKEN", "GITHUB_TOKEN", "GIT_DIR", "SSH_AUTH_SOCK", "NPM_TOKEN", "AWS_SECRET_ACCESS_KEY",
-                    "CLAUDECODE", "CLAUDE_CODE_MESSAGING_TOKEN", "DBUS_SESSION_BUS_ADDRESS"):
+                    "CLAUDECODE", "CLAUDE_CODE_MESSAGING_TOKEN", "DBUS_SESSION_BUS_ADDRESS", "ANTHROPIC_API_KEY"):
             self.assertNotIn(key, env, key)
-        for key in ("PATH", "HOME", "LANG", "LC_ALL", "ANTHROPIC_API_KEY"):
+        for key in ("PATH", "HOME", "LANG", "LC_ALL"):
             self.assertEqual(env[key], base[key], key)
         self.assertEqual(env["GH_CONFIG_DIR"], "/tmp/empty-gh")
         self.assertEqual(env["TMPDIR"], "/tmp", "the private /tmp, not a path outside the confinement")
@@ -366,6 +390,52 @@ class FreshClaudeHome(unittest.TestCase):
             self.assertEqual(sorted(path.name for path in first.iterdir()), [".credentials.json", "plugins"])
             (first / "CLAUDE.md").write_text("planted\n")
             self.assertFalse((second / "CLAUDE.md").exists(), "one call cannot plant instructions for the next")
+
+
+class Tooling(unittest.TestCase):
+    def test_every_tooling_path_replaces_a_scenario_copy_and_nothing_else_does(self) -> None:
+        for name in ("package.json", "package-lock.json", "tsconfig.json", "eslint.config.ts", ".nvmrc", ".gitattributes", "CLAUDE.md",
+                     ".claude/settings.json", ".githooks/pre-push", ".github/workflows/check.yml", "scripts/lib/git.ts", "config/x.json"):
+            self.assertTrue(run_comply.is_tooling(name), name)
+        for name in ("src/a.ts", "wiki/Home.md", "docs/notes.md", "README.md", "evals/compliance/run_comply.py"):
+            self.assertFalse(run_comply.is_tooling(name), name)
+
+
+class Main(unittest.TestCase):
+    def test_the_proxy_is_closed_its_hosts_reported_and_the_work_dir_removed_even_when_the_run_fails(self) -> None:
+        closed: list[bool] = []
+        proxy = types.SimpleNamespace(seen={("api.anthropic.com", 443, True), ("evil.example", 443, False)}, close=lambda: closed.append(True))
+        removed: list[Path] = []
+
+        def fail(*args: object) -> None:
+            raise RuntimeError("scenario failed")
+
+        with mock.patch.object(run_comply, "require_skill_comply", lambda path: None), \
+             mock.patch.object(run_comply, "require_fresh_login", lambda path, now: None), \
+             mock.patch.object(run_comply, "repo_snapshot", lambda repo: b""), \
+             mock.patch.object(run_comply, "shared_deps", lambda repo, cache: Path("/nonexistent")), \
+             mock.patch.object(run_comply, "start_network", lambda work: (proxy, None)), \
+             mock.patch.object(run_comply, "run_confined", fail), \
+             mock.patch.object(run_comply, "remove_tree", removed.append), \
+             mock.patch("sys.stderr", new_callable=io.StringIO) as stderr:
+            with self.assertRaises(RuntimeError):
+                run_comply.main([".claude/skills/write-guard/SKILL.md"])
+        self.assertEqual(closed, [True])
+        self.assertIn("network allowed api.anthropic.com:443", stderr.getvalue())
+        self.assertIn("network REFUSED evil.example:443", stderr.getvalue())
+        self.assertEqual(len(removed), 1, "the work dir with its login copies is removed")
+        for path in removed:
+            shutil.rmtree(path, ignore_errors=True)
+
+    def test_the_network_forwards_on_the_fixed_port_through_a_copy_of_the_proxy(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            proxy, network = run_comply.start_network(Path(directory))
+            try:
+                self.assertEqual(network.port, run_comply.FORWARD_PORT)
+                self.assertTrue((network.directory / "netproxy.py").is_file())
+                self.assertTrue((network.directory / "proxy.sock").exists())
+            finally:
+                proxy.close()
 
 
 class Login(unittest.TestCase):
@@ -515,6 +585,20 @@ def parse_fake(path: Path) -> FakeSpec:
     return FakeSpec(raw["id"], raw["name"], raw["source_rule"], raw["version"], steps, raw["scoring"]["threshold_promote_to_hook"])
 
 
+@dataclasses.dataclass(frozen=True)
+class FakeScenario:
+    id: str
+    level: int
+    level_name: str
+    description: str
+    prompt: str
+    setup_commands: tuple[str, ...]
+
+    @staticmethod
+    def from_dict(raw: dict[str, object]) -> "FakeScenario":
+        return FakeScenario(**{**raw, "setup_commands": tuple(raw["setup_commands"])})  # type: ignore[arg-type]
+
+
 class PinnedSpec(unittest.TestCase):
     def test_the_first_run_saves_the_spec_and_later_runs_reuse_it(self) -> None:
         spec = FakeSpec("s", "S", "rule.md", "1", (FakeStep("a", "do a", True, FakeDetector("sees a", None, "b")),), 0.6)
@@ -530,6 +614,42 @@ class PinnedSpec(unittest.TestCase):
             self.assertTrue(path.is_file())
             self.assertEqual(run_comply.pinned_spec(path, generate, parse_fake), spec, "read back exactly")
             self.assertEqual(generated, [1], "generated once, then pinned")
+
+    def test_a_spec_that_does_not_parse_is_never_pinned(self) -> None:
+        spec = FakeSpec("s", "S", "rule.md", "1", (), 0.6)
+
+        def refuse(path: Path) -> FakeSpec:
+            raise ValueError("does not parse")
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "specs" / "rule.json"
+            with self.assertRaises(ValueError):
+                run_comply.pinned_spec(path, lambda: spec, refuse)
+            self.assertFalse(path.exists(), "the next run generates again instead of failing on a bad pin")
+            self.assertEqual(list(path.parent.iterdir()), [])
+
+    def test_shared_dependencies_are_copied_whole_or_not_at_all(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo, cache = Path(directory) / "repo", Path(directory) / "cache"
+            (repo / "node_modules" / "pkg").mkdir(parents=True)
+            (repo / "node_modules" / "pkg" / "index.js").write_text("x\n")
+            (repo / "package-lock.json").write_text("{}\n")
+            lock = run_comply.shared_deps(repo, cache).parent
+            run_comply.remove_tree(lock)
+            (lock / "node_modules.partial" / "half").mkdir(parents=True)  # an interrupted earlier copy
+            target = run_comply.shared_deps(repo, cache)
+            self.assertTrue((target / "pkg" / "index.js").is_file())
+            self.assertFalse((lock / "node_modules.partial").exists())
+            run_comply.remove_tree(lock)
+
+            def interrupted(source: Path, target: Path, symlinks: bool) -> None:
+                Path(target).mkdir(parents=True)
+                raise OSError("copy interrupted")
+
+            with mock.patch.object(run_comply.shutil, "copytree", interrupted):
+                with self.assertRaises(OSError):
+                    run_comply.shared_deps(repo, cache)
+            self.assertFalse((lock / "node_modules").exists(), "a half copy never sits where the next run would reuse it")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -550,7 +670,7 @@ class Wiring(unittest.TestCase):
         runner = types.SimpleNamespace()
 
         def parse(stdout: str) -> list[object]:
-            return [run_comply.Observation(f"T{n:04d}", "tool_complete", "Bash", "s", json.dumps({"command": c}), "ok") for n, c in enumerate(commands)]
+            return [Observation(f"T{n:04d}", "tool_complete", "Bash", "s", json.dumps({"command": c}), "ok") for n, c in enumerate(commands)]
 
         def run_scenario(scenario: object, model: str, timeout: int) -> FakeRun:
             seen["timeout"] = timeout
@@ -573,9 +693,73 @@ class Wiring(unittest.TestCase):
         self.assertIn("docs(wiki): x", events[2].input)
         self.assertEqual(generated, ["haiku"], "the spec is generated once, then read from its pin")
 
-    def test_the_confined_run_installs_the_wiring(self) -> None:
-        # Structural: run_confined needs bwrap, the proxy and ECC, so its call is checked by reading it.
-        self.assertIn("wire_grading(ecc_run, runner, parse_spec,", inspect.getsource(run_comply.run_confined))
+    def test_every_imported_ecc_module_that_runs_processes_is_confined(self) -> None:
+        confined = object()
+        modules = {"scripts.runner": types.SimpleNamespace(subprocess=subprocess),
+                   "scripts.some_new_module": types.SimpleNamespace(subprocess=subprocess),
+                   "scripts.parser": types.SimpleNamespace(), "json": types.SimpleNamespace(subprocess=subprocess)}
+        run_comply.confine_ecc_modules(modules, confined)
+        self.assertIs(modules["scripts.runner"].subprocess, confined)
+        self.assertIs(modules["scripts.some_new_module"].subprocess, confined, "a module ECC adds later is caught too")
+        self.assertIs(modules["json"].subprocess, subprocess, "only ECC's own modules")
+        self.assertFalse(hasattr(modules["scripts.parser"], "subprocess"))
+
+    def test_a_scenario_sandbox_is_set_up_confined_then_seeded_then_committed(self) -> None:
+        calls: list[list[str]] = []
+
+        def run(args: list[str], **kw: object) -> subprocess.CompletedProcess[str]:
+            calls.append(list(args))
+            return subprocess.CompletedProcess(args, 0, "", "")
+
+        runner = types.SimpleNamespace()
+        with tempfile.TemporaryDirectory() as directory:
+            sandbox = Path(directory) / "box"
+            run_comply.install_setup(runner, run, tar_of({"CLAUDE.md": "c\n"}), deps=None)
+            runner._setup_sandbox(sandbox, types.SimpleNamespace(setup_commands=["echo hi > a.txt"]))
+            self.assertTrue((sandbox / "CLAUDE.md").is_file(), "the repository is seeded")
+        self.assertEqual(calls[0][:2], ["git", "init"])
+        self.assertEqual(calls[1][:2], ["sh", "-c"])
+        self.assertIn("echo hi > a.txt", calls[1][2])
+        self.assertTrue(any(call[0] == "git" and "commit" in call for call in calls[2:]), "then the baseline commit")
+
+    def test_scenarios_are_generated_once_then_read_back_from_their_pin(self) -> None:
+        made: list[str] = []
+
+        def generate(skill: str, spec_yaml: str, model: str) -> list[FakeScenario]:
+            made.append(model)
+            return [FakeScenario("s1", 1, "supportive", "d", "do it", ("git init",))]
+
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "SKILL.md"
+            target.write_text("# Skill\n")
+            pin = Path(directory) / "specs" / "x.scenarios.json"
+            ecc_run = types.SimpleNamespace(generate_scenarios=generate)
+            run_comply.install_scenarios(ecc_run, Path(directory) / "context", errors=(KeyError,), pin_path=pin, build=FakeScenario.from_dict)
+            first = ecc_run.generate_scenarios(str(target), "steps: []", model="haiku")
+            second = ecc_run.generate_scenarios(str(target), "steps: []", model="haiku")
+            self.assertTrue(pin.is_file())
+        self.assertEqual(first, second)
+        self.assertEqual(second[0].setup_commands, ("git init",), "read back with the same types")
+        self.assertEqual(made, ["haiku"], "the generator runs once; later runs grade the same tasks")
+
+    def test_scenario_generation_gets_the_repository_context_and_is_retried(self) -> None:
+        attempts: list[str] = []
+
+        def generate(skill: str, spec_yaml: str, model: str) -> list[FakeScenario]:
+            attempts.append(Path(skill).read_text())
+            if len(attempts) == 1:
+                raise KeyError("bad yaml")
+            return []
+
+        ecc_run = types.SimpleNamespace(generate_scenarios=generate)
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "SKILL.md"
+            target.write_text("# Skill\n")
+            run_comply.install_scenarios(ecc_run, Path(directory) / "context", errors=(KeyError,),
+                                         pin_path=Path(directory) / "pin.json", build=FakeScenario.from_dict)
+            self.assertEqual(ecc_run.generate_scenarios(str(target), "steps: []", model="haiku"), [])
+        self.assertEqual(len(attempts), 2)
+        self.assertIn("Scenario environment", attempts[0])
 
     def test_a_run_stops_before_anything_else_when_the_login_is_about_to_expire(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -596,6 +780,7 @@ class Streams(unittest.TestCase):
             keep("first\n")
             keep("second\n")
             saved = sorted((Path(directory) / "run").iterdir())
+            self.assertEqual([p.name for p in saved], ["01.jsonl", "02.jsonl"])
             self.assertEqual([p.read_text() for p in saved], ["first\n", "second\n"])
             self.assertEqual({p.stat().st_mode & 0o777 for p in saved}, {0o600}, "a printed token stays private")
             self.assertEqual((Path(directory) / "run").stat().st_mode & 0o777, 0o700)

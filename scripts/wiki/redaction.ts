@@ -6,13 +6,18 @@ import { walk } from "../lib/walk.ts";
 import { escapeRegExp } from "./schema.ts";
 
 export type Identity = { host: string; user: string };
-export type RedactionCheck = { name: string; test(line: string): boolean };
-export type Finding = { line: number; name: string };
+type RedactionCheck = { name: string; test(line: string): boolean };
+type Finding = { line: number; name: string };
 // staged: files whose index copy differs from the working copy, with the index text.
-export type Targets = { files: string[]; symlinks: string[]; staged: { file: string; text: string }[] };
+type Targets = { files: string[]; symlinks: string[]; staged: { file: string; text: string }[] };
 
-export function currentIdentity(): Identity {
-  return { host: hostname(), user: userInfo().username };
+// A uid with no passwd entry (common in containers) makes userInfo throw; it has no name to check.
+export function currentIdentity(readUser: () => { username: string } = userInfo): Identity {
+  try {
+    return { host: hostname(), user: readUser().username };
+  } catch {
+    return { host: hostname(), user: "" };
+  }
 }
 
 // Account names that identify a role rather than a person. A checkout validated by a user
@@ -22,6 +27,13 @@ const SERVICE_ACCOUNTS = new Set([
   "web", "www-data", "nobody", "daemon", "deploy", "docker", "runner", "build", "builder", "ci",
   "test", "guest", "service", "nginx", "apache", "postgres", "mysql", "redis", "container",
 ]);
+
+// Hostnames that name a role or a default, not this machine: CI runners and containers use them.
+const GENERIC_HOSTS = new Set(["localhost", "runner", "build", "builder", "buildkitsandbox", "docker", "container", "ubuntu", "debian"]);
+
+function isPersonalHost(name: string): boolean {
+  return name.length >= 4 && !GENERIC_HOSTS.has(name.toLowerCase());
+}
 
 export function isPersonalAccount(name: string): boolean {
   return name.length >= 4 && !SERVICE_ACCOUNTS.has(name.toLowerCase());
@@ -69,7 +81,7 @@ const FIXED_CHECKS: readonly RedactionCheck[] = [
 // under four characters is not checked as a bare word: it would match ordinary words.
 export function redactionChecks(identity: Identity): RedactionCheck[] {
   const checks = [...FIXED_CHECKS];
-  if (identity.host.length >= 4) checks.push(pattern("this machine's hostname", new RegExp(`\\b${escapeRegExp(identity.host)}\\b`, "i")));
+  if (isPersonalHost(identity.host)) checks.push(pattern("this machine's hostname", new RegExp(`\\b${escapeRegExp(identity.host)}\\b`, "i")));
   if (isPersonalAccount(identity.user)) checks.push(pattern("this machine's username", new RegExp(`\\b${escapeRegExp(identity.user)}\\b`, "i")));
   return checks;
 }

@@ -12,7 +12,7 @@ from the earlier Zimi repository with every kept rule enforced by a check and re
 
 ## Setup
 
-Requirements: Node 22.18 or later (`.nvmrc` pins 24), git 2.36 or later, `gh` logged in.
+Requirements: Node 24 (`.nvmrc`; `package.json` engines `>=24.0.0`), git 2.36 or later, `gh` logged in.
 
 ```bash
 npm ci
@@ -25,7 +25,7 @@ npm run check
 
 | Command | What it does |
 |---|---|
-| `npm run check` | Lint, types, tests (80% coverage) and the repository guards |
+| `npm run check` | Lint, types, tests (80% lines and functions, 70% branches) and the repository guards |
 | `npm run pr` | Checks the branch, pushes it and opens or reports its pull request; never merges |
 | `npm run audit` | Confirms every commit on main since the PR-only rule landed by merged pull request |
 | `npm run worktree:guard` | Reports checkouts holding the only copy of some work |
@@ -43,8 +43,8 @@ branch must record (changelog, work record, operating docs) is `wiki/reference/C
 | `.claude/skills/` | Repository skills migrated from Zimi; provenance in `import-baseline.json` |
 | `CLAUDE.md` | The constitution: three non-negotiables and where each rule lives |
 | `.claude/rules/zeem/` | This repository's rules, distilled from Zimi; they override ECC where they disagree |
-| `.claude/rules/ecc/` | ECC rules, vendored unchanged |
-| `.claude/agents/` | Read-only `finder` and `verifier` review agents |
+| `.claude/rules/ecc/` | Every ECC rule set, vendored unchanged (without ECC's rules README, with its LICENSE) and held to the plugin pin by `npm run rules:check` |
+| `.claude/agents/` | No-edit review agents: `finder` (reads only) and `verifier` (also runs checks) |
 | `.github/workflows/` | `check` (the change's own checks) and `guards` (main's guards, `pull_request_target`) |
 | `CHANGELOG.md` | One entry per branch |
 

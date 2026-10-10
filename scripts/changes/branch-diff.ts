@@ -7,7 +7,7 @@ import { git, gitLines, gitPaths, mergeBase, type GitOptions } from "../lib/git.
 // to create, so judging only the committed range would refuse the very commit that satisfies
 // the rule. With a clean tree (in CI) this reduces to the committed range.
 
-export type Base = { sha: string; date: string };
+type Base = { sha: string; date: string };
 
 const utcDate = (iso: string): string => new Date(iso).toISOString().slice(0, 10);
 

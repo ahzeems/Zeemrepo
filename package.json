@@ -4,20 +4,21 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22.18.0"
+    "node": ">=24.0.0"
   },
   "scripts": {
     "lint": "eslint --flag unstable_native_nodejs_ts_config --max-warnings 0 .",
     "typecheck": "tsc -p tsconfig.json",
     "test": "node --test --experimental-test-coverage --test-coverage-include=\"scripts/**/*.ts\" --test-coverage-exclude=\"scripts/**/*.test.ts\" --test-coverage-exclude=\"scripts/fixtures/**\" --test-coverage-lines=80 --test-coverage-functions=80 --test-coverage-branches=70 \"scripts/**/*.test.ts\"",
     "check": "npm run check:base && npm run changelog:guard && npm run memory:guard",
-    "check:base": "npm run lint && npm run typecheck && npm test && npm run evals:test && npm run wiki:lint && npm run skills:lint && npm run governance:check && npm run wiki:compliance",
+    "check:base": "npm run lint && npm run typecheck && npm test && npm run evals:test && npm run wiki:lint && npm run skills:lint && npm run governance:check && npm run rules:check && npm run wiki:compliance",
     "wiki:lint": "node scripts/wiki/wiki-lint.ts",
     "wiki:compliance": "node scripts/wiki/wiki-compliance.ts",
     "skills:lint": "node scripts/skills/skill-lint.ts",
     "changelog:guard": "node scripts/changes/changelog-guard.ts",
     "memory:guard": "node scripts/changes/repo-memory-guard.ts",
     "evals:test": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover --start-directory evals/compliance --pattern \"test_*.py\"",
+    "rules:check": "node scripts/governance/ecc-rules.ts",
     "governance:check": "node scripts/governance/governance-guard.ts",
     "pr": "node scripts/git/pr-ready.ts",
     "audit": "node scripts/git/landing-audit.ts",
@@ -27,7 +28,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/markdown-it": "^14.2.0",
-    "@types/node": "^22.20.4",
+    "@types/node": "^24.19.2",
     "eslint": "^10.11.0",
     "markdown-it": "^15.0.2",
     "typescript": "~6.0.3",

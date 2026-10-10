@@ -1,5 +1,6 @@
 import { isStringArray, stringValue } from "../lib/record.ts";
 import { missingSections, type TypeSpec } from "./schema.ts";
+import { EVIDENCE_LABEL, STRONG_EVIDENCE } from "../lib/evidence.ts";
 
 export const WORK_TYPES: ReadonlyMap<string, TypeSpec> = new Map([
   ["idea", { folder: "work/ideas", sections: ["Problem", "Desired outcome", "Next step"] }],
@@ -14,7 +15,7 @@ export const WORK_TYPES: ReadonlyMap<string, TypeSpec> = new Map([
 export const WORK_STATUSES: readonly string[] = ["backlog", "clarifying", "proposed", "approved", "ready", "in-progress", "blocked", "in-review", "done", "parked", "superseded"];
 // A plan flagged `job_specs: required` makes each build ticket a job spec: these sections in
 // addition to the four every build ticket carries. note-schema.md quotes this list.
-export const JOB_SPEC_SECTIONS: readonly string[] = [
+const JOB_SPEC_SECTIONS: readonly string[] = [
   "Inputs", "Allowed files", "Forbidden files", "Human checkpoints", "Secrets needed",
   "Tests and evals", "Rollback and recovery", "Evidence", "Wiki and doc updates",
 ];
@@ -29,8 +30,6 @@ const TERMINAL = new Set(["done", "parked", "superseded"]);
 const STARTED = new Set(["in-progress", "in-review", "done"]);
 // Evidence says how a claim is known. Done work must rest on something checked or decided,
 // not on inference alone.
-const EVIDENCE_LABEL = /^(VERIFIED|INFERRED|UNKNOWN|OWNER DECISION): \S/;
-const STRONG_EVIDENCE = /^(VERIFIED|OWNER DECISION): /;
 // Work lands only by pull request, so a plan's approval is the PR the owner merged.
 const PULL_REQUEST = /^(#\d+|https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+)$/;
 

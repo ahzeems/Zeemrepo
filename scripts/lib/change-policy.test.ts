@@ -20,6 +20,11 @@ await test("isWorkflowCritical", async (t) => {
     ]);
   });
 
+  await t.test("covers the compliance harness and its pinned specs, not the reports it writes", () => {
+    assertAll(isWorkflowCritical, true, ["evals/compliance/run_comply.py", "evals/compliance/netproxy.py", "evals/compliance/specs/x.json", "evals/compliance/README.md"]);
+    assertAll(isWorkflowCritical, false, ["evals/compliance/reports/summary.md", "evals/compliance/reports/skills-x.md"]);
+  });
+
   await t.test("covers every file under scripts/, not only TypeScript", () => {
     assertAll(isWorkflowCritical, true, ["scripts/lib/git.ts", "scripts/install.sh", "scripts/x.mjs", "scripts/fixtures/broken/a.md"]);
   });

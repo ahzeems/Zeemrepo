@@ -4,7 +4,7 @@
 //           published branch and deletions of unlanded branches (pre-push)
 import { readFileSync } from "node:fs";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
-import { GitError, isAncestor, tryGit, type GitOptions } from "../lib/git.ts";
+import { GitError, gitOptionsAt, isAncestor, tryGit, type GitOptions } from "../lib/git.ts";
 import { commitRefusals, pushRefusals, type PushUpdate } from "./branch-policy.ts";
 
 export type Options = { cwd?: string; output?: Output; stdin?: string };
@@ -34,7 +34,7 @@ function ancestry(options: GitOptions) {
 
 export function main(args: readonly string[], options: Options = {}): number {
   const output = options.output ?? consoleOutput;
-  const gitOptions: GitOptions = options.cwd === undefined ? {} : { cwd: options.cwd };
+  const gitOptions = gitOptionsAt(options.cwd);
   const [mode, ...rest] = args;
   if (mode === "--help") {
     output.write(USAGE);

@@ -10,13 +10,15 @@ const CRITICAL = [
   /^\.githooks\//is,
   /^\.github\//is,
   /^scripts\//is,
+  // The compliance harness confines and grades agent runs; its reports are output, not process.
+  /^evals\/compliance\/(?!reports\/)/is,
   /^config\//is,
   /(^|\/)\.claude\//is,
   /(^|\/)claude(\.local)?\.md$/is,
   /^readme\.md$/is,
 ];
-// Root files are tooling (package.json, .npmrc, eslint.config.js, Makefile...) unless
-// they are prose or a recorded resolution.
+// Root files are tooling (package.json, .npmrc, eslint.config.js, Makefile...) unless they are
+// Markdown, a licence file, .gitignore or package-lock.json.
 const ROOT_FILE = /^[^/]+$/s;
 const ROOT_NOT_WORKFLOW = [/\.md$/is, /^(licen[cs]e|copying)(\.(md|txt))?$/is, /^package-lock\.json$/is, /^\.gitignore$/is];
 

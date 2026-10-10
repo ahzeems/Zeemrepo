@@ -15,8 +15,8 @@ await test("walk", async (t) => {
   symlinkSync(join(root, "a.md"), join(root, "link.md"));
   const rel = (paths: readonly string[]): string[] => paths.map((path) => relative(root, path)).sort();
 
-  await t.test("returns matching files, skipping dot entries, .git and node_modules", () => {
-    assert.deepEqual(rel(walk(root, { pattern: /\.md$/ }).files), ["a.md", "dist/f.md", "sub/c.md"]);
+  await t.test("returns files, skipping dot entries, .git and node_modules", () => {
+    assert.deepEqual(rel(walk(root).files), ["a.md", "b.txt", "dist/f.md", "sub/c.md"]);
   });
 
   await t.test("does not hide build-output directory names, which git may track", () => {
@@ -28,7 +28,7 @@ await test("walk", async (t) => {
   });
 
   await t.test("skips the named directories at any depth", () => {
-    assert.deepEqual(rel(walk(root, { skipDirs: new Set(["sub"]), pattern: /\.md$/ }).files), ["a.md", "dist/f.md", "node_modules/e.md"]);
+    assert.deepEqual(rel(walk(root, { skipDirs: new Set(["sub"]) }).files), ["a.md", "b.txt", "dist/f.md", "node_modules/e.md"]);
   });
 
   await t.test("reports symbolic links instead of following them", () => {
@@ -38,4 +38,15 @@ await test("walk", async (t) => {
   await t.test("returns nothing for a directory that does not exist", () => {
     assert.deepEqual(walk(join(root, "missing")), { files: [], symlinks: [] });
   });
+});
+
+await test("skipAtRoot skips a name only directly under the walked directory", (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "walk-root-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  for (const path of ["dist/a.md", "sub/dist/b.md"]) {
+    mkdirSync(join(dir, path, ".."), { recursive: true });
+    writeFileSync(join(dir, path), "x\n");
+  }
+  const files = walk(dir, { skipAtRoot: new Set(["dist"]) }).files.map((file) => relative(dir, file));
+  assert.deepEqual(files, ["sub/dist/b.md"]);
 });

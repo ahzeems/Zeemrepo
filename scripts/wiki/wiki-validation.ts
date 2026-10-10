@@ -9,8 +9,8 @@ import { currentIdentity, findSensitive, redactionChecks, redactionTargets, type
 import { MEMORY_STATUSES, MEMORY_TYPES, REQUIRED_STRINGS, allowedList, missingSections } from "./schema.ts";
 import { WORK_STATUSES, WORK_TYPES, validateWork, type Fail, type WorkRecord } from "./work-tracking.ts";
 
-export type WikiValidation = { errors: string[]; noteCount: number; tagCount: number };
-export type ValidateOptions = { identity?: Identity };
+type WikiValidation = { errors: string[]; noteCount: number; tagCount: number };
+type ValidateOptions = { identity?: Identity };
 
 const BAD_FILENAME = /[\\:*?"<>|#^[\]]/;
 const SINGLE_WIKILINK = /^\[\[[^[\]\n]+\]\]$/;

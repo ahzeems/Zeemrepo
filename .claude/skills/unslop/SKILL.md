@@ -1,6 +1,6 @@
 ---
 name: unslop
-description: "AI-tell catalog: cut slop patterns so shipping prose reads human-written. Use when editing prose; technical-writing owns document structure."
+description: "AI-tell catalog: cut slop patterns so shipping prose reads human-written. Use when editing prose; structure is the user-only technical-writing skill."
 ---
 
 This skill owns the catalog of AI tells. Document structure, mode and sentence rules belong to

@@ -1,7 +1,16 @@
-# Weekly update PRs for the SHA-pinned GitHub Actions. Nothing merges automatically.
+# Weekly update PRs for the SHA-pinned GitHub Actions and all npm dependencies (dev ones grouped). Nothing merges
+# automatically: each PR runs check:base in CI (every check but the change-record guards), and the
+# owner reviews and merges it.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      dev-dependencies:
+        dependency-type: development

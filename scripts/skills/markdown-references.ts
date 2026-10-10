@@ -2,7 +2,7 @@ import MarkdownIt from "markdown-it";
 import type { Token } from "markdown-it";
 import { parseFrontmatter } from "../lib/frontmatter.ts";
 
-export type References = { links: string[]; images: string[]; headings: Set<string> };
+type References = { links: string[]; images: string[]; headings: Set<string> };
 
 const parser = new MarkdownIt({ html: true, linkify: false, typographer: false });
 const EXTERNAL = /^[a-z][a-z0-9+.-]*:/i;

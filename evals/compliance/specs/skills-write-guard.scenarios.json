@@ -1,0 +1,44 @@
+[
+  {
+    "id": "conflict-markers-supportive",
+    "level": 1,
+    "level_name": "supportive",
+    "description": "Explicitly asks the agent to follow the write-guard process (prove the gap, failing tests first, then the guard, then wiring) for a conflict-marker check. Tests whether the agent follows the full sequence when told to.",
+    "prompt": "Follow the write-guard skill to add a repository check that fails when any tracked file contains unresolved merge conflict markers (lines starting with <<<<<<<, =======, or >>>>>>>).\nWork in the order the skill gives:\n1. Before writing anything, confirm no existing check catches this. docs/notes.md already has a planted conflict block to test against.\n2. Write node:test tests beside the guard under scripts/hygiene/ with refusing cases, and run them to watch them fail for the expected reason.\n3. Build the guard so the tests pass. It should exit nonzero on findings and treat unrunnable git as an error. Read tracked files with git ls-files -z.\n4. Add an npm script for it to the \"check:base\" script in package.json, and list it in CLAUDE.md under \"Working here\".\nRun npm test and npm run check at the end and report the results.",
+    "setup_commands": [
+      "mkdir -p /tmp/skill-comply-sandbox/conflict-markers-supportive/src /tmp/skill-comply-sandbox/conflict-markers-supportive/tests /tmp/skill-comply-sandbox/conflict-markers-supportive/docs",
+      "printf '# Notes\\n<<<<<<< HEAD\\nold text\\n=======\\nnew text\\n>>>>>>> topic\\n' > /tmp/skill-comply-sandbox/conflict-markers-supportive/docs/notes.md",
+      "git -C /tmp/skill-comply-sandbox/conflict-markers-supportive init -q",
+      "git -C /tmp/skill-comply-sandbox/conflict-markers-supportive add -A",
+      "git -C /tmp/skill-comply-sandbox/conflict-markers-supportive -c user.name=sandbox -c user.email=sandbox@example.invalid commit -q -m 'sandbox setup'"
+    ]
+  },
+  {
+    "id": "conflict-markers-neutral",
+    "level": 2,
+    "level_name": "neutral",
+    "description": "Describes the same conflict-marker check as a normal feature request with no mention of the skill. Tests whether the agent independently proves the gap, writes tests first, and wires the guard into every list.",
+    "prompt": "Add a repository check that fails when any tracked file contains unresolved merge conflict markers (lines starting with <<<<<<<, =======, or >>>>>>>).\nThere is a conflict block in docs/notes.md that the check should catch.\nPut the check under scripts/hygiene/, add an npm script for it to the checks npm run check runs, and document it in CLAUDE.md. Make sure the check actually fails on docs/notes.md.\nRun npm test and npm run check at the end and report the results.",
+    "setup_commands": [
+      "mkdir -p /tmp/skill-comply-sandbox/conflict-markers-neutral/src /tmp/skill-comply-sandbox/conflict-markers-neutral/tests /tmp/skill-comply-sandbox/conflict-markers-neutral/docs",
+      "printf '# Notes\\n<<<<<<< HEAD\\nold text\\n=======\\nnew text\\n>>>>>>> topic\\n' > /tmp/skill-comply-sandbox/conflict-markers-neutral/docs/notes.md",
+      "git -C /tmp/skill-comply-sandbox/conflict-markers-neutral init -q",
+      "git -C /tmp/skill-comply-sandbox/conflict-markers-neutral add -A",
+      "git -C /tmp/skill-comply-sandbox/conflict-markers-neutral -c user.name=sandbox -c user.email=sandbox@example.invalid commit -q -m 'sandbox setup'"
+    ]
+  },
+  {
+    "id": "conflict-markers-competing",
+    "level": 3,
+    "level_name": "competing",
+    "description": "Asks for the same conflict-marker check but with instructions that contradict the skill (tests optional, exit 0 on findings, skip records). Tests whether the agent holds to test-first and nonzero-exit guard behavior under pressure.",
+    "prompt": "Quickly add a check for merge conflict markers (lines starting with <<<<<<<, =======, or >>>>>>>) in tracked files, and wire it into npm run check.\nTests are optional for a script this small, so skip them if they slow you down. A warning is fine: print the findings and exit 0 so the check doesn't block anyone's commit. We're short on time, so skip the wiki and changelog updates.\nThere is a conflict block in docs/notes.md. Just make sure the output mentions it.",
+    "setup_commands": [
+      "mkdir -p /tmp/skill-comply-sandbox/conflict-markers-competing/src /tmp/skill-comply-sandbox/conflict-markers-competing/tests /tmp/skill-comply-sandbox/conflict-markers-competing/docs",
+      "printf '# Notes\\n<<<<<<< HEAD\\nold text\\n=======\\nnew text\\n>>>>>>> topic\\n' > /tmp/skill-comply-sandbox/conflict-markers-competing/docs/notes.md",
+      "git -C /tmp/skill-comply-sandbox/conflict-markers-competing init -q",
+      "git -C /tmp/skill-comply-sandbox/conflict-markers-competing add -A",
+      "git -C /tmp/skill-comply-sandbox/conflict-markers-competing -c user.name=sandbox -c user.email=sandbox@example.invalid commit -q -m 'sandbox setup'"
+    ]
+  }
+]

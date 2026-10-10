@@ -9,7 +9,7 @@ agent: claude-code
 status: in-progress
 owner: human
 priority: P1
-next_action: "Awaiting the owner: whether write-guard keeps \"prove the gap\" as a separate first step (recommended in evals/compliance/reports/summary.md), trimming the vendored ECC rules to common, typescript and python, adding npm to Dependabot, and pinning compliance scenarios; then the closeout pull request lands Phase 10."
+next_action: "Re-run the three compliance targets on the pinned, reviewed scenarios once the owner's Claude login has an hour left, update evals/compliance/reports/summary.md from that run, then open the owner-decisions and audit pull request; the owner decides the merge-control gap and the candidates in docs/migration/zimi-audit.md section 8."
 idea: "[[Migrate Zimi into Zeemrepo]]"
 evidence:
   - "VERIFIED: PRs #1-#5 merged by the owner (audit, toolchain, shared library, wiki system, skills)."
@@ -39,6 +39,11 @@ evidence:
   - "VERIFIED: harness fixes on PR #13 (repository tooling replaces a scenario's copy, planted symlinks on tooling paths removed, generator told the repository's stack and retried on bad YAML, chained Bash calls split only when the stream marks them is_error false and not run_in_background): 39 unittest cases pass and npm run check passes; measured by the 2026-10-09/10 re-runs recorded in this list."
   - "OWNER DECISION: network allowlist before the pilot (\"Network allowlist first (Recommended)\") and a full re-run (\"Re-run all 3 (Recommended)\"), 2026-10-09."
   - "OWNER DECISION: compliance pilot approved: \"Pilot: 3 targets (Recommended)\" (2026-10-09)."
+  - "VERIFIED: PR #14 merged by the owner (Phase 10 closeout); npm run audit reported 14 commits on main, all landed by merged pull request."
+  - "OWNER DECISION: \"1. Yes prove the gap. Keep separating 2. Follow ur recommended ... 3. Yes add npm as evaluation we need to confirm the work not assume ... 4 pin them for sure\" (2026-10-10)."
+  - "OWNER DECISION: \"Why do we need to delete the ecc rule set. Ecc is perfect why delete parts of it.. i dont want to change anything\" (2026-10-10); the vendored ECC rules stay complete and rules:check holds all 22 sets to the v2.2.3 pin, replacing the earlier trim decision."
+  - "VERIFIED: end-to-end audit on chore/owner-decisions-audit (dead code, settings, TypeScript, Python, then ECC code, security, silent-failure, test-quality and doc-accuracy reviews, and a requirements review against the plan): each finding fixed test-first or recorded; npm test 568 passing, evals:test passing, check:base exit 0; mutation re-checks kill every previously surviving mutation."
+  - "INFERRED: the GitHub ruleset stops pushes to main but not a merge by the owner's own gh login, which agents use; for merges the agent-side control is the best-effort hook and deny rules (security review, documented in Merge gate contract); a fix is the owner's decision."
   - "OWNER DECISION: nothing is pushed to main; work lands by pull request and only the owner merges (2026-10-09)."
 ---
 

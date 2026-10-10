@@ -6,10 +6,10 @@ tags: [area/planning, tool/ecc]
 created: 2026-10-09
 updated: 2026-10-10
 agent: claude-code
-status: done
+status: in-progress
 owner: human
 priority: P1
-next_action: "None: delivered through the Zimi migration project."
+next_action: "Finish the owner steps tracked in the Zimi migration project."
 evidence:
   - "VERIFIED: delivered by the Zimi migration project (wiki/work/projects/Zimi migration.md, status done), through owner-merged pull requests #1 to #20 (except #17, closed unmerged) and the machine-account branch."
 project: "[[Zimi migration]]"

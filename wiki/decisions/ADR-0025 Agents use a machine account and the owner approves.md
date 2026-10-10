@@ -32,11 +32,16 @@ The owner chose a machine account (OWNER DECISION, 2026-10-10: "Machine account
 ## Decision
 
 Agents push branches and open pull requests as a machine account with write access. The
-`protect-main` ruleset requires one approving review from a code owner, dismisses stale
-approvals, requires approval of the most recent push, and has no bypass actors;
-`.github/CODEOWNERS` names the owner alone, so only the owner's approval counts. The owner
+`protect-main` ruleset is to require one approving review from a code owner (with
+`.github/CODEOWNERS` naming the owner alone, so only the owner's approval counts), dismiss stale
+approvals, require approval of the most recent push, and allow no bypass actors. The owner
 approves and merges in the browser. No credential for the owner's GitHub account (a `gh` login
-or an SSH key registered to it) is stored on the machine agents use. `npm run pr` refuses to run
+or an SSH key registered to it) is to be stored on the machine agents use.
+
+When this decision was recorded (2026-10-10), the owner's `gh` login had been removed and the
+ruleset required one approval, but two owner steps were still pending: turning on code-owner
+review in the ruleset, and removing an SSH key registered to the owner's account from this
+machine. The work record tracks them. `npm run pr` refuses to run
 when `gh` is logged in as the repository owner.
 
 ## Consequences

@@ -6,10 +6,10 @@ tags: [area/planning, tool/ecc]
 created: 2026-10-09
 updated: 2026-10-10
 agent: claude-code
-status: done
+status: in-progress
 owner: human
 priority: P1
-next_action: "None: the migration and the day-one baseline are complete. Owner follow-ups: enable two-factor authentication on the machine account; decide whether low-compliance steps (finish with npm run pr, wiki recall and record when untold) become hooks."
+next_action: "Owner: turn on Require review from Code Owners in protect-main (after CODEOWNERS lands on main), remove the SSH key ~/.ssh/id_ed25519 registered to the owner account (from GitHub or this machine), confirm the bypass list is empty, enable two-factor authentication on the machine account; then the migration is done. Optional: decide whether low-compliance steps become hooks."
 idea: "[[Migrate Zimi into Zeemrepo]]"
 evidence:
   - "VERIFIED: PRs #1-#5 merged by the owner (audit, toolchain, shared library, wiki system, skills)."

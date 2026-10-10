@@ -34,8 +34,8 @@ function isApproveFlag(word: string): boolean {
   }
   return false;
 }
-// bash -c '...' and eval '...' run their argument, so it is lifted out as a command.
-const SHELL_PAYLOAD = /\b(?:bash|sh|zsh)\s+(?:-[a-z]+\s+)*-[a-z]*c(?:\s+--)?\s+(["'])([\s\S]*?)\1|\beval\s+(["'])([\s\S]*?)\3/g;
+// bash -c '...', eval '...' and env -S '...' run their argument, so it is lifted out as a command.
+const SHELL_PAYLOAD = /\b(?:bash|sh|zsh)\s+(?:-[a-z]+\s+)*-[a-z]*c(?:\s+--)?\s+(["'])([\s\S]*?)\1|\b(?:eval|env\s+-S)\s+(["'])([\s\S]*?)\3/g;
 // Heredoc bodies are data. A quoted string is joined into its word with only word characters kept,
 // as the shell joins it: "gh" is still gh and 'HEAD:main' still a refspec, while a quoted commit
 // message becomes one harmless word and its separators split nothing.

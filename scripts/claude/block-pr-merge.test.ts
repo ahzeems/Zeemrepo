@@ -49,7 +49,7 @@ await test("common ways to merge a pull request are blocked", () => {
     "sudo -u owner gh pr merge 5", "\"gh\" pr merge 5", "'gh' pr merge 5",
     "\\gh pr merge 5", "/usr/bin/env gh pr merge 5", "/usr/bin/sudo gh pr merge 5", "gh api repos/o/r/pulls/1/merge -X 'PUT'",
     "gh api repos/o/r/pulls/1/merge -X \"PUT\"", "bash -lc 'gh pr merge 5'", "bash -ec \"gh pr merge 5\"",
-    "bash -l -c 'gh pr merge 5'", "bash -c -- 'gh pr merge 5'", "/usr/bin/env -S gh pr merge 5", "doas gh pr merge 5",
+    "env -S 'gh pr merge 5'", "/usr/bin/env -S \"gh pr merge 5\"", "bash -l -c 'gh pr merge 5'", "bash -c -- 'gh pr merge 5'", "/usr/bin/env -S gh pr merge 5", "doas gh pr merge 5",
     "echo \"$(gh pr merge 5)\"", "x=$(gh pr merge 5)",
   ]) assert.equal(isPrMerge(command), true, command);
 });

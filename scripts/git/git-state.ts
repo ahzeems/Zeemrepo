@@ -1,7 +1,7 @@
 // Backstop for test fixtures that escape into the real repository. Run from a linked
 // worktree, git hands the pre-push hook GIT_DIR, so a test that spawns git without
-// scrubbing it would commit to, switch or reconfigure the hooked repository (Zimi lost a
-// branch tip and core.bare that way). The hook snapshots this state before
+// scrubbing it would commit to, switch or reconfigure the hooked repository (a branch tip
+// and core.bare have been lost that way). The hook snapshots this state before
 // `npm run check` and refuses the push if the check changed it. It detects; it cannot undo.
 // Covered: HEAD, the checked-out branch, core.bare, local and per-worktree config, every ref,
 // the index and the working tree. Not covered: global config, hooks, the object store.

@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { cleanGitEnv } from "../test-support/repo-fixture.ts";
 
-// Zimi's lesson "A dirty checkout hides landed work": an editor writing CRLF dirtied every
-// Markdown file, so a pull was refused and landed work looked unrecorded. The fix is the
+// An editor writing CRLF once dirtied every Markdown file, so a pull was refused and landed
+// work looked unrecorded. The fix is the
 // `* text=auto eol=lf` rule in .gitattributes; this fails if that rule is ever removed.
 const root = join(import.meta.dirname, "../..");
 

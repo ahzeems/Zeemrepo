@@ -147,7 +147,7 @@ await test("baseline skills are exempt from size and key limits but not from str
   const text = skill("alpha", " " + "y".repeat(200) + "\nlicense: MIT", "x".repeat(6001) + "\n[gone](gone.md)\nOne \u2014 two.\n");
   const root = library(t, { "alpha/SKILL.md": text });
   writeFileSync(join(root, ".claude/skills/import-baseline.json"), JSON.stringify({
-    skills: [{ name: "alpha", source: "zimi@9fb36b2", sourceSha256: provenanceHash(text), installedSha256: provenanceHash(text) }],
+    skills: [{ name: "alpha", source: "example@0000000", sourceSha256: provenanceHash(text), installedSha256: provenanceHash(text) }],
   }));
   const errors = errorsOf(root);
   assert.doesNotMatch(errors, /budget|standard|frontmatter carries/);

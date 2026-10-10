@@ -1,7 +1,7 @@
 // CLI for the wiki commit rule. Read-only; run with npm run wiki:compliance.
 //
-// The rule is always on. Zimi switched it on with a policy file, which meant a branch could
-// switch it off by deleting that file; there is no switch to delete here.
+// The rule is always on. A policy file that switched it on would let a branch switch it off
+// by deleting that file, so there is no switch to delete.
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, readMode, runCli, type Output } from "../lib/cli.ts";
 import { git, gitLines, gitOptionsAt, gitPaths, mergeBase, refExists, type GitOptions } from "../lib/git.ts";
 import { commitViolations, isConflictResolution, stagedMix, type Commit, type Violation } from "./wiki-compliance-validation.ts";

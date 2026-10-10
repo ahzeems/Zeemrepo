@@ -3,7 +3,7 @@
 ECC's runner starts each scenario in an empty `git init` directory, so on its own it measures
 Claude's default behaviour, not this repository's rules. This wrapper seeds each sandbox with a
 snapshot of the committed repository (CLAUDE.md, .claude/, scripts and hooks; never earlier
-reports, seeds.md or the pinned specs, so neither scores nor expected behaviours leak into a run)
+reports or the pinned specs, so neither scores nor expected behaviours leak into a run)
 after ECC's own setup: the repository's tooling replaces a scenario's copy, and the scenario's other
 files are kept. A generated "competing" prompt may ask the agent to push or merge, and a scenario agent has
 Bash as this user, so every process ECC starts (setup commands, scenario runs, generation and
@@ -214,10 +214,10 @@ def shared_deps(repo: Path, cache: Path) -> Path:
 
 
 def repo_snapshot(repo: Path) -> bytes:
-    """The committed tree at HEAD as a tar archive, without earlier reports or the expected behaviours (seeds, specs)."""
+    """The committed tree at HEAD as a tar archive, without earlier reports or the pinned specs."""
     env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
     return subprocess.run(
-        ["git", "archive", "--format=tar", "HEAD", "--", ".", ":(exclude)evals/compliance/reports", ":(exclude)evals/compliance/seeds.md", ":(exclude)evals/compliance/specs"],
+        ["git", "archive", "--format=tar", "HEAD", "--", ".", ":(exclude)evals/compliance/reports", ":(exclude)evals/compliance/specs"],
         cwd=repo, env=env, check=True, capture_output=True,
     ).stdout
 

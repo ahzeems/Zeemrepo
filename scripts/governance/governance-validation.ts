@@ -4,7 +4,7 @@ import { isRecord, isStringArray } from "../lib/record.ts";
 // Governance alignment. Pure; the CLI lives in governance-guard.ts. Behaviour is defined by
 // code plus the declared operating model, and for workflow-critical behaviour documents,
 // skills, rules, code comments and config are all interface: one that still asserts a
-// replaced rule is drift. Zimi scanned a hand-picked set of Markdown files only.
+// replaced rule is drift, so every text file is scanned, not a hand-picked set of Markdown files.
 
 type Surface = { path: string; text: string };
 type StaleClaim = { id: string; pattern: string; supersededBy: string };

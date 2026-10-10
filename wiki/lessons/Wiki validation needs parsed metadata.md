@@ -4,7 +4,7 @@ title: Wiki validation needs parsed metadata
 summary: A line-based frontmatter parser accepted malformed metadata because it checked strings without parsing YAML.
 tags: [area/typescript, area/docs, area/wiki, kind/pitfall]
 created: 2026-09-20
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 related: ["[[Wiki frontmatter must accept Windows line endings]]", "[[Documentation checkers need counterexamples]]"]
@@ -12,7 +12,7 @@ related: ["[[Wiki frontmatter must accept Windows line endings]]", "[[Documentat
 
 ## What happened
 
-During a 2026-09-20 audit of Zimi, isolated copies of the vault still passed validation after
+During a 2026-09-20 audit of an earlier repository, isolated copies of the vault still passed validation after
 adding duplicate `status` fields, replacing the closing marker with `---oops`, or making
 `related` a scalar. The parser split lines, overwrote duplicate keys, and accepted a prefix of
 the closing delimiter. The existing checks exercised only the real, valid vault.
@@ -39,5 +39,3 @@ vault. Do not equate a passing valid-input example with proof that a validator r
 input: give every validator malformed cases (duplicate keys, wrong types, broken delimiters)
 alongside the valid ones. Both inline and block YAML lists are valid; the requirement is typed
 values, resolvable links and real dates, not one spelling.
-
-Ported from Zimi `wiki/lessons/Wiki validation needs parsed metadata.md` at 9fb36b2.

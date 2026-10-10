@@ -4,7 +4,7 @@ title: Skill standards
 summary: What npm run skills:lint enforces on .claude/skills (limits, user-only list, provenance hashes, citations, em dashes) and what stays convention.
 tags: [area/agents, tool/claude-code, kind/convention]
 created: 2026-09-21
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 related: ["[[Skill integration must preserve the method]]", "[[Skill restoration needs source comparison]]"]
@@ -51,8 +51,5 @@ reviewer compares the quote with the owner's actual words.
 - Removing a name from `userOnly` fails `skills:lint` while the skill still sets
   `disable-model-invocation: true`. Making a skill model-invocable takes both edits, a
   `config/` change the owner reviews.
-- Skills need not be linked from a route file. Zimi required that for Codex and OpenCode;
-  Claude Code discovers skills from their descriptions, so the check was dropped.
-
-Ported from Zimi `wiki/reference/Skill standards.md` at 9fb36b2, slimmed to what
-`scripts/skills/*.ts` enforces; the three-client user-only check became one `userOnly` list.
+- Skills need not be linked from a route file: Claude Code discovers skills from their
+  descriptions.

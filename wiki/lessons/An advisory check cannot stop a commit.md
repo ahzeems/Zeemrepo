@@ -4,7 +4,7 @@ title: An advisory check cannot stop a commit
 summary: An ad-hoc check that printed its result and exited 0, chained before git commit, could not stop the commit. What it measured, line width, is not a repository rule.
 tags: [area/git, area/agents, area/docs, kind/pitfall]
 created: 2026-10-07
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 related: ["[[A refused commit leaves its staging behind]]"]
@@ -12,7 +12,7 @@ related: ["[[A refused commit leaves its staging behind]]"]
 
 ## What happened
 
-In Zimi on 2026-10-07, one shell command ran an ad-hoc `awk` check, then `npm run wiki:lint`,
+In an earlier repository on 2026-10-07, one shell command ran an ad-hoc `awk` check, then `npm run wiki:lint`,
 then `git commit`. The check reported a line it had been written to flag, and the commit went
 ahead as `ec77c62`:
 
@@ -53,5 +53,3 @@ A check that is meant to stop a commit has to exit non-zero and run before the c
 step. An ad-hoc check that only prints is a note to read, not a gate: read its output before
 committing, or do not chain the commit after it. It covers only the text that existed when it
 ran. Where the repository has no rule, say so rather than treating a convention as one.
-
-Ported from Zimi `wiki/lessons/An advisory check cannot stop a commit.md` at 9fb36b2.

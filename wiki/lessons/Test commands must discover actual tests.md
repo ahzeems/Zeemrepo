@@ -4,14 +4,14 @@ title: Test commands must discover actual tests
 summary: Passing a compiled directory to the Node test runner launched its index rather than the test files on Node 22.23.2; exit status alone hid the missing coverage.
 tags: [area/typescript, tool/node, kind/pitfall]
 created: 2026-09-20
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 ---
 
 ## What happened
 
-In Zimi, `npm test` built successfully and ran `node --test dist`. On Node 22.23.2 the output
+In an earlier repository, `npm test` built successfully and ran `node --test dist`. On Node 22.23.2 the output
 named `dist` as its test and printed `Hello, world!`, with a successful exit. It did not execute
 the assertion in the greeting test. Exit status alone concealed missing coverage.
 
@@ -34,5 +34,3 @@ Run `npm test` and read the discovered test names, not only the exit code. Put n
 the glob finds them: a `<name>.test.ts` beside the script it tests. As a negative control,
 add a deliberately failing test file and confirm the command fails; a runner that misses it is
 not discovering tests.
-
-Ported from Zimi `wiki/lessons/Test commands must discover actual tests.md` at 9fb36b2.

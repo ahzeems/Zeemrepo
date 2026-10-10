@@ -4,7 +4,7 @@ title: Walkthroughs should not duplicate skill rules
 summary: A skill walkthrough grew by copying its matrix and repeating examples; link to the files that own the rules and keep one example per route.
 tags: [area/docs, area/agents, kind/pitfall]
 created: 2026-09-20
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 related: ["[[Skill standards]]"]
@@ -12,7 +12,7 @@ related: ["[[Skill standards]]"]
 
 ## What happened
 
-In Zimi, the owner flagged the reading cost of a 2,351-word walkthrough of the skill library. It
+In an earlier repository, the owner flagged the reading cost of a 2,351-word walkthrough of the skill library. It
 copied the existing 17-skill matrix and described the same scenarios twice, once in prose and once
 in a second table. Review checked that the walkthrough covered every skill, but not whether it
 repeated rules that already had an owning file.
@@ -32,5 +32,3 @@ tracking runbook instead of restating them.
   coverage.
 - Prevention: none automated. Semantic duplication needs judgment, and no lint check detects it.
   Word counts show size, not correctness or model-token cost.
-
-Ported from Zimi `wiki/lessons/Walkthroughs should not duplicate skill rules.md` at 9fb36b2.

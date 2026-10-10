@@ -1,3 +1,3 @@
 # History
 
-Zimi landed work with npm run gate.
+The old process landed work with npm run gate.

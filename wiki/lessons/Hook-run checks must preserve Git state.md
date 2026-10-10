@@ -1,10 +1,10 @@
 ---
 type: lesson
 title: Hook-run checks must preserve Git state
-summary: A test fixture run inside a git hook moved Zimi's real branch and set core.bare; pre-push now refuses when its check changes the repository's git state.
+summary: A test fixture run inside a git hook moved the real branch and set core.bare; pre-push now refuses when its check changes the repository's git state.
 tags: [area/git, area/typescript, kind/pitfall]
 created: 2026-10-08
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 related: ["[[Git hooks route child Git commands to the hooked repository]]", "[[Merge gate contract]]"]
@@ -12,7 +12,7 @@ related: ["[[Git hooks route child Git commands to the hooked repository]]", "[[
 
 ## What happened
 
-In Zimi on 2026-10-08, a test created a disposable git fixture while the pre-commit hook ran
+In an earlier repository on 2026-10-08, a test created a disposable git fixture while the pre-commit hook ran
 the full check. Its child git process inherited the hook's routing variables, so the fixture
 commit landed on the real review branch and its `git init` set the shared repository's
 `core.bare` to `true`. The same class of escape recurred twice that day from new test helpers,
@@ -61,6 +61,3 @@ followed.
   hooks or the object store.
 - `npm run pr` runs the check outside any hook, so the snapshot matters only for pushes that run
   the hook's own check.
-
-Ported from Zimi `wiki/lessons/Pre-commit checks must preserve Git state.md` (Zimi main at f600680,
-after the audited 9fb36b2), retitled because Zeemrepo's exposure is the pre-push hook.

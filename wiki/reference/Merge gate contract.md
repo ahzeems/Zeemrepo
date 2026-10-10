@@ -76,7 +76,3 @@ config-protection read from the plugin's `scripts/hooks/config-protection.js`, v
   exact commit. Anything else is reported; a `gh` failure is an error, never a verdict.
 
 Only the owner merges. Agents prepare, check, push the branch and open the pull request.
-
-Ported from Zimi `wiki/reference/Merge gate contract.md` at 9fb36b2. Zimi's gate was a local
-script that merged and pushed main itself; the owner replaced it on 2026-10-09 with pull
-requests only the owner merges.

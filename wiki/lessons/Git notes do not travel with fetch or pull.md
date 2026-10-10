@@ -7,7 +7,7 @@ created: 2026-10-06
 updated: 2026-10-10
 agent: claude-code
 status: active
-related: ["[[Merge gate contract]]", "[[ADR-0008 Owner merges pull requests on GitHub]]"]
+related: ["[[Merge gate contract]]", "[[ADR-0025 Agents use a machine account and the owner approves]]"]
 ---
 
 ## What happened
@@ -36,7 +36,7 @@ the review record, and the audit's `missing` verdict was changed to name the not
 rules out stale local evidence.
 
 Zeemrepo dropped git-notes evidence altogether. A change lands only by pull request, merged by
-the owner on GitHub ([[ADR-0008 Owner merges pull requests on GitHub]]). The review is a PR
+the owner on GitHub ([[ADR-0025 Agents use a machine account and the owner approves]]). The review is a PR
 review comment, and the check result is the CI status checks `check` and `guards`; GitHub holds
 both, so every clone sees the same record. `npm run audit` (`scripts/git/landing-audit.ts`)
 asks GitHub whether each first-parent commit on `origin/main` is a merged pull request, and

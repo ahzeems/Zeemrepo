@@ -6,10 +6,10 @@ tags: [area/planning, tool/ecc]
 created: 2026-10-09
 updated: 2026-10-10
 agent: claude-code
-status: in-progress
+status: done
 owner: human
 priority: P1
-next_action: "Owner: set up the machine account (create it, give it write access, log gh in as it, remove the owner's own gh login from this machine, require 1 approving review in the ruleset); then the merge-control branch. Owner may decide whether low-compliance steps (finish with npm run pr; wiki recall and record when untold) become hooks."
+next_action: "None: the migration and the day-one baseline are complete. Owner follow-ups: enable two-factor authentication on the machine account; decide whether low-compliance steps (finish with npm run pr, wiki recall and record when untold) become hooks."
 idea: "[[Migrate Zimi into Zeemrepo]]"
 evidence:
   - "VERIFIED: PRs #1-#5 merged by the owner (audit, toolchain, shared library, wiki system, skills)."
@@ -54,6 +54,9 @@ evidence:
   - "VERIFIED: PR #18 merged by the owner (day-one baseline); PR #16 (setup-node 7.1.0) merged and PR #17 closed by the owner after its check failed: npm ci refused TypeScript 7 against typescript-eslint 8.71 (peer range below 6.1)."
   - "VERIFIED: Dependabot now ignores major updates of typescript and @types/node; scripts/git/hooks.test.ts fails without the ignore entries (shown failing first)."
   - "VERIFIED: by a separate reviewer on 2026-10-10 (its notes, sandboxes and streams are not committed), compliance baseline on pinned scenarios at main b7e38fe: branch-and-merge 75% (accurate), write-guard 28% (neutral about 83% on the evidence; a step-chain cascade), wiki-memory 20% (supportive 100% on the evidence); nothing pushed or committed on main in any sandbox; see evals/compliance/reports/summary.md."
+  - "VERIFIED: PRs #19 (Dependabot ignores TypeScript minors and majors, Node types majors) and #20 (compliance baseline) merged by the owner."
+  - "VERIFIED: machine account zimmybot has write access; protect-main requires 1 approving review, dismisses stale approvals, requires approval of the most recent push and has no bypass actors (gh api rulesets, 2026-10-10); gh on this machine is logged in as zimmybot only and the owner's login was removed (gh auth status)."
+  - "VERIFIED: npm run pr refuses when gh is logged in as the repository owner (scripts/git/pr-ready.test.ts, shown failing first); ADR-0025 supersedes ADR-0008."
   - "OWNER DECISION: nothing is pushed to main; work lands by pull request and only the owner merges (2026-10-09)."
 ---
 

@@ -42,9 +42,12 @@ requests on GitHub (owner decision, 2026-10-09).
    see [[Merge gate contract]]). If `guards` fails right after
    the PR opens with "couldn't find remote ref", GitHub had not built the merge ref yet:
    re-run it. A PR that conflicts with main has no merge ref at all; merge main in first.
-7. The owner reviews and merges on GitHub (merge commit or squash; rebase merging is off so
-   the landing audit can match each commit to its PR). Agents never merge or approve; a
-   Claude Code hook refuses commands that would merge a pull request.
+7. The owner reviews, approves and merges on GitHub: **Files changed**, **Review changes**,
+   **Approve**, then **Merge pull request** (merge commit or squash; rebase merging is off so
+   the landing audit can match each commit to its PR). Agents push and open the pull request as
+   the machine account, which cannot approve it, so it cannot merge until the owner approves
+   ([[ADR-0025 Agents use a machine account and the owner approves]]). Agents never merge or
+   approve; a Claude Code hook also refuses commands that would.
 8. After the merge: `git switch main && git pull --ff-only`, then delete your own merged
    branch and, once `npm run worktree:guard` passes, your own clean worktree. Deleting anything
    else needs the owner's go-ahead.

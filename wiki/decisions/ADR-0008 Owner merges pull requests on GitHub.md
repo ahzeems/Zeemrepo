@@ -4,9 +4,10 @@ title: ADR-0008 Owner merges pull requests on GitHub
 summary: Nothing is pushed to main; every change lands by pull request, agents push a branch and open the PR, and only the owner merges on GitHub.
 tags: [area/git, area/github, area/agents, kind/architecture]
 created: 2026-10-09
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
-status: active
+status: superseded
+superseded_by: "[[ADR-0025 Agents use a machine account and the owner approves]]"
 related: ["[[Land a change]]", "[[ADR-0022 Independent review means a separate reviewer context]]", "[[Merge gate contract]]"]
 ---
 

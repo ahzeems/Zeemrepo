@@ -16,12 +16,13 @@ One line per memory note. Add new notes here; work notes need no entry.
 - [[ADR-0001 Wiki is an Obsidian vault in the repository]] - Project memory is an Obsidian vault in wiki/ inside the repo, as plain Markdown with typed folders, YAML frontmatter and an enforced tag list.
 - [[ADR-0005 Work records live in the shared vault]] - Track idea-to-execution work as linked, typed records under wiki/work/, alongside durable agent memory, readable by Obsidian Properties and Bases.
 - [[ADR-0007 Changelog entries carry no post-merge facts]] - Entries record the change in their own PR and never cite a merge commit, removing the closeout PR.
-- [[ADR-0008 Owner merges pull requests on GitHub]] - Nothing is pushed to main; every change lands by pull request, agents push a branch and open the PR, and only the owner merges on GitHub.
+- [[ADR-0008 Owner merges pull requests on GitHub]] - Superseded by ADR-0025. Nothing is pushed to main; every change lands by pull request, and only the owner merges on GitHub.
 - [[ADR-0009 Workflow-critical Markdown is an interface]] - Documents that declare how work is landed, reviewed, and verified are part of the interface; drift between them and the code is a Blocker and is checked mechanically.
 - [[ADR-0011 The vault is the interface, Obsidian is optional]] - The repository wiki is the source of truth for documentation and memory; no editor is part of the architecture, and the Windows UNC route failed validation.
 - [[ADR-0021 Authority comes from an identified checkout]] - Instructions, skills and the vault come from a checkout the agent has identified (path, worktree, branch, HEAD, clean state); parallel sessions use separate worktrees.
 - [[ADR-0022 Independent review means a separate reviewer context]] - A review is independent when a separate reviewer context inspects pinned sources and runs its own checks; the reviewer's model and who launched it do not decide independence.
 - [[ADR-0024 Claude Code is the only harness]] - Zeemrepo targets Claude Code alone, with the pinned ECC plugin, rules in CLAUDE.md and .claude/rules/, and native user-only skills.
+- [[ADR-0025 Agents use a machine account and the owner approves]] - Agents push and open PRs as a machine account that cannot approve its own work; the ruleset requires the owner's approval, and the owner's login is not on the agents' machine.
 
 ## Lessons
 

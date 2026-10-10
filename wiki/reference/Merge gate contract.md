@@ -7,22 +7,22 @@ created: 2026-09-20
 updated: 2026-10-10
 agent: claude-code
 status: active
-related: ["[[Land a change]]", "[[ADR-0008 Owner merges pull requests on GitHub]]"]
+related: ["[[Land a change]]", "[[ADR-0025 Agents use a machine account and the owner approves]]"]
 ---
 
-The merge gate is GitHub: every change lands as a pull request that only the owner merges.
-The ruleset enforces that nothing reaches main except through a pull request whose checks pass.
-It does not stop the owner's own `gh` login from merging such a pull request, and agents run
-with that login, so for merges the agent-side controls are the Claude Code deny rules and hook
-below: best-effort, and bypassable by a determined command (a variable, an alias, a script).
-Requiring an approving review, or giving agents a credential without merge permission, would
-close that gap; both are owner decisions.
+The merge gate is GitHub: every change lands as a pull request that only the owner approves and
+merges ([[ADR-0025 Agents use a machine account and the owner approves]]). Agents push branches
+and open pull requests as the machine account `zimmybot`, which has write access and cannot
+approve the pull requests it authors. The ruleset requires one approving review, so nothing an
+agent opens can merge until the owner approves it. The owner's GitHub login is not stored on the
+machine agents use, and `npm run pr` refuses to run when `gh` is logged in as the repository
+owner. The Claude Code deny rules and hook below remain as defence in depth.
 
 ## Ruleset `protect-main` (default branch)
 
 | Rule | Setting |
 |---|---|
-| Pull request required | Yes, with 0 approving reviews required (the owner's merge is the approval) |
+| Pull request required | Yes, with 1 approving review; stale approvals are dismissed on new commits, and the most recent push must be approved |
 | Required status checks | `check` and `guards` |
 | Merge methods | Merge commit and squash; rebase merging is off so the audit can match each commit to its PR |
 | Force-push, deletion | Blocked |

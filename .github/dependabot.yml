@@ -14,3 +14,11 @@ updates:
     groups:
       dev-dependencies:
         dependency-type: development
+    # typescript-eslint supports a TypeScript minor or major only after its own release (8.71 takes
+    # <6.1), so TypeScript gets patches only; @types/node follows the Node major in .nvmrc
+    # (hooks.test.ts holds the two together). Both are upgraded on purpose.
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]

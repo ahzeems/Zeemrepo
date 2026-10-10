@@ -4,7 +4,7 @@ title: Skill restoration needs source comparison
 summary: A valid skill entry point can still lose the original method and its companion files; compare the full supplied source before accepting a restoration.
 tags: [area/agents, area/docs, tool/claude-code, kind/pitfall]
 created: 2026-09-20
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 related: ["[[Skill integration must preserve the method]]", "[[Skill standards]]"]
@@ -12,7 +12,7 @@ related: ["[[Skill integration must preserve the method]]", "[[Skill standards]]
 
 ## What happened
 
-In Zimi, the `domain-modeling` skill's `SKILL.md` had become a local rewrite, and its two linked
+In an earlier repository, the `domain-modeling` skill's `SKILL.md` had become a local rewrite, and its two linked
 format guides were missing. The supplied original showed what had been lost: the context-boundary
 examples and the glossary format. The skill still loaded and passed the repository's checks,
 because those checks validated code and wiki structure, not fidelity to an external source. Why the
@@ -46,5 +46,3 @@ hashed.
 - Prevention: partly automated. The source is not committed as a second copy solely for equality
   tests, so the manual comparison must be repeated whenever a new source is supplied. A passing
   `npm run check` does not establish source fidelity or model behavior.
-
-Ported from Zimi `wiki/lessons/Skill restoration needs source comparison.md` at 9fb36b2.

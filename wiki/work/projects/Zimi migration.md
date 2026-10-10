@@ -9,7 +9,7 @@ agent: claude-code
 status: in-progress
 owner: human
 priority: P1
-next_action: "Re-run the three compliance targets on the pinned, reviewed scenarios once the owner's Claude login has an hour left, update evals/compliance/reports/summary.md from that run, then open the owner-decisions and audit pull request; the owner decides the merge-control gap and the candidates in docs/migration/zimi-audit.md section 8."
+next_action: "Owner: set up the machine account (create it, give it write access, log gh in as it, remove the owner's own gh login from this machine, require 1 approving review in the ruleset); then the merge-control branch; then /login and the compliance re-run on the pinned scenarios."
 idea: "[[Migrate Zimi into Zeemrepo]]"
 evidence:
   - "VERIFIED: PRs #1-#5 merged by the owner (audit, toolchain, shared library, wiki system, skills)."
@@ -44,6 +44,11 @@ evidence:
   - "OWNER DECISION: \"Why do we need to delete the ecc rule set. Ecc is perfect why delete parts of it.. i dont want to change anything\" (2026-10-10); the vendored ECC rules stay complete and rules:check holds all 22 sets to the v2.2.3 pin, replacing the earlier trim decision."
   - "VERIFIED: end-to-end audit on chore/owner-decisions-audit (dead code, settings, TypeScript, Python, then ECC code, security, silent-failure, test-quality and doc-accuracy reviews, and a requirements review against the plan): each finding fixed test-first or recorded; npm test 568 passing, evals:test passing, check:base exit 0; mutation re-checks kill every previously surviving mutation."
   - "INFERRED: the GitHub ruleset stops pushes to main but not a merge by the owner's own gh login, which agents use; for merges the agent-side control is the best-effort hook and deny rules (security review, documented in Merge gate contract); a fix is the owner's decision."
+  - "VERIFIED: PR #15 merged by the owner (owner decisions and end-to-end audit); npm run audit reported 15 commits on main, all landed by merged pull request."
+  - "OWNER DECISION: \"i dont want to change any rules ... im just trying to make the repo streamlined and efficent\" (2026-10-10); the day-one baseline removes only what no rule or check protects, and the two candidate skill rules are declined."
+  - "VERIFIED: day-one baseline on chore/day-one-baseline: design-actions, diagnose-bug, seeds.md and five unused-tool lessons removed (owner ran the deletion); Zimi mentions reworded in 52 files outside the protected records; git diff of .claude/rules, wiki/decisions, docs/migration, import-baseline.json is empty; check:base exit 0 with 569 tests."
+  - "VERIFIED: ECC instincts reviewed: the five tied to the removed lessons deleted, the other 29 restated as this repository's (ids zeem-*); ECC's instinct-cli status lists 29."
+  - "INFERRED: grill-plan and verify-work stay: the byte-protected imported skills link to them, so removing them would fail skills:lint."
   - "OWNER DECISION: nothing is pushed to main; work lands by pull request and only the owner merges (2026-10-09)."
 ---
 

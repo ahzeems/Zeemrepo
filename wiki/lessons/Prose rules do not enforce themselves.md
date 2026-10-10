@@ -4,7 +4,7 @@ title: Prose rules do not enforce themselves
 summary: A repository rule written only in a skill was broken by the agent that had not yet loaded the skill; only a check running in the canonical path stopped it.
 tags: [area/agents, area/docs, area/git, area/wiki, kind/pitfall]
 created: 2026-09-20
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 related: ["[[ADR-0009 Workflow-critical Markdown is an interface]]", "[[A refused commit leaves its staging behind]]"]
@@ -12,7 +12,7 @@ related: ["[[ADR-0009 Workflow-critical Markdown is an interface]]", "[[A refuse
 
 ## What happened
 
-In Zimi, the wiki-memory skill and the repository instruction file both said wiki files are
+In an earlier repository, the wiki-memory skill and the repository instruction file both said wiki files are
 committed alone, with a fixed subject prefix. Every commit of two features in a row broke that
 rule: eleven wiki files sat beside fourteen code files in one commit, and three more commits
 mixed the two again.
@@ -55,5 +55,3 @@ when a skill is loaded late.
 Load the skill that owns a surface before writing to that surface, not before reviewing it. And
 when a check accepts a shape rather than a value (kebab-case rather than a known name), it is
 enforcing spelling, not meaning. Close the set.
-
-Ported from Zimi `wiki/lessons/Prose rules do not enforce themselves.md` at 9fb36b2.

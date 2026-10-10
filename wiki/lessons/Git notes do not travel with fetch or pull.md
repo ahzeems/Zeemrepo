@@ -4,7 +4,7 @@ title: Git notes do not travel with fetch or pull
 summary: Clone, fetch and pull skip the notes refs, so evidence kept in git notes looks missing in other clones; Zeemrepo keeps review and CI evidence on GitHub instead.
 tags: [area/git, area/agents, kind/pitfall]
 created: 2026-10-06
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 related: ["[[Merge gate contract]]", "[[ADR-0008 Owner merges pull requests on GitHub]]"]
@@ -12,7 +12,7 @@ related: ["[[Merge gate contract]]", "[[ADR-0008 Owner merges pull requests on G
 
 ## What happened
 
-In Zimi, every landing on `main` carried its review record and check result as git notes. A
+In an earlier repository, every landing on `main` carried its review record and check result as git notes. A
 clone whose `main` matched `origin/main` failed its audit:
 
 ```text
@@ -25,13 +25,13 @@ not the notes refs. The audit read only local notes, and the documented confirma
 (fetch, then audit) never updated them either. It only passed in the checkout that wrote the
 evidence, which is why nobody noticed.
 
-Zimi's local merge command had the same blind spot. From a clone whose notes were behind
+That repository's local merge command had the same blind spot. From a clone whose notes were behind
 origin's, it pushed `main` and then had its notes push rejected as a non-fast-forward. A
 regression test reproduced this before the fix.
 
 ## Fix
 
-In Zimi, the merge command learned to merge origin's notes into the local refs before reading
+In that repository, the merge command learned to merge origin's notes into the local refs before reading
 the review record, and the audit's `missing` verdict was changed to name the notes fetch that
 rules out stale local evidence.
 
@@ -53,5 +53,3 @@ was never written.
 When choosing where to keep evidence that other clones or CI must read, prefer a place every
 reader already fetches or queries (the commit history, or the hosting service's record) over a
 side ref.
-
-Ported from Zimi `wiki/lessons/Git notes do not travel with fetch or pull.md` at 9fb36b2.

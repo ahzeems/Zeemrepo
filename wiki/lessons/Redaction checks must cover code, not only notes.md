@@ -4,7 +4,7 @@ title: Redaction checks must cover code, not only notes
 summary: The vault linter scanned notes, skills and three root documents, so a username or hostname committed in a script passed; the scan must cover everything the repository publishes.
 tags: [area/agents, area/typescript, area/docs, kind/pitfall]
 created: 2026-09-20
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 related: ["[[A rule built from the environment needs testing in that environment]]"]
@@ -12,7 +12,7 @@ related: ["[[A rule built from the environment needs testing in that environment
 
 ## What happened
 
-In Zimi, the repository instructions forbade committing secrets, email addresses, machine
+In an earlier repository, the repository instructions forbade committing secrets, email addresses, machine
 hostnames, and paths containing usernames. The wiki linter enforced that only over `wiki/`, the
 skills folder, `docs/`, and three root instruction documents.
 
@@ -25,7 +25,7 @@ directory would have returned nothing even if the target list had included one.
 
 ## Fix
 
-In Zimi the walker gained a file pattern and the scan was extended to `scripts/` and `src/`
+In that repository the walker gained a file pattern and the scan was extended to `scripts/` and `src/`
 (`.ts`, `.js`, `.sh`) and the root `CHANGELOG.md`. The widened scan immediately failed on a test
 that used a literal home path as fixture data; fixture paths now use the `/home/<user>`
 placeholder the redaction rule exempts.
@@ -44,5 +44,3 @@ before fixing it: plant a real offending value, run the check, and confirm it pa
 and confirm the same value now fails. Prefer a scope defined by what the repository publishes
 over a list of folders and extensions, which misses whatever nobody thought to list. A rule
 enforced over part of a repository holds only where someone happened to look.
-
-Ported from Zimi `wiki/lessons/Redaction checks must cover code, not only notes.md` at 9fb36b2.

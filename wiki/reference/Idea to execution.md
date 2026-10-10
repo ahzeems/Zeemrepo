@@ -4,7 +4,7 @@ title: Idea to execution
 summary: The path from an idea through a map, an owner-approved plan, build tickets and pull requests, with the skill and record at each step.
 tags: [area/planning, area/agents, kind/overview]
 created: 2026-09-20
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 related: ["[[Land a change]]", "[[Verify a repository change]]"]
@@ -44,7 +44,3 @@ After each meaningful slice, update the owning record (status or `next_action`, 
 evidence) and any guidance the change affects. Check the slice with
 [[Verify a repository change]], then land it through [[Land a change]]. Keep links to real
 ownership and dependencies; agents find the rest by searching metadata.
-
-Ported from Zimi `wiki/reference/Idea to execution.md` at 9fb36b2. Rewritten for Zeemrepo:
-approval is the owner merging the plan's pull request, and the Zimi hub and walkthrough pages
-it linked were not ported.

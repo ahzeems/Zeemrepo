@@ -4,7 +4,7 @@ title: Placeholder values get copied literally
 summary: A user ran an example command as written and set their git name to the literal text 'Your Name'; give placeholders that cannot be mistaken for values.
 tags: [area/git, area/docs, kind/pitfall]
 created: 2026-09-20
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 ---
@@ -35,5 +35,3 @@ command to change it.
   changed without rewriting history, and in Zeemrepo a pushed branch is already visible in a pull
   request.
 - The same applies to wiki notes: use `<user>`, `<host>` and `<repo>` style placeholders.
-
-Ported from Zimi `wiki/lessons/Placeholder values get copied literally.md` at 9fb36b2.

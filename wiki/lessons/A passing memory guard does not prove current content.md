@@ -4,7 +4,7 @@ title: A passing memory guard does not prove current content
 summary: memory:guard proves a branch updated a work record and an operating document; it does not prove the wiki is accurate, current, or read from the right checkout.
 tags: [area/wiki, area/agents, kind/pitfall]
 created: 2026-09-21
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 related: ["[[Change records]]", "[[Maintain the repository wiki]]"]
@@ -12,7 +12,7 @@ related: ["[[Change records]]", "[[Maintain the repository wiki]]"]
 
 ## What happened
 
-In Zimi, an agent described the wiki workflow from an old worktree on another machine. That
+In an earlier repository, an agent described the wiki workflow from an old worktree on another machine. That
 account was already obsolete: the canonical main branch had moved on and passed its checks, while
 an older idea note and two active workflow documents were still stale. The record-presence guard
 passed throughout. Comparing files between checkouts did not settle which one was authoritative,
@@ -54,5 +54,3 @@ without claiming that anything synchronizes automatically.
   Never mark them done because a child is done.
 - Before saying content is current, name the revision you read (the commit, or the source a
   viewer actually serves).
-
-Ported from Zimi `wiki/lessons/A passing memory guard does not prove current content.md` at 9fb36b2.

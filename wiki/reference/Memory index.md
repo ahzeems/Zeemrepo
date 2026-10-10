@@ -4,7 +4,7 @@ title: Memory index
 summary: Index of every memory note in the wiki, with a one-line summary each, grouped by type.
 tags: [area/wiki, kind/overview]
 created: 2026-10-09
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 ---
@@ -28,23 +28,18 @@ One line per memory note. Add new notes here; work notes need no entry.
 - [[A passing memory guard does not prove current content]] - memory:guard proves a branch updated a work record and an operating document; it does not prove the wiki is accurate, current, or read from the right checkout.
 - [[A refused commit leaves its staging behind]] - A commit refused by pre-commit kept code files staged; the retry added wiki files and committed the whole index, mixing the two. pre-commit now checks the staged paths.
 - [[A rule built from the environment needs testing in that environment]] - A redaction rule derived the account name serving a page; in a container that name was node, so every page was withheld while every test passed.
-- [[Agents cannot enter a sudo password]] - An agent cannot type a sudo password, so setup that needs root must be split into a small root step for the human and a user step for the agent.
-- [[An account-scoped API permission needs an account resource]] - Cloudflare API writes kept failing because the token had only a zone resource, so its account-level permissions applied to nothing however often they were added.
 - [[An advisory check cannot stop a commit]] - An ad-hoc check that printed its result and exited 0, chained before git commit, could not stop the commit. What it measured, line width, is not a repository rule.
 - [[Bare worktree records are not checkouts]] - Parse git worktree porcelain as whole records and keep the bare attribute before running working-tree commands on each entry.
 - [[Documentation checkers need counterexamples]] - A checker tested only on current prose can pass negated claims or reject valid prohibitions; replay both broken and valid documents through the real checker.
-- [[Fine-grained tokens cannot upload SSH keys]] - gh auth login with a pasted fine-grained token fails with HTTP 403 on /user/keys; log in through the browser with the admin:public_key scope instead.
 - [[Git hooks route child Git commands to the hooked repository]] - Tests that spawn git inherit a hook's GIT_DIR and GIT_INDEX_FILE, so under a hook their fixture commands act on the real repository.
 - [[Git notes do not travel with fetch or pull]] - Clone, fetch and pull skip the notes refs, so evidence kept in git notes looks missing in other clones; Zeemrepo keeps review and CI evidence on GitHub instead.
-- [[Hook-run checks must preserve Git state]] - A test fixture run inside a git hook moved Zimi's real branch and set core.bare; pre-push now refuses when its check changes the repository's git state.
-- [[Passphrase-protected SSH keys block agent pushes]] - An agent cannot type an SSH key passphrase, so git push over SSH fails; use an HTTPS remote with the gh credential helper, as Zeemrepo's origin does.
+- [[Hook-run checks must preserve Git state]] - A test fixture run inside a git hook moved the real branch and set core.bare; pre-push now refuses when its check changes the repository's git state.
 - [[Placeholder values get copied literally]] - A user ran an example command as written and set their git name to the literal text 'Your Name'; give placeholders that cannot be mistaken for values.
 - [[Prose rules do not enforce themselves]] - A repository rule written only in a skill was broken by the agent that had not yet loaded the skill; only a check running in the canonical path stopped it.
 - [[Redaction checks must cover code, not only notes]] - The vault linter scanned notes, skills and three root documents, so a username or hostname committed in a script passed; the scan must cover everything the repository publishes.
 - [[Root shell hides user-installed tools]] - In a root shell, gh is 'command not found', ~ points to /root and git over SSH is denied, because the tools and SSH keys belong to the normal user.
 - [[Skill integration must preserve the method]] - Adapting imported skills to local style changed their methods; keep source wording and review each interface substitution separately from the method.
 - [[Skill restoration needs source comparison]] - A valid skill entry point can still lose the original method and its companion files; compare the full supplied source before accepting a restoration.
-- [[sshd takes the first value, so the lowest drop-in wins]] - A cloud server image allowed SSH password login because a lower-numbered sshd drop-in set it first; sshd keeps the first value it reads, not the last.
 - [[Test commands must discover actual tests]] - Passing a compiled directory to the Node test runner launched its index rather than the test files on Node 22.23.2; exit status alone hid the missing coverage.
 - [[Walkthroughs should not duplicate skill rules]] - A skill walkthrough grew by copying its matrix and repeating examples; link to the files that own the rules and keep one example per route.
 - [[Wiki frontmatter must accept Windows line endings]] - The wiki linter must normalize CRLF before parsing frontmatter so valid notes pass on Windows and WSL checkouts.

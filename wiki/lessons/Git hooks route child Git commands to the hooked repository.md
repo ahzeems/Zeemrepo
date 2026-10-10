@@ -4,7 +4,7 @@ title: Git hooks route child Git commands to the hooked repository
 summary: Tests that spawn git inherit a hook's GIT_DIR and GIT_INDEX_FILE, so under a hook their fixture commands act on the real repository.
 tags: [area/git, area/typescript, kind/pitfall]
 created: 2026-10-06
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 related: ["[[A refused commit leaves its staging behind]]"]
@@ -12,7 +12,7 @@ related: ["[[A refused commit leaves its staging behind]]"]
 
 ## What happened
 
-In Zimi on 2026-10-06, two new skill-lint command tests built a disposable Git repository and
+In an earlier repository on 2026-10-06, two new skill-lint command tests built a disposable Git repository and
 passed `process.env` to every `git` call. Run directly, `npm run check` passed. Run by the
 pre-commit hook, which exports the hooked repository's `GIT_DIR` and `GIT_INDEX_FILE`, the
 fixture's `git init`, `git add .` and `git commit -m landed` acted on the feature worktree
@@ -54,5 +54,3 @@ In Zeemrepo this is built into the shared helpers:
 `child_process` call that does not pass `env: cleanGitEnv`, and the pre-push hook refuses a push
 whose check changed the repository's git state
 ([[Hook-run checks must preserve Git state]]).
-
-Ported from Zimi `wiki/lessons/Git hooks route child Git commands to the hooked repository.md` at 9fb36b2.

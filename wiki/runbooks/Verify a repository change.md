@@ -80,7 +80,3 @@ committing or opening a pull request.
   diff when a file is partly staged. A commit that passed a hook is not proof of review.
 - Automated checks do not establish owner approval or the truth of an evidence line. A
   requested behaviour with no test or inspectable observation stays unverified.
-
-Ported from Zimi `wiki/runbooks/Verify a repository change.md` at 9fb36b2. Rewritten for
-Zeemrepo's checks, hooks, fixtures and reviewer subagents; landing is by pull request instead
-of a local gate.

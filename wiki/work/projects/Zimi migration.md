@@ -90,4 +90,5 @@ compliance evals with ECC `skill-comply`, and closeout. Zimi itself is never mod
 
 ## Observations
 
+- Rule pointer: [no-doc-change: branch-and-merge.md only repoints its decision link to ADR-0025, which already records the decision; the rule text and the workflow are unchanged]
 - Skill alignment: [no-doc-change: Land a change and Merge gate contract already describe npm run pr and the required check and guards CI checks; the two skills now match them]

@@ -3,7 +3,7 @@
 // One question: do the files that declare how this repository works still agree with how it
 // works? A workflow change that leaves a skill, rule, doc or script asserting the old rule is
 // incomplete, and a search by hand does not reliably catch it.
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
 import { walk } from "../lib/walk.ts";
@@ -16,7 +16,10 @@ const REPOSITORY = join(import.meta.dirname, "../..");
 const USAGE = "usage: node scripts/governance/governance-guard.ts [--json] [--root <repository>]";
 // Never authored here: git internals, installed dependencies and other checkouts. Only at
 // the root; a node_modules folder anywhere else is scanned like any other.
-const ROOT_SKIPPED = new Set([".git", "node_modules", ".worktrees"]);
+// .git is skipped at any depth; dependencies and parallel sessions' worktrees only at the root, so a
+// nested node_modules someone committed is still scanned.
+const GIT_DIR = new Set([".git"]);
+const ROOT_SKIPPED = new Set(["node_modules", ".worktrees"]);
 
 type Args = { json: boolean; root: string; help: boolean };
 
@@ -33,18 +36,7 @@ function parseArgs(args: readonly string[]): Args {
 }
 
 function repositoryFiles(root: string): { files: string[]; symlinks: string[] } {
-  const found: { files: string[]; symlinks: string[] } = { files: [], symlinks: [] };
-  for (const entry of readdirSync(root, { withFileTypes: true })) {
-    if (ROOT_SKIPPED.has(entry.name)) continue;
-    const path = join(root, entry.name);
-    if (entry.isSymbolicLink()) found.symlinks.push(path);
-    else if (entry.isFile()) found.files.push(path);
-    else if (entry.isDirectory()) {
-      const nested = walk(path, { includeDot: true, skipDirs: new Set([".git"]) });
-      found.files.push(...nested.files);
-      found.symlinks.push(...nested.symlinks);
-    }
-  }
+  const found = walk(root, { includeDot: true, skipDirs: GIT_DIR, skipAtRoot: ROOT_SKIPPED });
   const rel = (file: string): string => relative(root, file).split("\\").join("/");
   return { files: found.files.map(rel), symlinks: found.symlinks.map(rel) };
 }

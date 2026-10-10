@@ -1,3 +1,4 @@
+import { parseFrontmatter } from "../lib/frontmatter.ts";
 import { isRecord, isStringArray } from "../lib/record.ts";
 
 // Governance alignment. Pure; the CLI lives in governance-guard.ts. Behaviour is defined by
@@ -109,10 +110,13 @@ function collapse(text: string): { flat: string; lineOf: number[] } {
 
 // Only a wiki note that names its replacement may declare itself history. A skill, rule or
 // script can never opt out of the check with a frontmatter line.
+// The frontmatter is read as wiki:lint reads it, so YAML the linter rejects cannot opt out.
 function isHistory(surface: Surface): boolean {
   if (!surface.path.startsWith("wiki/")) return false;
-  const frontmatter = /^---\n([\s\S]*?)\n---(?:\n|$)/.exec(surface.text.replace(/\r\n/g, "\n"))?.[1] ?? "";
-  return /^status:\s*"?superseded"?\s*$/m.test(frontmatter) && /^superseded_by:\s*"?\[\[[^\]]+\]\]"?\s*$/m.test(frontmatter);
+  const frontmatter = parseFrontmatter(surface.text);
+  if (frontmatter.kind !== "ok") return false;
+  const { status, superseded_by: replacement } = frontmatter.data;
+  return status === "superseded" && typeof replacement === "string" && /^\[\[[^\]]+\]\]$/.test(replacement);
 }
 
 // An allowance excuses a match only when its quoted span covers the whole match, so text

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, type TestContext } from "node:test";
@@ -53,6 +53,16 @@ await test("an approved revision with a resolvable record passes", (t) => {
   const revised = SKILL + "Revised.\n";
   writeFileSync(join(root, ".claude/skills/alpha/SKILL.md"), revised);
   const revision = { sha256: provenanceHash(revised), approval: { record: "docs/approval.md", quote: QUOTE }, reason: "Migration edits." };
+  assert.deepEqual(check(root, [entry({ revisions: [revision] })]), []);
+});
+
+await test("an approval record in a folder whose name starts with .. is still inside the repository", (t) => {
+  const root = repo(t);
+  const revised = SKILL + "Revised.\n";
+  mkdirSync(join(root, "..notes"));
+  writeFileSync(join(root, "..notes/approval.md"), readFileSync(join(root, "docs/approval.md"), "utf8"));
+  writeFileSync(join(root, ".claude/skills/alpha/SKILL.md"), revised);
+  const revision = { sha256: provenanceHash(revised), approval: { record: "..notes/approval.md", quote: QUOTE }, reason: "Migration edits." };
   assert.deepEqual(check(root, [entry({ revisions: [revision] })]), []);
 });
 

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { isRecord } from "../lib/record.ts";
 
 // Third-party and owner-approved skill text is recorded by hash in import-baseline.json.
@@ -78,7 +78,8 @@ const normalizeSpace = (text: string): string => text.replace(/\s+/g, " ").trim(
 
 function approvalErrors(root: string, entry: BaselineEntry, revision: Revision, label: string): string[] {
   const record = resolve(root, revision.approval.record);
-  if (relative(root, record).startsWith("..") || !existsSync(record) || !statSync(record).isFile()) {
+  const inside = relative(root, record);
+  if (inside === ".." || inside.startsWith(`..${sep}`) || isAbsolute(inside) || !existsSync(record) || !statSync(record).isFile()) {
     return [`${label} approval record ${revision.approval.record} does not exist`];
   }
   const text = normalizeSpace(readFileSync(record, "utf8"));

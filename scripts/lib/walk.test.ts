@@ -39,3 +39,14 @@ await test("walk", async (t) => {
     assert.deepEqual(walk(join(root, "missing")), { files: [], symlinks: [] });
   });
 });
+
+await test("skipAtRoot skips a name only directly under the walked directory", (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "walk-root-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  for (const path of ["dist/a.md", "sub/dist/b.md"]) {
+    mkdirSync(join(dir, path, ".."), { recursive: true });
+    writeFileSync(join(dir, path), "x\n");
+  }
+  const files = walk(dir, { skipAtRoot: new Set(["dist"]) }).files.map((file) => relative(dir, file));
+  assert.deepEqual(files, ["sub/dist/b.md"]);
+});

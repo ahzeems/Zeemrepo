@@ -48,6 +48,8 @@ evidence:
   - "OWNER DECISION: \"i dont want to change any rules ... im just trying to make the repo streamlined and efficent\" (2026-10-10); the day-one baseline removes only what no rule or check protects, and the two candidate skill rules are declined."
   - "VERIFIED: day-one baseline on chore/day-one-baseline: design-actions, diagnose-bug, seeds.md and five unused-tool lessons removed (owner ran the deletion); Zimi mentions reworded in 52 files outside the protected records; git diff of .claude/rules, wiki/decisions, docs/migration, import-baseline.json is empty; check:base exit 0 with 569 tests."
   - "VERIFIED: ECC instincts reviewed: the five tied to the removed lessons deleted, the other 29 restated as this repository's (ids zeem-*); ECC's instinct-cli status lists 29."
+  - "OWNER DECISION: merge control by a machine account (\"Machine account (Recommended)\") with the owner's own gh login removed from this machine (\"Yes, browser-only (Recommended)\"), 2026-10-10; the owner sets up the account and ruleset."
+  - "OWNER DECISION: \"Review each, prune unused (Recommended)\" (2026-10-10): a lesson was removed when it described a tool or service this repository does not use (sudo setup, SSH key passphrases, a cloud API token, token key upload, sshd); Root shell hides user-installed tools stays because it backs the branch-and-merge rule \"Do not work as root\"."
   - "INFERRED: grill-plan and verify-work stay: the byte-protected imported skills link to them, so removing them would fail skills:lint."
   - "OWNER DECISION: nothing is pushed to main; work lands by pull request and only the owner merges (2026-10-09)."
 ---

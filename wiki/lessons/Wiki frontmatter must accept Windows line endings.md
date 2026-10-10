@@ -4,7 +4,7 @@ title: Wiki frontmatter must accept Windows line endings
 summary: The wiki linter must normalize CRLF before parsing frontmatter so valid notes pass on Windows and WSL checkouts.
 tags: [area/docs, area/typescript, area/wiki, kind/pitfall]
 created: 2026-09-20
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 related: ["[[Wiki validation needs parsed metadata]]"]
@@ -12,7 +12,7 @@ related: ["[[Wiki validation needs parsed metadata]]"]
 
 ## What happened
 
-In Zimi, after importing `main` into a Windows checkout, wiki lint reported missing or
+In an earlier repository, after importing `main` into a Windows checkout, wiki lint reported missing or
 unterminated frontmatter for 15 existing notes. Their metadata was present, but the parser
 required LF line endings while the checkout contained CRLF. A valid document was rejected
 because its line separators differed, not because required fields were absent.
@@ -31,5 +31,3 @@ parses a CRLF note and expects the same data and an LF body.
 Test any line-based parser with LF and CRLF variants of a valid input; both must pass. Keep a
 control without its opening delimiter, which must still fail. Then run `npm run wiki:lint` on
 the actual checkout.
-
-Ported from Zimi `wiki/lessons/Wiki frontmatter must accept Windows line endings.md` at 9fb36b2.

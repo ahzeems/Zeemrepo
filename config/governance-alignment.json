@@ -1,5 +1,5 @@
 {
-  "note": "Rules the Zimi migration replaced. Every text file in the repository is scanned for them, except the exclusions below, each with its reason. Each claim names what superseded it; each allowance quotes the exact span it excuses and the claims it excuses. See docs/migration/zimi-audit.md.",
+  "note": "Retired rules that must not reappear. Every text file in the repository is scanned for them, except the exclusions below, each with its reason. Each claim names what superseded it; each allowance quotes the exact span it excuses and the claims it excuses. See docs/migration/zimi-audit.md.",
   "surfaces": [
     "**"
   ],
@@ -10,7 +10,7 @@
     },
     {
       "glob": ".claude/rules/ecc/**",
-      "reason": "Vendored ECC rules, refreshed verbatim from upstream; they are not this repository's operating model and never carried Zimi's rules."
+      "reason": "Vendored ECC rules, refreshed verbatim from upstream; they are not this repository's operating model and never carried the replaced rules."
     },
     {
       "glob": "config/ecc-rules.json",
@@ -22,7 +22,7 @@
     },
     {
       "glob": ".claude/skills/import-baseline.json",
-      "reason": "Append-only provenance record: it must name the Zimi source paths the skills came from, and landed entries cannot change."
+      "reason": "Append-only provenance record: it must name the source paths the skills came from, and landed entries cannot change."
     },
     {
       "glob": "CHANGELOG.md",
@@ -122,7 +122,7 @@
     {
       "path": "wiki/decisions/ADR-0021 Authority comes from an identified checkout.md",
       "contains": "ADR-0021 The bare root is storage, authority comes from an identified checkout.md",
-      "reason": "Provenance: names the Zimi source file this rewrite replaces; the note records that the bare layout was real on 2026-10-06 and changed later.",
+      "reason": "Provenance: names the earlier source file this rewrite replaces; the note records that the bare layout was real on 2026-10-06 and changed later.",
       "claims": [
         "bare-root-storage"
       ]
@@ -130,7 +130,7 @@
     {
       "path": "wiki/decisions/ADR-0008 Owner merges pull requests on GitHub.md",
       "contains": "\"Agents merge through an audited gate\"",
-      "reason": "History: the decision records the Zimi ADR it reverses, quoting that ADR's title.",
+      "reason": "History: the decision records the earlier ADR it reverses, quoting that ADR's title.",
       "claims": [
         "agents-self-merge"
       ]

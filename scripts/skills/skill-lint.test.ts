@@ -33,7 +33,7 @@ await test("rejects unknown arguments", () => {
 });
 
 const SKILL = "---\nname: alpha\ndescription: Use when testing.\n---\n\nBody.\n";
-const baseline = (installed: string): string => JSON.stringify({ skills: [{ name: "alpha", source: "zimi@9fb36b2", sourceSha256: "a".repeat(64), installedSha256: installed }] });
+const baseline = (installed: string): string => JSON.stringify({ skills: [{ name: "alpha", source: "example@0000000", sourceSha256: "a".repeat(64), installedSha256: installed }] });
 
 function branchWithBaseline(t: TestContext): ReturnType<typeof createRepo> {
   const repo = createRepo("skill-lint-history-");

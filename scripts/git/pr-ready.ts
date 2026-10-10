@@ -1,9 +1,8 @@
 // npm run pr: get a branch ready for the owner to merge, and open its pull request.
 //
-// It replaces Zimi's self-merging gate, which merged and pushed main itself. This never merges
-// and never touches main (owner decision, 2026-10-09): it refuses unless the branch is clean,
-// contains origin/main (so the branch is the merge result) and passes npm run check, then
-// pushes the branch and opens or reports its PR. Merging is the owner's act on GitHub.
+// It never merges and never touches main (owner decision, 2026-10-09): it refuses unless the
+// branch is clean, contains origin/main (so the branch is the merge result) and passes
+// npm run check, then pushes the branch and opens or reports its PR. Merging is the owner's act on GitHub.
 import { spawnSync } from "node:child_process";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
 import { environmentFor } from "../lib/git.ts";

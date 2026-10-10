@@ -1,5 +1,5 @@
 // Which paths a branch's change-record guards care about. One source for both the
-// changelog guard and the repo-memory guard: Zimi kept two lists, and they disagreed.
+// changelog guard and the repo-memory guard, because two separate lists drift apart.
 //
 // Matching is case-insensitive (macOS and Windows checkouts resolve `Scripts/` to
 // `scripts/`), and `.` matches newlines, because git paths can contain them.

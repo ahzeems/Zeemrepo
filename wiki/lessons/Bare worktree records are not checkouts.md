@@ -4,14 +4,14 @@ title: Bare worktree records are not checkouts
 summary: Parse git worktree porcelain as whole records and keep the bare attribute before running working-tree commands on each entry.
 tags: [area/git, kind/pitfall]
 created: 2026-10-06
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 ---
 
 ## What happened
 
-In Zimi, `git worktree list --porcelain` included the common repository as its first record and
+In an earlier repository, `git worktree list --porcelain` included the common repository as its first record and
 marked it `bare`. The worktree guard's parser kept only each `worktree` line, so the guard later
 ran `git status` in that bare repository and failed:
 
@@ -45,5 +45,3 @@ contain, including the unusual ones (here, a bare record), so a lossy parser fai
 The Zeemrepo root is a normal, non-bare checkout, so its first record is a checkout. A bare
 record appears only in a clone whose common repository is bare, and the parser still has to
 handle it.
-
-Ported from Zimi `wiki/lessons/Bare worktree records are not checkouts.md` at 9fb36b2.

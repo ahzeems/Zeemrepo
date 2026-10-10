@@ -1,8 +1,7 @@
 import { WIKI_DIR } from "../lib/paths.ts";
 
 // The wiki commit rule: wiki files are committed alone, with a conventional `docs(wiki):`
-// subject. Zimi first had this in prose only and it was broken anyway, because prose does
-// not run. Pure and read-only; the CLI lives in wiki-compliance.ts.
+// subject. It is a check because a rule in prose only gets broken: prose does not run. Pure and read-only; the CLI lives in wiki-compliance.ts.
 // resolutionOnly: a merge whose own changes (its --remerge-diff) only resolve conflicts.
 // octopus: a merge of three or more parents, which git cannot remerge, so it cannot be judged.
 export type Commit = { sha: string; subject: string; files: readonly string[]; resolutionOnly?: boolean; octopus?: boolean };

@@ -4,7 +4,7 @@ title: Skill integration must preserve the method
 summary: Adapting imported skills to local style changed their methods; keep source wording and review each interface substitution separately from the method.
 tags: [area/agents, area/docs, tool/claude-code, kind/pitfall]
 created: 2026-09-20
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 related: ["[[Skill restoration needs source comparison]]", "[[Skill standards]]"]
@@ -12,7 +12,7 @@ related: ["[[Skill restoration needs source comparison]]", "[[Skill standards]]"
 
 ## What happened
 
-In Zimi, the owner found that imported skills had lost their original wording. The `teach` skill
+In an earlier repository, the owner found that imported skills had lost their original wording. The `teach` skill
 had replaced the supplied parallel orchestration with sequential source and rationale passes, and
 another imported skill had replaced its parallel mining step the same way. Descriptions, examples
 and metadata had been rewritten to fit local style and loading budgets. Review checked file paths
@@ -44,5 +44,3 @@ landed entry or revision is rewritten or removed.
   companion files.
 - Prevention: no automatic semantic check exists. Source comparison by a separate reviewer is the
   manual control; discovery and lint alone do not establish fidelity.
-
-Ported from Zimi `wiki/lessons/Skill integration must preserve the method.md` at 9fb36b2.

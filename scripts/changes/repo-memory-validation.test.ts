@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { CHANGELOG } from "../lib/paths.ts";
 import { memoryRefusals, type RecordChange } from "./repo-memory-validation.ts";
 
-const PATH = "wiki/work/projects/Zimi migration.md";
+const PATH = "wiki/work/projects/Example project.md";
 const before = { status: "backlog", next_action: "Start.", evidence: ["VERIFIED: old result"] };
 const record = (after: Record<string, unknown> | null, was: Record<string, unknown> | null = before, afterText = "", beforeText = ""): RecordChange =>
   ({ path: PATH, before: was, after, beforeText, afterText });

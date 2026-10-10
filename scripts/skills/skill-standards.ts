@@ -3,9 +3,9 @@ import { join } from "node:path";
 import { isRecord } from "../lib/record.ts";
 import { CONFIG_DIR } from "../lib/paths.ts";
 
-// Structural standards for the skill library, from write-skill's contract. Zimi also listed
-// "routes" (documents that had to link every skill) because OpenCode and Codex only found
-// skills that way; Claude Code discovers skills from their descriptions, so that is gone.
+// Structural standards for the skill library, from write-skill's contract. There are no
+// "routes" (documents that must link every skill): Claude Code discovers skills from their
+// descriptions.
 export type Allowance = { skill: string; rule: AllowanceRule; reason: string };
 export type SkillStandards = {
   descriptionLimit: number;

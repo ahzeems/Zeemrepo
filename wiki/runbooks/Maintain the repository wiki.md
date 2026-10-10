@@ -4,7 +4,7 @@ title: Maintain the repository wiki
 summary: Keep wiki explanations, work records, the Memory index and CHANGELOG.md current in the same branch as the change, and commit wiki files alone.
 tags: [area/wiki, area/docs, area/git, kind/convention]
 created: 2026-09-21
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 related: ["[[Land a change]]", "[[Change records]]", "[[Walkthroughs should not duplicate skill rules]]"]
@@ -87,7 +87,3 @@ records hold scope and evidence. Sessions and superseded decisions are history.
 | Is every memory note indexed? | `npm run wiki:lint` reports no unindexed note | An index line can still be stale |
 | Are explanations and work state true? | A separate reviewer compares changed behaviour with the notes | Human or model judgment, with stated evidence |
 | Did it land? | `gh pr view <N> --json state,mergedBy` shows `MERGED`; `npm run audit` passes | Says nothing about any reader's copy |
-
-Ported from Zimi `wiki/runbooks/Maintain the repository wiki.md` at 9fb36b2. Rewritten for
-Zeemrepo's pull-request landing and root `CHANGELOG.md`; the website handoff section was dropped
-because Zeemrepo has no website reader.

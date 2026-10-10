@@ -4,10 +4,10 @@ title: Root shell hides user-installed tools
 summary: In a root shell, gh is 'command not found', ~ points to /root and git over SSH is denied, because the tools and SSH keys belong to the normal user.
 tags: [area/shell, tool/gh, tool/ssh, kind/pitfall]
 created: 2026-09-20
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
-related: ["[[Agents cannot enter a sudo password]]", "[[Passphrase-protected SSH keys block agent pushes]]"]
+related: []
 ---
 
 ## What happened
@@ -66,5 +66,3 @@ for root and hides the real problem.
   with `find . -user root` afterwards.
 - Some user-level package managers refuse to run as root by design; root is never the right place
   for a per-user toolchain.
-
-Ported from Zimi `wiki/lessons/Root shell hides user-installed tools.md` at 9fb36b2.

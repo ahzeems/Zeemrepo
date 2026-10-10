@@ -4,7 +4,7 @@ title: A refused commit leaves its staging behind
 summary: A commit refused by pre-commit kept code files staged; the retry added wiki files and committed the whole index, mixing the two. pre-commit now checks the staged paths.
 tags: [area/git, area/agents, area/wiki, kind/pitfall]
 created: 2026-10-07
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 related: ["[[Prose rules do not enforce themselves]]"]
@@ -12,7 +12,7 @@ related: ["[[Prose rules do not enforce themselves]]"]
 
 ## What happened
 
-In Zimi on 2026-10-07, two commits in a row were refused by the pre-commit hook. In the second
+In an earlier repository on 2026-10-07, two commits in a row were refused by the pre-commit hook. In the second
 attempt the code files had already been staged for the planned code commit. The retry staged the
 wiki files and ran `git commit` for the wiki commit, which committed the whole index:
 
@@ -59,5 +59,3 @@ The refusal does not unstage anything. With the hooks installed (`npm run hooks:
 pre-commit catches a mixed index outside a merge or an amend. Hooks are per clone, so without
 them it does not; the history check in `npm run check` (run by pre-push and by CI) still refuses
 the mixed commit, but only after it exists.
-
-Ported from Zimi `wiki/lessons/A refused commit leaves its staging behind.md` at 9fb36b2.

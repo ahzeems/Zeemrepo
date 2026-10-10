@@ -4,7 +4,7 @@ title: Documentation checkers need counterexamples
 summary: A checker tested only on current prose can pass negated claims or reject valid prohibitions; replay both broken and valid documents through the real checker.
 tags: [area/agents, area/typescript, area/docs, kind/pitfall]
 created: 2026-09-21
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 related: ["[[Wiki validation needs parsed metadata]]"]
@@ -12,7 +12,7 @@ related: ["[[Wiki validation needs parsed metadata]]"]
 
 ## What happened
 
-In Zimi, a review of a documentation checker (one that asserted the docs described the vault
+In an earlier repository, a review of a documentation checker (one that asserted the docs described the vault
 location and the optional viewer correctly) had already found three assertions that matched
 vocabulary without proving the named claim. A replay against the merged checker found more:
 negated location and viewer claims passed, while CRLF wrapping and a valid prohibition failed.
@@ -49,5 +49,3 @@ or the child's tests may be skipped and a skipped child will look like a pass.
 Known phrases are a bounded check: they cannot establish general semantic correctness. A
 positive result is evidence for the inputs tried, not a claim that every future contradiction
 will be caught.
-
-Ported from Zimi `wiki/lessons/Documentation checkers need counterexamples.md` at 9fb36b2.

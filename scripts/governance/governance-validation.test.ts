@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { checkGovernance, configProblems, globToRegExp, normalizeText, readConfig } from "./governance-validation.ts";
 
-const claim = { id: "self-merge-gate", pattern: "npm\\s+run\\s+gate", supersededBy: "PR-only landing (zimi-audit rule 5)" };
+const claim = { id: "self-merge-gate", pattern: "npm\\s+run\\s+gate", supersededBy: "PR-only landing" };
 const exclude = [{ glob: "CHANGELOG.md", reason: "history" }];
 const valid = { surfaces: ["**"], exclude, staleClaims: [claim], allowed: [] };
 const check = (text: string, allowed: unknown[] = [], path = "README.md") => checkGovernance([{ path, text }], { staleClaims: [claim], allowed: readConfig({ ...valid, allowed }).allowed });
@@ -45,27 +45,27 @@ await test("normalizeText folds look-alikes and curly quotes", () => {
 });
 
 await test("an allowance excuses only the quoted span, for the named claims", async (t) => {
-  const history = { path: "README.md", contains: "Zimi historically ran npm run gate", reason: "history", claims: [claim.id] };
+  const history = { path: "README.md", contains: "The old process ran npm run gate", reason: "history", claims: [claim.id] };
   await t.test("excuses the quoted sentence", () => {
-    const result = check("Zimi historically ran npm run gate.\n", [history]);
+    const result = check("The old process ran npm run gate.\n", [history]);
     assert.deepEqual(result.violations, []);
     assert.deepEqual(result.unusedAllowances, []);
   });
   await t.test("does not launder a new claim on the same line", () => {
-    assert.equal(check("Zimi historically ran npm run gate; now run npm run gate too.\n", [history]).violations.length, 1);
+    assert.equal(check("The old process ran npm run gate; now run npm run gate too.\n", [history]).violations.length, 1);
   });
   await t.test("does not excuse another file", () => {
-    assert.equal(check("Zimi historically ran npm run gate.\n", [history], "docs/other.md").violations.length, 1);
+    assert.equal(check("The old process ran npm run gate.\n", [history], "docs/other.md").violations.length, 1);
   });
   await t.test("a narrowed allowance does not excuse another claim", () => {
-    const result = check("Zimi historically ran npm run gate.\n", [{ ...history, claims: ["other-claim"] }]);
+    const result = check("The old process ran npm run gate.\n", [{ ...history, claims: ["other-claim"] }]);
     assert.equal(result.violations.length, 1);
     assert.equal(result.unusedAllowances.length, 1);
   });
   await t.test("every matching allowance is marked used, and an unmatched one is reported", () => {
-    const twin = { ...history, contains: "historically ran npm run gate", reason: "history twin" };
+    const twin = { ...history, contains: "process ran npm run gate", reason: "history twin" };
     const stale = { ...history, contains: "never appears in the file" };
-    const result = check("Zimi historically ran npm run gate.\n", [history, twin, stale]);
+    const result = check("The old process ran npm run gate.\n", [history, twin, stale]);
     assert.deepEqual(result.unusedAllowances.map((entry) => entry.contains), ["never appears in the file"]);
   });
 });
@@ -99,8 +99,8 @@ await test("globToRegExp matches exact paths, stars, odd characters and newlines
 await test("line numbers and allowances stay aligned around astral and case-changing characters", () => {
   const emoji = "\u{1F600}".repeat(20);
   assert.deepEqual(check(`${emoji}\nok\nRun npm run gate.\n`).violations.map((violation) => violation.line), [3]);
-  const allowed = [{ path: "README.md", contains: "Zimi historically ran npm run gate", reason: "history", claims: [claim.id] }];
-  const result = check("\u0130\u0130\u0130\u0130\u0130 intro. Zimi historically ran npm run gate.\n", allowed);
+  const allowed = [{ path: "README.md", contains: "The old process ran npm run gate", reason: "history", claims: [claim.id] }];
+  const result = check("\u0130\u0130\u0130\u0130\u0130 intro. The old process ran npm run gate.\n", allowed);
   assert.deepEqual(result.violations, []);
   assert.deepEqual(result.unusedAllowances, []);
 });

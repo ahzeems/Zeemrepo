@@ -531,7 +531,7 @@ class Confinement(unittest.TestCase):
 
 
 class RepositorySnapshot(unittest.TestCase):
-    def test_holds_committed_files_but_not_the_reports_or_the_seeds(self) -> None:
+    def test_holds_committed_files_but_not_the_reports_or_the_specs(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             repo = Path(directory)
             git = lambda *args: subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True, env=run_comply.isolated_env(dict(os.environ), repo / "gh"))
@@ -539,7 +539,6 @@ class RepositorySnapshot(unittest.TestCase):
             (repo / "CLAUDE.md").write_text("constitution\n")
             (repo / "evals/compliance/reports").mkdir(parents=True)
             (repo / "evals/compliance/reports/old.md").write_text("an old score\n")
-            (repo / "evals/compliance/seeds.md").write_text("expected behaviour\n")
             (repo / "evals/compliance/specs").mkdir()
             (repo / "evals/compliance/specs/x.yaml").write_text("steps: []\n")
             (repo / "evals/compliance/run_comply.py").write_text("# wrapper\n")
@@ -550,8 +549,7 @@ class RepositorySnapshot(unittest.TestCase):
             self.assertIn("CLAUDE.md", names)
             self.assertIn("evals/compliance/run_comply.py", names, "npm run check needs the wrapper's tests")
             self.assertFalse(any(name.startswith("evals/compliance/reports") for name in names))
-            self.assertNotIn("evals/compliance/seeds.md", names, "the expected behaviours are not handed to the agent")
-            self.assertFalse(any(name.startswith("evals/compliance/specs") for name in names), "nor are the pinned specs")
+            self.assertFalse(any(name.startswith("evals/compliance/specs") for name in names), "the expected behaviours are not handed to the agent")
 
 
 @dataclasses.dataclass(frozen=True)

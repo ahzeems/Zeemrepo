@@ -4,7 +4,7 @@ title: A rule built from the environment needs testing in that environment
 summary: A redaction rule derived the account name serving a page; in a container that name was node, so every page was withheld while every test passed.
 tags: [area/auth, area/typescript, kind/pitfall]
 created: 2026-09-21
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 related: ["[[Redaction checks must cover code, not only notes]]"]
@@ -12,7 +12,7 @@ related: ["[[Redaction checks must cover code, not only notes]]"]
 
 ## What happened
 
-In Zimi, a publication guard refused a page containing the operator's own identifiers. Rather
+In an earlier repository, a publication guard refused a page containing the operator's own identifiers. Rather
 than committing a hostname or username to the repository, it derived them at run time from the
 process:
 
@@ -60,5 +60,3 @@ the input, or accept that the first real deployment is the test.
 The failure was visible at once because the service logged every withheld page with the rule
 that fired, and never the value. A guard that refuses silently would have looked like an empty
 site with no explanation.
-
-Ported from Zimi `wiki/lessons/A rule built from the environment needs testing in that environment.md` at 9fb36b2.

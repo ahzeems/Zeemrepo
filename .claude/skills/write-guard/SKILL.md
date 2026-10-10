@@ -1,13 +1,12 @@
 ---
 name: write-guard
-description: "Add or change a repository check or guard, test first, so it can actually fail. For designing a new agent action or CLI verb, use design-actions."
+description: "Add or change a repository check or guard, test first, so it can actually fail."
 ---
 
-A check that cannot fail protects nothing, and Zimi learned each step below from a check that
-passed while the rule it stood for was being broken. The steps are in order, and the tests come
-before the guard, as the test-first rule requires. The proof rules live in
+A check that cannot fail protects nothing, and each step below comes from a check that passed
+while the rule it stood for was being broken. The steps are in order, and the tests come before
+the guard, as the test-first rule requires. The proof rules live in
 [evidence-and-review](../../rules/zeem/evidence-and-review.md); the CLI conventions in
-[design-actions](../design-actions/SKILL.md) and
 [design-principles](../../rules/zeem/design-principles.md). This skill links them rather than
 restating them.
 

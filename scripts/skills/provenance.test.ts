@@ -19,7 +19,7 @@ function repo(t: TestContext): string {
 }
 
 function entry(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-  return { name: "alpha", source: "zimi@9fb36b2", sourceSha256: provenanceHash(SKILL), installedSha256: provenanceHash(SKILL), ...overrides };
+  return { name: "alpha", source: "example@0000000", sourceSha256: provenanceHash(SKILL), installedSha256: provenanceHash(SKILL), ...overrides };
 }
 
 function check(root: string, entries: unknown[]): string[] {
@@ -127,7 +127,7 @@ await test("history: rewriting or removing landed provenance is refused", () => 
 });
 
 await test("history: a landed source cannot be rewritten", () => {
-  const withSource = { skills: [{ ...landed.skills[0], source: "Zimi at 9fb36b2" }] };
+  const withSource = { skills: [{ ...landed.skills[0], source: "example at 0000000" }] };
   const rewritten = { skills: [{ ...landed.skills[0], source: "somewhere else" }] };
   assert.match(baselineHistoryErrors(withSource, rewritten).join(), /landed source was rewritten/);
 });

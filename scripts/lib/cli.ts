@@ -1,4 +1,5 @@
 import { realpathSync } from "node:fs";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { inspect } from "node:util";
 
@@ -23,6 +24,35 @@ export function report(refusals: readonly string[], success: string, output: Out
   }
   for (const refusal of refusals) output.warn(refusal);
   return EXIT_REFUSED;
+}
+
+/** `--root <path>` for a checker run against a fixture tree, or `fallback`; anything else throws `usage`. */
+export function rootFrom(args: readonly string[], fallback: string, usage: string): string {
+  if (args.length === 0) return fallback;
+  const [flag, value, ...rest] = args;
+  if (flag !== "--root" || value === undefined || rest.length > 0) throw new Error(usage);
+  return resolve(value);
+}
+
+export type ModeSpec = { name: string; usage: string; modes: readonly string[] };
+
+function modeList(modes: readonly string[]): string {
+  if (modes.length === 1) return `or ${modes[0] ?? ""}`;
+  return `${modes.slice(0, -1).join(", ")} or ${modes.at(-1) ?? ""}`;
+}
+
+/** A guard's arguments: nothing, or one of its modes. --help prints usage; anything else is an error. */
+export function readMode(args: readonly string[], spec: ModeSpec, output: Output): { mode: string | undefined } | { exit: number } {
+  const [first, ...rest] = args;
+  if (first === "--help") {
+    output.write(spec.usage);
+    return { exit: EXIT_OK };
+  }
+  if (rest.length > 0 || (first !== undefined && !spec.modes.includes(first))) {
+    output.warn(`${spec.name}: pass no arguments, ${modeList(spec.modes)}. See --help.`);
+    return { exit: EXIT_ERROR };
+  }
+  return { mode: first };
 }
 
 function describe(error: unknown): string[] {

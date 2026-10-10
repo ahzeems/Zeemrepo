@@ -1,7 +1,7 @@
 // CLI for the worktree rules. Read-only; run with npm run worktree:guard before removing a
 // checkout. Reports work that exists only on this machine.
-import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
-import { git, type GitOptions } from "../lib/git.ts";
+import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, readMode, runCli, type Output } from "../lib/cli.ts";
+import { git, gitOptionsAt, type GitOptions } from "../lib/git.ts";
 import { countLines, describeRisk, parseWorktrees, type Risk } from "./worktree-validation.ts";
 
 export type Options = { cwd?: string; output?: Output };
@@ -21,18 +21,12 @@ function inspect(path: string): Risk {
 
 export function main(args: readonly string[], options: Options = {}): number {
   const output = options.output ?? consoleOutput;
-  if (args[0] === "--help") {
-    output.write(USAGE);
-    return EXIT_OK;
-  }
-  if (args.length > 1 || (args.length === 1 && args[0] !== "--json")) {
-    output.warn("worktree-guard: pass no arguments, or --json. See --help.");
-    return EXIT_ERROR;
-  }
+  const parsed = readMode(args, { name: "worktree-guard", usage: USAGE, modes: ["--json"] }, output);
+  if ("exit" in parsed) return parsed.exit;
   let risks: Risk[];
   try {
     // git ends -z porcelain with NUL NUL, which git() leaves intact (it strips newlines only).
-    const listing = git(["worktree", "list", "--porcelain", "-z"], options.cwd === undefined ? {} : { cwd: options.cwd });
+    const listing = git(["worktree", "list", "--porcelain", "-z"], gitOptionsAt(options.cwd));
     risks = parseWorktrees(listing).filter((worktree) => !worktree.bare).map((worktree) => inspect(worktree.path))
     .filter((risk) => risk.uncommitted > 0 || risk.unpushed > 0);
   } catch (error) {
@@ -41,7 +35,7 @@ export function main(args: readonly string[], options: Options = {}): number {
     output.write(JSON.stringify({ safe: false, risks: [], error: error instanceof Error ? error.message : String(error) }));
     return EXIT_ERROR;
   }
-  if (args[0] === "--json") output.write(JSON.stringify({ safe: risks.length === 0, risks }));
+  if (parsed.mode === "--json") output.write(JSON.stringify({ safe: risks.length === 0, risks }));
   else if (risks.length === 0) output.write("worktree-guard: every worktree is committed and pushed");
   else {
     for (const risk of risks) output.warn(`worktree-guard: ${describeRisk(risk)}`);

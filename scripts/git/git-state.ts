@@ -13,7 +13,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
-import { GitError, git, type GitOptions } from "../lib/git.ts";
+import { GitError, git, gitOptionsAt, type GitOptions } from "../lib/git.ts";
 import { isRecord } from "../lib/record.ts";
 
 export type Options = { cwd?: string; output?: Output; stdin?: string };
@@ -129,7 +129,7 @@ function stateChanges(before: GitState, after: GitState): string[] {
 
 export function main(args: readonly string[], options: Options = {}): number {
   const output = options.output ?? consoleOutput;
-  const gitOptions: GitOptions = options.cwd === undefined ? {} : { cwd: options.cwd };
+  const gitOptions = gitOptionsAt(options.cwd);
   const [mode, ...rest] = args;
   if (mode === "--help") {
     output.write(USAGE);

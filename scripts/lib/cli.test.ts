@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, report, runCli, type Output } from "./cli.ts";
+import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, readMode, report, rootFrom, runCli, type Output } from "./cli.ts";
 
 function capture(): Output & { out: string[]; err: string[] } {
   const out: string[] = [];
@@ -83,4 +83,26 @@ await test("isEntryPoint is true only for the script node was started with", asy
   assert.equal(isEntryPoint(import.meta.url), true);
   assert.equal(isEntryPoint(new URL("./cli.ts", import.meta.url).href), false);
   assert.equal(isEntryPoint(new URL("./does-not-exist.ts", import.meta.url).href), false);
+});
+
+await test("readMode accepts no argument or one allowed flag, prints help, and refuses anything else", () => {
+  const lines: string[] = [];
+  const output: Output = { write: (line) => lines.push(`out ${line}`), warn: (line) => lines.push(`err ${line}`) };
+  const spec = { name: "guard", usage: "usage: guard", modes: ["--json", "--staged"] };
+  assert.deepEqual(readMode([], spec, output), { mode: undefined });
+  assert.deepEqual(readMode(["--staged"], spec, output), { mode: "--staged" });
+  assert.deepEqual(readMode(["--help"], spec, output), { exit: EXIT_OK });
+  assert.deepEqual(readMode(["--bogus"], spec, output), { exit: EXIT_ERROR });
+  assert.deepEqual(readMode(["--json", "--staged"], spec, output), { exit: EXIT_ERROR });
+  assert.deepEqual(lines, ["out usage: guard", "err guard: pass no arguments, --json or --staged. See --help.",
+    "err guard: pass no arguments, --json or --staged. See --help."]);
+  const one: string[] = [];
+  readMode(["x"], { name: "g", usage: "", modes: ["--json"] }, { write: () => undefined, warn: (line) => one.push(line) });
+  assert.deepEqual(one, ["g: pass no arguments, or --json. See --help."]);
+});
+
+await test("rootFrom reads --root <path>, defaults to the fallback, and throws the usage otherwise", () => {
+  assert.equal(rootFrom([], "/repo", "usage"), "/repo");
+  assert.equal(rootFrom(["--root", "/tmp/x"], "/repo", "usage"), "/tmp/x");
+  for (const args of [["--root"], ["--other", "x"], ["--root", "x", "y"]]) assert.throws(() => rootFrom(args, "/repo", "usage"), /usage/);
 });

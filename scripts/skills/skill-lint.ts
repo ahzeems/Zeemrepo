@@ -1,7 +1,7 @@
 // CLI for the skill library standards. Read-only; run with npm run skills:lint.
 import { existsSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { consoleOutput, isEntryPoint, report, runCli, type Output } from "../lib/cli.ts";
+import { join } from "node:path";
+import { consoleOutput, isEntryPoint, report, rootFrom, runCli, type Output } from "../lib/cli.ts";
 import { git, mergeBase, tryGit } from "../lib/git.ts";
 import { BASELINE_PATH, baselineHistoryErrors } from "./provenance.ts";
 import { validateSkills } from "./skill-validation.ts";
@@ -10,13 +10,6 @@ export type Options = { output?: Output; cwd?: string };
 
 const REPOSITORY = join(import.meta.dirname, "../..");
 const USAGE = "usage: node scripts/skills/skill-lint.ts [--root <repository>]";
-
-function rootFrom(args: readonly string[], cwd: string | undefined): string {
-  if (args.length === 0) return cwd ?? REPOSITORY;
-  const [flag, value, ...rest] = args;
-  if (flag !== "--root" || value === undefined || rest.length > 0) throw new Error(USAGE);
-  return resolve(value);
-}
 
 function parseJson(text: string): unknown {
   try {
@@ -44,7 +37,7 @@ function historyErrors(root: string, output: Output): string[] {
 
 export function main(args: readonly string[], options: Options = {}): number {
   const output = options.output ?? consoleOutput;
-  const root = rootFrom(args, options.cwd);
+  const root = rootFrom(args, options.cwd ?? REPOSITORY, USAGE);
   const result = validateSkills(root);
   const errors = [...result.errors, ...historyErrors(root, output)];
   return report(errors.map((error) => `  x ${error}`), `skills-lint: ${result.skillCount} skill(s) OK`, output);

@@ -2,6 +2,11 @@ import { execFileSync } from "node:child_process";
 
 export type GitOptions = { cwd?: string };
 
+/** Options for a repository named by `cwd`, or for the current one when there is none. */
+export function gitOptionsAt(cwd: string | undefined): GitOptions {
+  return cwd === undefined ? {} : { cwd };
+}
+
 export class GitError extends Error {
   readonly args: readonly string[];
   readonly stderr: string;

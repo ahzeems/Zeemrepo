@@ -46,14 +46,19 @@ yet: re-run it.
 
 | Backstop | Refuses |
 |---|---|
-| `.githooks/pre-commit` (`branch-guard.ts commit`, `wiki-compliance.ts --staged`) | Commits on main or a detached HEAD, and a staged mix of wiki and other files |
+| `.githooks/pre-commit` (`branch-guard.ts commit`, `wiki-compliance.ts --staged`, then lint, typecheck, `wiki:lint` and `skills:lint`) | Commits on main or a detached HEAD, a staged mix of wiki and other files, and a tree that fails those checks. It does not run the tests: `npm run check` before committing does, and pre-push runs it. |
 | `.githooks/pre-push` (`branch-guard.ts push`) | Pushes to main, rewrites of a published branch, deletion of a branch not contained in `origin/main`; then runs `npm run check` and refuses if the check changed HEAD, the branch, `core.bare`, local or per-worktree git config, refs, the index or the working tree (`git-state.ts`) |
-| `.claude/settings.json` deny rules | `git push origin main`, force pushes, `gh pr merge`, and the REST merge endpoint |
+| `.claude/settings.json` deny rules | `git push origin main`, force pushes, `gh pr merge`, `gh pr review --approve` and the REST merge endpoint, each matched as a command prefix (so `gh pr review 12 --approve` passes them; the hook below catches it) |
 | `scripts/claude/block-pr-merge.ts` (PreToolUse hook) | Bash commands that push to main in the common refspec forms (`HEAD:main`, `+x:main`, `refs/heads/main`, `:main`, `--all`, `--mirror`, after `-C`, `-c`, `--git-dir`, `--work-tree`; not quoted refspecs), and that merge or approve a PR in other spellings: `gh pr merge` behind wrappers or flags, a PUT to `pulls/<n>/merge` through `gh api`, `curl` or `wget`, the GraphQL merge and auto-merge mutations, `gh pr review --approve`, and an `APPROVE` review through the REST or GraphQL API |
 
 The hook is a heuristic, not a sandbox; the `protect-main` ruleset (no bypass actors) and the
 owner's review are the control. `npm run audit` asks `gh` with a 60-second timeout, so a hung `gh`
-is an error, not a stall.
+is an error, not a stall. Pre-push skips its `npm run check` when `PR_READY_CHECKED` names the
+commit being pushed, which `npm run pr` sets after running the check itself; anyone can set it, so
+CI is what enforces the check. ECC's own plugin hooks also run in this repository (hook profile
+`standard`): GateGuard asks for facts before a first edit or command and before destructive commands,
+and config-protection refuses agent edits to `eslint.config.ts`, so a change that rule files require
+there (`change-records.md`) is made by the owner.
 
 ## Commands
 

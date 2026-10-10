@@ -4,7 +4,7 @@ title: Change records
 summary: What every branch must record before it lands, which guard checks it, and how to satisfy each.
 tags: [area/git, kind/convention]
 created: 2026-10-09
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 ---
@@ -23,8 +23,8 @@ files), so the commit that satisfies a rule is never refused for lacking it. Exi
 
 Exempt paths (no changelog entry or work record needed): `wiki/sessions/`, `.gitignore`
 files and `package-lock.json`, unless the path is workflow-critical. Workflow-critical paths:
-`.githooks/`, `.github/`, `scripts/`, `config/`, any `.claude/` folder, `CLAUDE.md`,
-`README.md`, and root tooling files. The single source is `scripts/lib/change-policy.ts`.
+`.githooks/`, `.github/`, `scripts/`, `config/`, `evals/compliance/` except its `reports/`,
+any `.claude/` folder, `CLAUDE.md`, `README.md`, and root tooling files. The single source is `scripts/lib/change-policy.ts`.
 
 The `guards` workflow runs these guards from main's copy against each pull request on
 `pull_request_target`, so a branch can neither change the guard code nor edit the workflow that runs them. The guards

@@ -4,12 +4,14 @@ title: Migrate Zimi into Zeemrepo
 summary: Bring Zimi's governance, wiki and skills into a Claude-Code-only repo, reviewed and improved with ECC.
 tags: [area/planning, tool/ecc]
 created: 2026-10-09
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: in-progress
 owner: human
 priority: P1
-next_action: Deliver the phases tracked in the Zimi migration project.
+next_action: "Finish the owner steps tracked in the Zimi migration project."
+evidence:
+  - "VERIFIED: delivered through owner-merged pull requests #1 to #20 (except #17, closed unmerged), tracked in wiki/work/projects/Zimi migration.md; the machine-account branch and the owner steps it names remain."
 project: "[[Zimi migration]]"
 ---
 

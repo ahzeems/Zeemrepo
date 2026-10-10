@@ -128,14 +128,6 @@
       ]
     },
     {
-      "path": "wiki/decisions/ADR-0008 Owner merges pull requests on GitHub.md",
-      "contains": "\"Agents merge through an audited gate\"",
-      "reason": "History: the decision records the earlier ADR it reverses, quoting that ADR's title.",
-      "claims": [
-        "agents-self-merge"
-      ]
-    },
-    {
       "path": ".claude/skills/domain-modeling/ADR-FORMAT.md",
       "contains": "ADRs live in `docs/adr/` and use sequential numbering",
       "reason": "Matt Pocock upstream body, kept verbatim under its MIT attribution and baseline hash; the skill's Repository integration section and ADR-FORMAT.md header override it with wiki/decisions.",

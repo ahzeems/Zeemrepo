@@ -26,7 +26,7 @@ function fixture(t: TestContext): RepoFixture {
 }
 
 // npm and gh are faked; git runs for real against the fixture and its bare remote.
-type Outcomes = { check?: number; prView?: string; ghAuth?: number };
+type Outcomes = { check?: number; prView?: string; ghAuth?: number; ghUser?: string };
 
 function runner(repo: RepoFixture, outcomes: Outcomes = {}): { run: Run; calls: (Call & { inherit: boolean; env: Record<string, string> })[] } {
   const calls: (Call & { inherit: boolean; env: Record<string, string> })[] = [];
@@ -34,6 +34,8 @@ function runner(repo: RepoFixture, outcomes: Outcomes = {}): { run: Run; calls: 
     calls.push({ command, args, inherit: options.inherit === true, env: options.env ?? {} });
     if (command === "npm") return { status: outcomes.check ?? 0, stdout: "" };
     if (command === "gh" && args[0] === "auth") return { status: outcomes.ghAuth ?? 0, stdout: "" };
+    if (command === "gh" && args[0] === "api" && args[1] === "user") return { status: 0, stdout: `${outcomes.ghUser ?? "machine-bot"}\n` };
+    if (command === "gh" && args[0] === "repo" && args[1] === "view") return { status: 0, stdout: "repo-owner\n" };
     if (command === "gh" && args[1] === "view") return outcomes.prView === undefined ? { status: 1, stdout: "" } : { status: 0, stdout: outcomes.prView };
     if (command === "gh" && args[1] === "create") return { status: 0, stdout: "https://github.com/o/r/pull/7\n" };
     if (command === "git") {
@@ -91,6 +93,16 @@ await test("gh is checked before anything is pushed", (t) => {
   assert.equal(result.code, EXIT_REFUSED);
   assert.match(result.err, /gh auth login/);
   assert.ok(!calls.some((call) => call.args[0] === "push"));
+});
+
+await test("gh logged in as the repository owner is refused before anything is pushed", (t) => {
+  const repo = fixture(t);
+  const { run, calls } = runner(repo, { ghUser: "repo-owner" });
+  const result = go(repo, run);
+  assert.equal(result.code, EXIT_REFUSED);
+  assert.match(result.err, /machine account/);
+  assert.ok(!calls.some((call) => call.args[0] === "push"), "nothing is pushed under the owner's login");
+  assert.ok(!calls.some((call) => call.command === "gh" && call.args[1] === "create"));
 });
 
 await test("--dry-run checks but does not push or open a PR", (t) => {

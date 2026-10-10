@@ -90,6 +90,12 @@ await test("Dependabot proposes updates for the pinned actions and the npm depen
   assert.doesNotMatch(config, /auto-?merge/i);
 });
 
+await test("only the repository owner is a code owner, so only the owner's approval satisfies the ruleset", () => {
+  const owners = readFileSync(join(root, ".github/CODEOWNERS"), "utf8").split("\n").map((line) => line.trim())
+    .filter((line) => line !== "" && !line.startsWith("#"));
+  assert.deepEqual(owners, ["* @ahzeems"], "one rule: every path is owned by the owner alone");
+});
+
 await test("Dependabot never proposes a TypeScript or Node types update the linter or Node 24 cannot take", () => {
   const config: unknown = parse(readFileSync(join(root, ".github/dependabot.yml"), "utf8"));
   assert.ok(isRecord(config) && Array.isArray(config.updates));

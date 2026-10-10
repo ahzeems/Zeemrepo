@@ -1,0 +1,3 @@
+# Only the owner approves: with "Require review from Code Owners" on in the protect-main ruleset,
+# an approval from the machine account (or anyone else) does not count (ADR-0025).
+* @ahzeems

@@ -1,6 +1,6 @@
 // npm run audit: does every commit on main's first-parent history since the PR-only rule
-// began correspond to a pull request the owner merged? Read-only. Zimi's audit walked git
-// notes, which do not travel with fetch; this asks GitHub, which records every merge.
+// began correspond to a pull request the owner merged? Read-only. It asks GitHub, which
+// records every merge, rather than git notes, which do not travel with fetch.
 import { spawnSync } from "node:child_process";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
 import { git, gitLines, gitOptionsAt, type GitOptions } from "../lib/git.ts";

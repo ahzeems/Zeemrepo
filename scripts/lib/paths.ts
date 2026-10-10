@@ -1,5 +1,5 @@
-// Repository-relative paths shared by the guards. Each is defined once (Zimi defined the
-// changelog path in two modules, which is how they drifted apart).
+// Repository-relative paths shared by the guards. Each is defined once: a path defined in two
+// modules can drift apart.
 
 // At the root, not in wiki/: a code branch's entry then lives in an ordinary commit
 // instead of needing a separate wiki-only commit.

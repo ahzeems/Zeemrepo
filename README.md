@@ -1,8 +1,7 @@
 # Zeemrepo
 
-A Claude-Code-only repository for agent governance, compliance and evaluation work, migrated
-from the earlier Zimi repository with every kept rule enforced by a check and reviewed by
-[ECC](https://github.com/affaan-m/ECC). The migration audit is in `docs/migration/`.
+A Claude-Code-only repository for agent governance, compliance and evaluation work, with every
+rule enforced by a check and reviewed by [ECC](https://github.com/affaan-m/ECC).
 
 ## Rules that never bend
 
@@ -40,9 +39,9 @@ branch must record (changelog, work record, operating docs) is `wiki/reference/C
 | `scripts/` | The guards and their tests (`node:test`, run as TypeScript directly) |
 | `config/` | Guard configuration: governance claims, skill standards, landing audit |
 | `wiki/` | Shared memory: notes, decisions, lessons, runbooks and work records (`wiki-memory` skill) |
-| `.claude/skills/` | Repository skills migrated from Zimi; provenance in `import-baseline.json` |
+| `.claude/skills/` | Repository skills; provenance in `import-baseline.json` |
 | `CLAUDE.md` | The constitution: three non-negotiables and where each rule lives |
-| `.claude/rules/zeem/` | This repository's rules, distilled from Zimi; they override ECC where they disagree |
+| `.claude/rules/zeem/` | This repository's rules; they override ECC where they disagree |
 | `.claude/rules/ecc/` | Every ECC rule set, vendored unchanged (without ECC's rules README, with its LICENSE) and held to the plugin pin by `npm run rules:check` |
 | `.claude/agents/` | No-edit review agents: `finder` (reads only) and `verifier` (also runs checks) |
 | `.github/workflows/` | `check` (the change's own checks) and `guards` (main's guards, `pull_request_target`) |

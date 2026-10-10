@@ -3,8 +3,8 @@ import { CHANGELOG } from "../lib/paths.ts";
 
 // The changelog rule. Pure; the CLI lives in changelog-guard.ts. Every branch that changes
 // something that matters adds a dated entry describing it, under a heading dated between the
-// day the branch started and today (UTC). Zimi required the current day's heading, so a
-// branch reviewed on one day and landed the next had to be edited and re-reviewed.
+// day the branch started and today (UTC). Requiring the current day's heading would force a
+// branch reviewed on one day and landed the next to be edited and re-reviewed.
 // Entries are judged by their position in the file, never by their text, so a line that
 // repeats an older entry cannot borrow that entry's date.
 

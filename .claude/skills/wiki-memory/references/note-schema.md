@@ -19,7 +19,7 @@ created: 2026-09-19
 updated: 2026-09-19
 agent: claude-code
 status: active
-related: ["[[Agents cannot enter a sudo password]]"]
+related: ["[[Root shell hides user-installed tools]]"]
 ---
 ```
 

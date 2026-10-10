@@ -13,7 +13,7 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
 - runs each scenario's setup commands through a confined `sh -c` (so redirections and heredocs
   create files, and a `printf` format starting with `---` is text);
 - copies a snapshot of the committed repository into each scenario sandbox after that setup
-  (never `reports/`, `seeds.md` or `specs/`, so neither earlier scores nor the expected behaviours
+  (never `reports/` or `specs/`, so neither earlier scores nor the expected behaviours
   leak in). The repository's tooling (`package.json`, `CLAUDE.md`, and the files of `.claude/`,
   `.github/`, `.githooks/`, `scripts/` and `config/`) replaces a scenario's copy file by file, and
   other scenario files are kept. It links one read-only copy of `node_modules` and commits the tree
@@ -111,8 +111,7 @@ sandboxes live under `/tmp/skill-comply-sandbox/`.
 
 A report gives the compliance rate per scenario, the spec, the prompts and each tool call with
 its classification. Low-compliance steps are candidates for a hook or a check (the
-`write-guard` skill), not for more prose. `seeds.md` holds realistic prompts from Zimi's eval
-cases for judging whether the generated scenarios are realistic.
+`write-guard` skill), not for more prose.
 
 **Known limit.** skill-comply grades tool calls, so it sees what an agent did, not what it said:
 "tell the owner only they can merge" is judged by the absence of a merge call, not by the words.

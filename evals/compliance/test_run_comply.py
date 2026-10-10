@@ -5,6 +5,7 @@ import inspect
 import io
 import json
 import os
+import shutil
 import subprocess
 import tarfile
 import tempfile
@@ -231,7 +232,7 @@ class Grading(unittest.TestCase):
                            json.dumps({"command": "npm run check && git commit -m x && npm run pr", "run_in_background": True}),
                            "Command running in background with ID: b1")
         self.assertEqual(run_comply.split_observations([background], succeeded={"T0002"}), [background])
-        moved = dataclasses.replace(background, input=json.dumps({"command": "a && b"}))
+        moved = dataclasses.replace(background, input=json.dumps({"command": "git status && git log -1"}))
         self.assertEqual(run_comply.split_observations([moved], succeeded={"T0002"}), [moved], "the output alone also counts")
 
     def test_quoted_text_does_not_keep_a_chain_whole(self) -> None:
@@ -389,6 +390,52 @@ class FreshClaudeHome(unittest.TestCase):
             self.assertEqual(sorted(path.name for path in first.iterdir()), [".credentials.json", "plugins"])
             (first / "CLAUDE.md").write_text("planted\n")
             self.assertFalse((second / "CLAUDE.md").exists(), "one call cannot plant instructions for the next")
+
+
+class Tooling(unittest.TestCase):
+    def test_every_tooling_path_replaces_a_scenario_copy_and_nothing_else_does(self) -> None:
+        for name in ("package.json", "package-lock.json", "tsconfig.json", "eslint.config.ts", ".nvmrc", ".gitattributes", "CLAUDE.md",
+                     ".claude/settings.json", ".githooks/pre-push", ".github/workflows/check.yml", "scripts/lib/git.ts", "config/x.json"):
+            self.assertTrue(run_comply.is_tooling(name), name)
+        for name in ("src/a.ts", "wiki/Home.md", "docs/notes.md", "README.md", "evals/compliance/run_comply.py"):
+            self.assertFalse(run_comply.is_tooling(name), name)
+
+
+class Main(unittest.TestCase):
+    def test_the_proxy_is_closed_its_hosts_reported_and_the_work_dir_removed_even_when_the_run_fails(self) -> None:
+        closed: list[bool] = []
+        proxy = types.SimpleNamespace(seen={("api.anthropic.com", 443, True), ("evil.example", 443, False)}, close=lambda: closed.append(True))
+        removed: list[Path] = []
+
+        def fail(*args: object) -> None:
+            raise RuntimeError("scenario failed")
+
+        with mock.patch.object(run_comply, "require_skill_comply", lambda path: None), \
+             mock.patch.object(run_comply, "require_fresh_login", lambda path, now: None), \
+             mock.patch.object(run_comply, "repo_snapshot", lambda repo: b""), \
+             mock.patch.object(run_comply, "shared_deps", lambda repo, cache: Path("/nonexistent")), \
+             mock.patch.object(run_comply, "start_network", lambda work: (proxy, None)), \
+             mock.patch.object(run_comply, "run_confined", fail), \
+             mock.patch.object(run_comply, "remove_tree", removed.append), \
+             mock.patch("sys.stderr", new_callable=io.StringIO) as stderr:
+            with self.assertRaises(RuntimeError):
+                run_comply.main([".claude/skills/write-guard/SKILL.md"])
+        self.assertEqual(closed, [True])
+        self.assertIn("network allowed api.anthropic.com:443", stderr.getvalue())
+        self.assertIn("network REFUSED evil.example:443", stderr.getvalue())
+        self.assertEqual(len(removed), 1, "the work dir with its login copies is removed")
+        for path in removed:
+            shutil.rmtree(path, ignore_errors=True)
+
+    def test_the_network_forwards_on_the_fixed_port_through_a_copy_of_the_proxy(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            proxy, network = run_comply.start_network(Path(directory))
+            try:
+                self.assertEqual(network.port, run_comply.FORWARD_PORT)
+                self.assertTrue((network.directory / "netproxy.py").is_file())
+                self.assertTrue((network.directory / "proxy.sock").exists())
+            finally:
+                proxy.close()
 
 
 class Login(unittest.TestCase):
@@ -593,6 +640,16 @@ class PinnedSpec(unittest.TestCase):
             target = run_comply.shared_deps(repo, cache)
             self.assertTrue((target / "pkg" / "index.js").is_file())
             self.assertFalse((lock / "node_modules.partial").exists())
+            run_comply.remove_tree(lock)
+
+            def interrupted(source: Path, target: Path, symlinks: bool) -> None:
+                Path(target).mkdir(parents=True)
+                raise OSError("copy interrupted")
+
+            with mock.patch.object(run_comply.shutil, "copytree", interrupted):
+                with self.assertRaises(OSError):
+                    run_comply.shared_deps(repo, cache)
+            self.assertFalse((lock / "node_modules").exists(), "a half copy never sits where the next run would reuse it")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -723,6 +780,7 @@ class Streams(unittest.TestCase):
             keep("first\n")
             keep("second\n")
             saved = sorted((Path(directory) / "run").iterdir())
+            self.assertEqual([p.name for p in saved], ["01.jsonl", "02.jsonl"])
             self.assertEqual([p.read_text() for p in saved], ["first\n", "second\n"])
             self.assertEqual({p.stat().st_mode & 0o777 for p in saved}, {0o600}, "a printed token stays private")
             self.assertEqual((Path(directory) / "run").stat().st_mode & 0o777, 0o700)

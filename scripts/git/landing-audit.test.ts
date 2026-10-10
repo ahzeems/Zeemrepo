@@ -64,3 +64,40 @@ await test("a gh that hangs is stopped at the timeout and reported as an error, 
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+function fakeGh(t: { after: (fn: () => void) => void }, script: string): string {
+  const directory = mkdtempSync(join(tmpdir(), "landing-audit-gh-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const gh = join(directory, "gh");
+  writeFileSync(gh, `#!/bin/sh\n${script}\n`);
+  chmodSync(gh, 0o755);
+  return gh;
+}
+
+await test("GitHub's answer decides the verdict, and a gh failure is an error, never a verdict", (t) => {
+  const sha = "a".repeat(40);
+  const merged = fakeGh(t, `printf '%s' '{"state":"MERGED","mergeCommit":{"oid":"${sha}"}}'`);
+  assert.equal(githubMerged(undefined, "o/r", { program: merged })(1, sha), true);
+  assert.equal(githubMerged(undefined, "o/r", { program: merged })(1, "b".repeat(40)), false, "merged, but as another commit");
+  const open = fakeGh(t, `printf '%s' '{"state":"OPEN","mergeCommit":null}'`);
+  assert.equal(githubMerged(undefined, "o/r", { program: open })(1, sha), false);
+  const missing = fakeGh(t, "echo 'no pull requests found for branch' >&2; exit 1");
+  assert.equal(githubMerged(undefined, "o/r", { program: missing })(1, sha), false, "no such PR is a verdict");
+  const broken = fakeGh(t, "echo 'HTTP 401: Bad credentials' >&2; exit 1");
+  assert.throws(() => githubMerged(undefined, "o/r", { program: broken })(1, sha), /gh pr view 1 failed: HTTP 401/);
+});
+
+await test("--help prints usage, other arguments are an error, and a bad repo name is refused", async (t) => {
+  const { createRepo } = await import("../test-support/repo-fixture.ts");
+  const { main } = await import("./landing-audit.ts");
+  const lines: string[] = [];
+  const output = { write: (line: string) => lines.push(line), warn: (line: string) => lines.push(line) };
+  assert.equal(main(["--help"], { output }), 0);
+  assert.match(lines.join("\n"), /Usage/);
+  assert.equal(main(["--json"], { output }), 2);
+  const repo = createRepo("landing-audit-repo-");
+  t.after(() => repo.cleanup());
+  repo.write("config/landing-audit.json", JSON.stringify({ since: "c".repeat(40), repo: "not a repo" }));
+  repo.git(["update-ref", "refs/remotes/origin/main", repo.commit("start")]);
+  assert.throws(() => main([], { cwd: repo.dir, output, merged: () => true }), /"repo" as owner\/name/);
+});

@@ -1,7 +1,6 @@
 import { execFileSync } from "node:child_process";
 
-// `head` defaults to HEAD; only mergeBase reads it.
-export type GitOptions = { cwd?: string; head?: string };
+export type GitOptions = { cwd?: string };
 
 export class GitError extends Error {
   readonly args: readonly string[];
@@ -69,9 +68,11 @@ export function gitLines(args: readonly string[], options: GitOptions = {}): str
 }
 
 // Path lists come NUL-separated: quotePath=false still C-quotes tabs and newlines, and a
-// quoted path would slip past an anchored pattern like ^scripts/.
+// quoted path would slip past an anchored pattern like ^scripts/. -z goes right after the
+// subcommand, so it is never read as a pathspec after a caller's "--".
 export function gitPaths(args: readonly string[], options: GitOptions = {}): string[] {
-  return run(["-c", "core.quotePath=false", ...args, "-z"], options).split("\0").filter((path) => path.length > 0);
+  const [subcommand = "", ...rest] = args;
+  return run([subcommand, "-z", ...rest], options).split("\0").filter((path) => path.length > 0);
 }
 
 // null means git ran and answered "no" (a non-zero exit). Failing to run git at all is an
@@ -99,12 +100,10 @@ export function refExists(ref: string, options: GitOptions = {}): boolean {
 const BASE_REFS = ["refs/remotes/origin/main", "refs/heads/main"];
 
 export function mergeBase(options: GitOptions = {}): string {
-  const head = options.head ?? "HEAD";
-  assertNotOption(head);
   for (const ref of BASE_REFS) {
     if (!refExists(ref, options)) continue;
-    const base = tryGit(["merge-base", ref, head], options);
-    if (base === null) throw new Error(`${ref} and ${head} have no common history`);
+    const base = tryGit(["merge-base", ref, "HEAD"], options);
+    if (base === null) throw new Error(`${ref} and HEAD have no common history`);
     return base;
   }
   throw new Error(`no base ref: none of ${BASE_REFS.join(", ")} exists`);

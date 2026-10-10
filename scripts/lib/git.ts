@@ -28,7 +28,7 @@ export class GitError extends Error {
 // index that `git commit -a` uses. Omit cwd there.
 const INJECTION = /^GIT_(CONFIG_|REPLACE_REF_BASE$|GRAFT_FILE$|NO_REPLACE_OBJECTS$)/;
 
-function environmentFor(options: GitOptions): NodeJS.ProcessEnv {
+export function environmentFor(options: GitOptions): NodeJS.ProcessEnv {
   const drop = options.cwd === undefined ? (key: string) => INJECTION.test(key) : (key: string) => key.startsWith("GIT_");
   return Object.fromEntries(Object.entries(process.env).filter(([key]) => !drop(key)));
 }

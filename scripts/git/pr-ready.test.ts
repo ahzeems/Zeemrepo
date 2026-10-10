@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { test, type TestContext } from "node:test";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, type Output } from "../lib/cli.ts";
 import { cleanGitEnv, createRepo, type RepoFixture } from "../test-support/repo-fixture.ts";
-import { main, type Run } from "./pr-ready.ts";
+import { main, spawnRunner, type Run } from "./pr-ready.ts";
 import { execFileSync, spawnSync } from "node:child_process";
 
 type Call = { command: string; args: readonly string[] };
@@ -145,4 +145,18 @@ await test("arguments", (t) => {
   const repo = fixture(t);
   assert.equal(go(repo, runner(repo).run, ["--bogus"]).code, EXIT_ERROR);
   assert.match(go(repo, runner(repo).run, ["--help"]).out, /Usage/);
+});
+
+await test("a step that hangs is stopped, and config injected through GIT_ variables does not reach it", () => {
+  const started = Date.now();
+  assert.throws(() => spawnRunner(undefined, 200)("sh", ["-c", "sleep 10"]), /ETIMEDOUT|timed out/i);
+  assert.ok(Date.now() - started < 5000, "npm run pr does not wait for a stalled push or gh");
+  const saved = process.env.GIT_CONFIG_COUNT;
+  process.env.GIT_CONFIG_COUNT = "1";
+  try {
+    assert.equal(spawnRunner(undefined)("sh", ["-c", "printf %s \"${GIT_CONFIG_COUNT:-unset}\""]).stdout, "unset");
+  } finally {
+    if (saved === undefined) delete process.env.GIT_CONFIG_COUNT;
+    else process.env.GIT_CONFIG_COUNT = saved;
+  }
 });

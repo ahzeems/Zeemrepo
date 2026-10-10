@@ -6,6 +6,7 @@
 // pushes the branch and opens or reports its PR. Merging is the owner's act on GitHub.
 import { spawnSync } from "node:child_process";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
+import { environmentFor } from "../lib/git.ts";
 
 // inherit streams the command's output to the terminal (npm run check can run for a minute
 // and its failure explains itself); env adds variables for that command.
@@ -18,11 +19,17 @@ Refuses unless the branch is clean, contains origin/main and passes npm run chec
 pushes it and opens or reports its pull request. Never merges. --dry-run stops before pushing.
 Exit: 0 ready, 1 refused, 2 a step could not run.`;
 
-function spawnRunner(cwd: string | undefined): Run {
+// A step that talks to the network (fetch, push, gh) is stopped instead of hanging npm run pr; the
+// streamed npm run check has no limit, because it legitimately runs for minutes.
+const STEP_TIMEOUT_MS = 120_000;
+
+// The environment drops variables that inject git config or rewrite history (lib/git.ts's rule).
+export function spawnRunner(cwd: string | undefined, timeoutMs = STEP_TIMEOUT_MS): Run {
   return (command, args, options = {}) => {
+    const inherit = options.inherit === true;
     const result = spawnSync(command, args, {
-      cwd, encoding: "utf8", env: { ...process.env, ...options.env },
-      stdio: options.inherit === true ? "inherit" : ["ignore", "pipe", "inherit"],
+      cwd, encoding: "utf8", env: { ...environmentFor({}), ...options.env },
+      stdio: inherit ? "inherit" : ["ignore", "pipe", "inherit"], ...(inherit ? {} : { timeout: timeoutMs }),
     });
     if (result.error) throw result.error;
     return { status: result.status, stdout: result.stdout ?? "" };

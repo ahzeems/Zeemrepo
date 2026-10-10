@@ -9,7 +9,7 @@ agent: claude-code
 status: active
 ---
 
-Three guards in `npm run check` decide whether a branch records itself. Each judges the
+Two guards in `npm run check`, `changelog:guard` and `memory:guard`, decide whether a branch records itself; `governance:check` runs beside them. Each judges the
 branch as it stands (commits since the fork from main, plus staged, unstaged and untracked
 files), so the commit that satisfies a rule is never refused for lacking it. Exit codes: 0 pass,
 1 refused, 2 the guard could not run.

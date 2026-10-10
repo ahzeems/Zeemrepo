@@ -11,8 +11,12 @@ related: ["[[Land a change]]", "[[ADR-0008 Owner merges pull requests on GitHub]
 ---
 
 The merge gate is GitHub: every change lands as a pull request that only the owner merges.
-Local hooks and Claude Code settings refuse mistakes early but are bypassable; the ruleset
-enforces.
+The ruleset enforces that nothing reaches main except through a pull request whose checks pass.
+It does not stop the owner's own `gh` login from merging such a pull request, and agents run
+with that login, so for merges the agent-side controls are the Claude Code deny rules and hook
+below: best-effort, and bypassable by a determined command (a variable, an alias, a script).
+Requiring an approving review, or giving agents a credential without merge permission, would
+close that gap; both are owner decisions.
 
 ## Ruleset `protect-main` (default branch)
 
@@ -38,9 +42,8 @@ PR that loosens an exclusion or drops a stale claim is judged by its loosened co
 files are workflow-critical, and the owner's review is what catches such a change. For
 `dependabot[bot]` pull requests both workflows skip only the two change-record guards: `check`
 runs `npm run check:base`, which is `npm run check` without them, so the list lives once in
-`package.json`. If
-`guards` fails at once with "couldn't find remote ref", GitHub had not built the merge ref
-yet: re-run it.
+`package.json`. If `guards` fails at once with "couldn't find remote ref", GitHub had not
+built the merge ref yet: re-run it.
 
 ## Local backstops
 
@@ -55,10 +58,11 @@ The hook is a heuristic, not a sandbox; the `protect-main` ruleset (no bypass ac
 owner's review are the control. `npm run audit` asks `gh` with a 60-second timeout, so a hung `gh`
 is an error, not a stall. Pre-push skips its `npm run check` when `PR_READY_CHECKED` names the
 commit being pushed, which `npm run pr` sets after running the check itself; anyone can set it, so
-CI is what enforces the check. ECC's own plugin hooks also run in this repository (hook profile
-`standard`): GateGuard asks for facts before a first edit or command and before destructive commands,
-and config-protection refuses agent edits to `eslint.config.ts`, so a change that rule files require
-there (`change-records.md`) is made by the owner.
+CI is what enforces the check. ECC's own plugin hooks also run in this repository (the hook
+profile is set in the owner's user settings, not here): GateGuard asks for facts before a first edit or command and before destructive commands,
+and config-protection refuses agent edits to `eslint.config.ts`, so the owner makes an edit there
+that `change-records.md` requires (GateGuard observed in agent sessions on 2026-10-10;
+config-protection read from the plugin's `scripts/hooks/config-protection.js`, v2.2.3).
 
 ## Commands
 

@@ -55,8 +55,8 @@ requests on GitHub (owner decision, 2026-10-09).
 - `npm run audit` (after `git fetch origin`) reports every commit on main since the PR-only
   rule as a merged pull request.
 - The pre-push hook refuses `git push origin main`; the GitHub ruleset refuses it too.
-- Dependabot opens weekly pull requests for the pinned GitHub Actions and the npm dev
-  dependencies (grouped). A bot cannot write a
+- Dependabot opens weekly pull requests for the pinned GitHub Actions and all npm
+  dependencies (development ones grouped). A bot cannot write a
   changelog entry or work record, so for pull requests GitHub reports as authored by
   `dependabot[bot]` the change-record guards are skipped; every other check still applies and
   the owner still reviews and merges.

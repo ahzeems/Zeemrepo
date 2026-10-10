@@ -7,7 +7,7 @@ reports any recipe it could not run as blocked.
 ## Launch and evidence
 
 Run from the selected feature checkout. Before each recipe, inspect `git status --short`,
-`node --version` and `npm --version`; use Node >=22.18 (package.json `engines`) and
+`node --version` and `npm --version`; use Node 24 (`.nvmrc`; package.json `engines`) and
 dependencies installed with `npm ci`. Confirm the pinned tree from step 1 has not changed.
 
 Every repo CLI exits 0 when the check passes, 1 when it refuses, and 2 when the tool itself

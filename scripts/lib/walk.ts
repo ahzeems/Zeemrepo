@@ -1,9 +1,9 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
-// includeDot: also descend into dot entries. skipDirs: directory names never entered, at any
-// depth. skipAtRoot: names skipped only directly under `dir`. Defaults skip dot entries plus .git
-// and node_modules, which are never authored here.
+// includeDot: include dot files and folders. skipDirs: folder names never entered, at any depth;
+// it replaces the default set (.git and node_modules, never authored here). skipAtRoot: names
+// skipped only directly under `dir`.
 type WalkOptions = { includeDot?: boolean; skipDirs?: ReadonlySet<string>; skipAtRoot?: ReadonlySet<string> };
 type WalkResult = { files: string[]; symlinks: string[] };
 

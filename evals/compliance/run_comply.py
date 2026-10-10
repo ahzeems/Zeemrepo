@@ -18,10 +18,13 @@ Usage (from the repository root, with the venv described in evals/compliance/REA
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import hashlib
 import io
-import re
+import itertools
+import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -29,9 +32,6 @@ import tarfile
 import tempfile
 import time
 from collections.abc import Callable, Mapping, Sequence
-import dataclasses
-import json
-from dataclasses import dataclass
 from pathlib import Path
 
 import netproxy
@@ -44,8 +44,9 @@ ECC_VERSION = "2.2.3"
 SKILL_COMPLY = Path.home() / ".claude/plugins/cache/ecc/ecc" / ECC_VERSION / "skills/skill-comply"
 # An allowlist, not a denylist: anything else (tokens, SSH agent sockets, D-Bus, the parent Claude
 # session's messaging variables) is dropped.
-KEPT = {"PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "LANGUAGE", "TERM", "TZ",
-        "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"}
+# A run authenticates with the owner's Claude login (require_fresh_login), so an API key in the
+# caller's environment is a credential the sandbox does not need, and stays out.
+KEPT = {"PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "LANGUAGE", "TERM", "TZ"}
 KEPT_PREFIXES = ("LC_",)
 # Read-only system and tool directories visible inside the confinement, when they exist.
 # Not /run/systemd/resolve: its world-writable query socket would let DNS carry data out, and the
@@ -72,7 +73,7 @@ def isolated_env(base: Mapping[str, str], gh_config_dir: Path) -> dict[str, str]
     return env
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class Layout:
     """Host paths the confinement exposes: everything else is invisible."""
     home: Path
@@ -82,7 +83,7 @@ class Layout:
     deps: Path | None = None
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class Network:
     """The host proxy's directory (proxy.sock and a copy of netproxy.py) and the in-sandbox forwarder port."""
     directory: Path
@@ -203,7 +204,11 @@ def shared_deps(repo: Path, cache: Path) -> Path:
     lock = hashlib.sha256((repo / "package-lock.json").read_bytes()).hexdigest()[:16]
     target = cache / lock / "node_modules"
     if not target.is_dir():
-        shutil.copytree(repo / "node_modules", target, symlinks=True)
+        # Copied beside the target and renamed into place, so an interrupted copy is never reused.
+        partial = target.with_name("node_modules.partial")
+        remove_tree(partial)
+        shutil.copytree(repo / "node_modules", partial, symlinks=True)
+        partial.rename(target)
     return target
 
 
@@ -223,6 +228,7 @@ TOOLING_DIRS = (".claude/", ".githooks/", ".github/", "scripts/", "config/")
 
 
 def is_tooling(name: str) -> bool:
+    """A repository tooling path (see TOOLING_FILES and TOOLING_DIRS), which replaces a scenario's copy."""
     return name in TOOLING_FILES or name.startswith(TOOLING_DIRS)
 
 
@@ -312,17 +318,6 @@ def require_confinement(which: Callable[[], str | None], works: Callable[[], boo
         raise SystemExit(2)
 
 
-@dataclass(frozen=True)
-class Observation:
-    """The fields of ECC's ObservationEvent, for tests; the real events are ECC's own frozen dataclass."""
-    timestamp: str
-    event: str
-    tool: str
-    session: str
-    input: str
-    output: str
-
-
 # Split only plain chains. Anything whose meaning depends on how earlier parts ended (||, if, while)
 # or that nests commands ($(...), backticks, subshells, heredocs) stays whole, as do comments and
 # backslash escapes, because a wrong split could credit a step that never ran.
@@ -339,9 +334,10 @@ SPLITTABLE_COMMANDS = frozenset({"git", "npm", "npx", "node", "gh", "ls", "cat",
 # lone & (background; not 2>&1, &> or |&), and exec, exit, source, `.`, eval, kill, coproc, set
 # and trap, also change which parts run.
 UNSPLITTABLE = re.compile(r"\|\||#|[(){}]|(?<![&>|])&(?![&>])|(?:^|[\s;&])(?:if|then|else|elif|fi|for|while|until|do|done|case|esac|exec|exit|return|source|eval|kill|coproc|set|trap)(?=\s|;|$)|(?:^|[;&\n])\s*\.(?=\s)")
-# Claude Code's Bash tool starts the output of a failed call with its exit code.
 # Inside quotes, any other character becomes `_`, so quoted text joins its word as the shell joins it.
 QUOTED_WORD_CHAR = re.compile(r"[A-Za-z0-9./-]")
+# Claude Code's Bash tool answers a backgrounded call at once, and starts a failed call's output
+# with its exit code; either way the chain's later parts may not have run.
 BACKGROUND_OUTPUT = re.compile(r"^\s*Command running in background")
 FAILED_OUTPUT = re.compile(r"^\s*Exit code [1-9]")
 
@@ -417,6 +413,7 @@ def split_command(command: str) -> list[str]:
 
 
 def bash_input(event: object) -> dict[str, object] | None:
+    """A Bash observation's input fields, when they parse and hold a command; else None."""
     raw = getattr(event, "input", None)
     if getattr(event, "tool", None) != "Bash" or not isinstance(raw, str):
         return None
@@ -492,21 +489,28 @@ def spec_document(spec: object) -> dict[str, object]:
 def pinned_spec(path: Path, generate: Callable[[], object], parse: Callable[[Path], object]) -> object:
     """ECC writes a new spec every run, so totals from two runs grade different steps. The first run
     saves its spec here (JSON, which ECC's YAML parser reads); later runs reuse it, edited or not."""
-    if not path.is_file():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(spec_document(generate()), indent=2) + "\n")
-    return parse(path)
+    if path.is_file():
+        return parse(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    candidate = path.with_name(path.name + ".new")
+    candidate.write_text(json.dumps(spec_document(generate()), indent=2) + "\n")
+    try:
+        spec = parse(candidate)
+    except BaseException:
+        candidate.unlink()
+        raise
+    candidate.rename(path)  # pinned only once it parses
+    return spec
 
 
 def stream_keeper(directory: Path) -> Callable[[str], None]:
     """Save each session's raw stream-json, numbered in run order, so outputs, splits and error flags
     can be audited after the run."""
-    count = [0]
+    numbers = itertools.count(1)
 
     def keep(stdout: str) -> None:
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-        count[0] += 1
-        path = directory / f"{count[0]:02d}.jsonl"
+        path = directory / f"{next(numbers):02d}.jsonl"
         path.touch(mode=0o600)
         path.write_text(stdout)
 
@@ -534,14 +538,12 @@ files the task needs and commit locally; do not push or create remotes (the sand
 
 def retry(call: Callable[[], object], *, attempts: int, errors: tuple[type[BaseException], ...]) -> object:
     """`call()`, retried on `errors` up to `attempts` times; the last error is raised."""
-    for attempt in range(1, attempts + 1):
+    for attempt in range(1, attempts):
         try:
             return call()
         except errors:
-            if attempt == attempts:
-                raise
             print(f"run_comply: generation failed, retrying ({attempt}/{attempts - 1})", file=sys.stderr)
-    raise AssertionError("unreachable")
+    return call()
 
 
 def with_repo_context(target: Path, work: Path) -> Path:
@@ -630,7 +632,7 @@ def wire_grading(ecc_run: object, runner: object, parse_spec: Callable[[Path], o
     def run_and_split(scenario: object, model: str) -> object:
         succeeded.clear()
         run = run_scenario(scenario, model=model, timeout=SCENARIO_TIMEOUT)
-        split = split_observations(run.observations, set(succeeded))
+        split = split_observations(run.observations, succeeded)
         return dataclasses.replace(run, observations=tuple(fit_for_classifier(split)))
 
     generate_spec = getattr(ecc_run, "generate_spec")

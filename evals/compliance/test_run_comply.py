@@ -27,6 +27,17 @@ def tar_of(files: dict[str, str]) -> bytes:
     return buffer.getvalue()
 
 
+
+@dataclasses.dataclass(frozen=True)
+class Observation:
+    """The fields of ECC's ObservationEvent; the real events are ECC's own frozen dataclass."""
+    timestamp: str
+    event: str
+    tool: str
+    session: str
+    input: str
+    output: str
+
 class SeedSandbox(unittest.TestCase):
     def test_repository_tooling_replaces_a_scenarios_copy_and_other_scenario_files_are_kept(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -170,7 +181,7 @@ class Grading(unittest.TestCase):
             self.assertEqual(run_comply.split_command(whole), [whole], whole)
 
     def test_each_part_of_a_chained_bash_call_becomes_its_own_observation(self) -> None:
-        Event = run_comply.Observation
+        Event = Observation
         events = [Event(timestamp="T0001", event="tool_complete", tool="Read", session="s", input='{"file_path": "a"}', output="x"),
                   Event(timestamp="T0002", event="tool_complete", tool="Bash", session="s",
                         input=json.dumps({"command": "git add a && npm run pr"}), output="done")]
@@ -182,7 +193,7 @@ class Grading(unittest.TestCase):
         self.assertEqual(sorted(split, key=lambda e: e.timestamp), split, "the grader's sort keeps the order")
 
     def test_eleven_parts_keep_their_order_under_a_text_sort(self) -> None:
-        Event = run_comply.Observation
+        Event = Observation
         command = " && ".join(f"echo step{n}" for n in range(1, 12))
         split = run_comply.split_observations([Event("T0003", "tool_complete", "Bash", "s", json.dumps({"command": command, "description": "d"}), "ok")], succeeded={"T0003"})
         ordered = sorted(split, key=lambda e: e.timestamp)
@@ -206,7 +217,7 @@ class Grading(unittest.TestCase):
         self.assertEqual(run_comply.successful_calls(stream), {"T0002"}, "no flag, an error, or no result is not a success")
 
     def test_a_refused_or_unfinished_call_is_not_split(self) -> None:
-        Event = run_comply.Observation
+        Event = Observation
         refused = Event("T0007", "tool_complete", "Bash", "s", json.dumps({"command": "git add -A && git commit -m x && git push origin main"}),
                         "Permission to use Bash has been denied.")
         self.assertEqual(run_comply.split_observations([refused], succeeded={"T0001"}), [refused])
@@ -215,7 +226,7 @@ class Grading(unittest.TestCase):
             self.assertEqual(run_comply.split_command(whole), [whole], whole)
 
     def test_a_backgrounded_call_is_not_split_because_it_has_not_finished(self) -> None:
-        Event = run_comply.Observation
+        Event = Observation
         background = Event("T0002", "tool_complete", "Bash", "s",
                            json.dumps({"command": "npm run check && git commit -m x && npm run pr", "run_in_background": True}),
                            "Command running in background with ID: b1")
@@ -237,7 +248,7 @@ class Grading(unittest.TestCase):
             self.assertEqual(run_comply.split_command(whole), [whole], whole)
 
     def test_a_long_command_keeps_its_start_and_end_within_the_classifier_s_view(self) -> None:
-        Event = run_comply.Observation
+        Event = Observation
         command = "cat > notes.md <<'EOF'\n" + "line\n" * 400 + "EOF\ngit add notes.md && git commit -m 'docs(wiki): x'"
         long = Event("T0001", "tool_complete", "Bash", "s", json.dumps({"command": command, "description": "d"}), "ok")
         short = Event("T0002", "tool_complete", "Bash", "s", json.dumps({"command": "ls"}), "ok")
@@ -248,7 +259,7 @@ class Grading(unittest.TestCase):
         self.assertEqual(fitted[1], short)
 
     def test_a_failed_call_is_not_split_so_steps_that_never_ran_get_no_credit(self) -> None:
-        Event = run_comply.Observation
+        Event = Observation
         failed = Event("T0004", "tool_complete", "Bash", "s", json.dumps({"command": "npm run check && git commit -m x"}), "Exit code 1\nlint failed")
         self.assertEqual(run_comply.split_observations([failed], succeeded={"T0004"}), [failed])
         odd = Event("T0005", "tool_complete", "Bash", "s", None, "x")  # type: ignore[arg-type]
@@ -353,9 +364,9 @@ class IsolatedEnvironment(unittest.TestCase):
         }
         env = run_comply.isolated_env(base, Path("/tmp/empty-gh"))
         for key in ("GH_TOKEN", "GITHUB_TOKEN", "GIT_DIR", "SSH_AUTH_SOCK", "NPM_TOKEN", "AWS_SECRET_ACCESS_KEY",
-                    "CLAUDECODE", "CLAUDE_CODE_MESSAGING_TOKEN", "DBUS_SESSION_BUS_ADDRESS"):
+                    "CLAUDECODE", "CLAUDE_CODE_MESSAGING_TOKEN", "DBUS_SESSION_BUS_ADDRESS", "ANTHROPIC_API_KEY"):
             self.assertNotIn(key, env, key)
-        for key in ("PATH", "HOME", "LANG", "LC_ALL", "ANTHROPIC_API_KEY"):
+        for key in ("PATH", "HOME", "LANG", "LC_ALL"):
             self.assertEqual(env[key], base[key], key)
         self.assertEqual(env["GH_CONFIG_DIR"], "/tmp/empty-gh")
         self.assertEqual(env["TMPDIR"], "/tmp", "the private /tmp, not a path outside the confinement")
@@ -543,6 +554,32 @@ class PinnedSpec(unittest.TestCase):
             self.assertEqual(run_comply.pinned_spec(path, generate, parse_fake), spec, "read back exactly")
             self.assertEqual(generated, [1], "generated once, then pinned")
 
+    def test_a_spec_that_does_not_parse_is_never_pinned(self) -> None:
+        spec = FakeSpec("s", "S", "rule.md", "1", (), 0.6)
+
+        def refuse(path: Path) -> FakeSpec:
+            raise ValueError("does not parse")
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "specs" / "rule.json"
+            with self.assertRaises(ValueError):
+                run_comply.pinned_spec(path, lambda: spec, refuse)
+            self.assertFalse(path.exists(), "the next run generates again instead of failing on a bad pin")
+            self.assertEqual(list(path.parent.iterdir()), [])
+
+    def test_shared_dependencies_are_copied_whole_or_not_at_all(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo, cache = Path(directory) / "repo", Path(directory) / "cache"
+            (repo / "node_modules" / "pkg").mkdir(parents=True)
+            (repo / "node_modules" / "pkg" / "index.js").write_text("x\n")
+            (repo / "package-lock.json").write_text("{}\n")
+            lock = run_comply.shared_deps(repo, cache).parent
+            run_comply.remove_tree(lock)
+            (lock / "node_modules.partial" / "half").mkdir(parents=True)  # an interrupted earlier copy
+            target = run_comply.shared_deps(repo, cache)
+            self.assertTrue((target / "pkg" / "index.js").is_file())
+            self.assertFalse((lock / "node_modules.partial").exists())
+
 
 @dataclasses.dataclass(frozen=True)
 class FakeRun:
@@ -562,7 +599,7 @@ class Wiring(unittest.TestCase):
         runner = types.SimpleNamespace()
 
         def parse(stdout: str) -> list[object]:
-            return [run_comply.Observation(f"T{n:04d}", "tool_complete", "Bash", "s", json.dumps({"command": c}), "ok") for n, c in enumerate(commands)]
+            return [Observation(f"T{n:04d}", "tool_complete", "Bash", "s", json.dumps({"command": c}), "ok") for n, c in enumerate(commands)]
 
         def run_scenario(scenario: object, model: str, timeout: int) -> FakeRun:
             seen["timeout"] = timeout

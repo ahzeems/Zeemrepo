@@ -151,7 +151,7 @@ def start_proxy(path: Path, allow: Callable[[str, int], bool], header_timeout: f
                 return
             upstream.settimeout(None)
             client.settimeout(None)
-            client.sendall(b"HTTP/1.1 200 Connection established\r\n\r\n")
+            reply(client, b"HTTP/1.1 200 Connection established\r\n\r\n")
             with upstream:
                 splice(client, upstream)
 
@@ -166,7 +166,10 @@ def forward(sock: str, port: int, command: list[str]) -> int:
 
     def accept() -> None:
         while True:
-            client, _ = listener.accept()
+            try:
+                client, _ = listener.accept()
+            except OSError:  # the listener is closed: the command has ended
+                return
             upstream = socket.socket(socket.AF_UNIX)
             try:
                 upstream.connect(sock)

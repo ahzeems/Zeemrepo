@@ -59,6 +59,7 @@ evidence:
   - "VERIFIED: PR #21 opened by zimmybot, approved and merged by the owner; protect-main now requires code-owner review (gh api rulesets, 2026-10-10), the owner's account has no SSH key registered (gh api users/<owner>/keys returns 0), and gh here is logged in as zimmybot only; npm run audit reported 20 commits on main since its base, all landed by merged pull request."
   - "UNKNOWN: the empty bypass list and two-factor authentication on zimmybot are not visible to the machine account's token; the owner reported both steps done (\"i did the steps\", 2026-10-10)."
   - "INFERRED: the migration is done when the owner merges the pull request that marks it done; whether low-compliance steps become hooks stays an optional owner decision, not a blocker."
+  - "OWNER DECISION: \"yes update the ADR pointer, then open the PR\" (2026-10-10); .claude/rules/zeem/branch-and-merge.md and the git-notes lesson now cite ADR-0025 instead of the superseded ADR-0008, with the rule text unchanged."
   - "OWNER DECISION: nothing is pushed to main; work lands by pull request and only the owner merges (2026-10-09)."
 ---
 

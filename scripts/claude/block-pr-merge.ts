@@ -36,22 +36,49 @@ function isApproveFlag(word: string): boolean {
 }
 // bash -c '...' and eval '...' run their argument, so it is lifted out as a command.
 const SHELL_PAYLOAD = /\b(?:bash|sh|zsh)\s+-c\s+(["'])([\s\S]*?)\1|\beval\s+(["'])([\s\S]*?)\3/g;
-// Heredoc bodies and quoted strings are data (commit messages, PR bodies, search terms).
+// Heredoc bodies are data. A quoted string is joined into its word with only word characters kept,
+// as the shell joins it: "gh" is still gh and 'HEAD:main' still a refspec, while a quoted commit
+// message becomes one harmless word and its separators split nothing.
 const HEREDOC = /<<-?\s*(["']?)(\w+)\1[^\n]*\n[\s\S]*?\n\2(?=\n|$)/g;
 const QUOTED = /'[^']*'|"(?:\\.|[^"\\])*"/g;
-// Words that run the next word as the command.
-const WRAPPERS = new Set(["sudo", "env", "command", "nohup", "exec", "time", "then", "do", "else", "!"]);
+const NOT_WORD = /[^\w.:/+@^~-]/g;
+const BACKTICKS = /`([^`]*)`/g;
+// Separators: &&, ||, ;, |, newline, brackets, and a lone & (background; not 2>&1 or &>).
+const SEPARATOR = /&&|\|\||[;|\n(){}]|(?<![&>])&(?![&>])/;
+// Words that run a later word as the command, with the options each takes a value for and how many
+// plain arguments come before the command (timeout's duration).
+const WRAPPERS = new Set(["sudo", "env", "command", "nohup", "exec", "time", "then", "do", "else", "!", "timeout", "nice", "xargs", "setsid", "stdbuf"]);
+const WRAPPER_VALUE_FLAGS: Record<string, ReadonlySet<string>> = {
+  sudo: new Set(["-u", "-g", "-h", "-p", "-C"]), env: new Set(["-u", "-C", "-S"]), nice: new Set(["-n"]),
+  timeout: new Set(["-s", "-k", "--signal", "--kill-after"]), xargs: new Set(["-I", "-n", "-L", "-P", "-d", "-E", "-s", "-a"]),
+};
+const WRAPPER_ARGUMENTS: Record<string, number> = { timeout: 1 };
 const GH_FLAGS_WITH_VALUE = new Set(["-R", "--repo", "--hostname"]);
 
 function commandParts(command: string): string[][] {
   const lifted = command.replace(SHELL_PAYLOAD, (_match, _q1, first: string | undefined, _q2, second: string | undefined) => `\n${first ?? second ?? ""}\n`);
-  const code = lifted.replace(HEREDOC, " ").replace(QUOTED, " _ ");
-  return code.split(/&&|\|\||[;|\n(){}]/).map((part) => part.trim().split(/\s+/).filter(Boolean));
+  const code = lifted.replace(HEREDOC, " ").replace(BACKTICKS, (_match, inner: string) => `\n${inner}\n`)
+    .replace(QUOTED, (quoted) => quoted.slice(1, -1).replace(NOT_WORD, ""));
+  return code.split(SEPARATOR).map((part) => part.trim().split(/\s+/).filter(Boolean));
+}
+
+// The index of the first word after a wrapper's own options and arguments.
+function skipWrapper(words: readonly string[], index: number): number {
+  const wrapper = words[index] ?? "";
+  const valueFlags = WRAPPER_VALUE_FLAGS[wrapper] ?? new Set<string>();
+  let next = index + 1;
+  while ((words[next] ?? "").startsWith("-")) next += valueFlags.has(words[next] ?? "") ? 2 : 1;
+  return next + (WRAPPER_ARGUMENTS[wrapper] ?? 0);
 }
 
 function programOf(words: readonly string[]): { program: string | undefined; rest: string[] } {
   let index = 0;
-  while (index < words.length && (WRAPPERS.has(words[index] ?? "") || /^[A-Za-z_][A-Za-z0-9_]*=/.test(words[index] ?? ""))) index++;
+  while (index < words.length) {
+    const word = words[index] ?? "";
+    if (WRAPPERS.has(word)) index = skipWrapper(words, index);
+    else if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) index++;
+    else break;
+  }
   // A path to the binary (/usr/bin/gh) is still that program.
   return { program: words[index]?.split("/").pop(), rest: words.slice(index + 1) };
 }

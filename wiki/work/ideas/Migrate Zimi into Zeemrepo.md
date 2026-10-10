@@ -6,12 +6,12 @@ tags: [area/planning, tool/ecc]
 created: 2026-10-09
 updated: 2026-10-10
 agent: claude-code
-status: in-progress
+status: done
 owner: human
 priority: P1
-next_action: "Finish the owner steps tracked in the Zimi migration project."
 evidence:
-  - "VERIFIED: delivered through owner-merged pull requests #1 to #20 (except #17, closed unmerged), tracked in wiki/work/projects/Zimi migration.md; the machine-account branch and the owner steps it names remain."
+  - "VERIFIED: delivered through owner-merged pull requests #1 to #20 (except #17, closed unmerged), tracked in wiki/work/projects/Zimi migration.md; at that point the machine-account branch and its owner steps remained (done since; next item)."
+  - "VERIFIED: PR #21 (machine account and code-owner review) merged by the owner; code-owner review is on and the owner's account has no SSH key registered. The empty bypass list and two-factor authentication on the machine account are owner-reported (see wiki/work/projects/Zimi migration.md)."
 project: "[[Zimi migration]]"
 ---
 

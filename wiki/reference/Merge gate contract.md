@@ -13,22 +13,23 @@ related: ["[[Land a change]]", "[[ADR-0025 Agents use a machine account and the 
 The merge gate is GitHub: every change lands as a pull request that only the owner approves and
 merges ([[ADR-0025 Agents use a machine account and the owner approves]]). Agents push branches
 and open pull requests as the machine account `zimmybot`, which has write access and cannot
-approve the pull requests it authors. The ruleset requires one approving review, and
-`npm run pr` refuses to run when `gh` is logged in as the repository owner. Two further
-conditions make the owner's approval the only one that counts; both are owner steps, pending
-until done: code-owner review on in the ruleset (`.github/CODEOWNERS` names the owner alone), and
-no SSH key registered to the owner's account on the machine agents use. Until then, an approval
-from any account with write access still counts. The Claude Code deny rules and hook below remain as defence in depth.
+approve the pull requests it authors. The ruleset requires one approving review from a code
+owner, and `.github/CODEOWNERS` names the owner alone, so only the owner's approval counts. No
+credential for the owner's account is on the machine agents use: `gh` is logged in as the
+machine account only, and the owner's account has no SSH key registered (both checked
+2026-10-10; re-check with `gh auth status` and `gh api users/<owner>/keys`). `npm run pr`
+refuses to run when `gh` is logged in as the repository owner. The Claude Code deny rules and
+hook below remain as defence in depth.
 
 ## Ruleset `protect-main` (default branch)
 
 | Rule | Setting |
 |---|---|
-| Pull request required | Yes, with 1 approving review; stale approvals are dismissed on new commits, and the most recent push must be approved. Code-owner review (`.github/CODEOWNERS`: the owner) is to be turned on by the owner |
+| Pull request required | Yes, with 1 approving review; stale approvals are dismissed on new commits, and the most recent push must be approved, by a code owner (`.github/CODEOWNERS`: the owner) |
 | Required status checks | `check` and `guards` |
 | Merge methods | Merge commit and squash; rebase merging is off so the audit can match each commit to its PR |
 | Force-push, deletion | Blocked |
-| Bypass actors | None (read with the owner's token before the machine-account switch; the owner reconfirms it, since the machine account cannot see it) |
+| Bypass actors | None (read with the owner's token before the machine-account switch, and confirmed by the owner on 2026-10-10; the machine account cannot see the list) |
 
 ## Required checks
 

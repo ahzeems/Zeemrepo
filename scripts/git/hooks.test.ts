@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
+import { parse } from "yaml";
 import { cleanGitEnv, createRepo } from "../test-support/repo-fixture.ts";
 import { isRecord } from "../lib/record.ts";
 
@@ -87,6 +88,18 @@ await test("Dependabot proposes updates for the pinned actions and the npm depen
   const config = readFileSync(join(root, ".github/dependabot.yml"), "utf8");
   for (const ecosystem of ["github-actions", "npm"]) assert.match(config, new RegExp(`package-ecosystem: ${ecosystem}\\n`));
   assert.doesNotMatch(config, /auto-?merge/i);
+});
+
+await test("Dependabot never proposes a TypeScript or Node types update the linter or Node 24 cannot take", () => {
+  const config: unknown = parse(readFileSync(join(root, ".github/dependabot.yml"), "utf8"));
+  assert.ok(isRecord(config) && Array.isArray(config.updates));
+  const npm: unknown = config.updates.find((entry: unknown) => isRecord(entry) && entry["package-ecosystem"] === "npm");
+  assert.ok(isRecord(npm) && Array.isArray(npm.ignore), "the npm entry carries the ignore list");
+  const ignored = new Map(npm.ignore.filter(isRecord).map((rule) => [rule["dependency-name"], rule["update-types"]]));
+  // typescript-eslint supports a TypeScript minor only after its own release, so TypeScript gets patches only.
+  assert.deepEqual(ignored.get("typescript"), ["version-update:semver-major", "version-update:semver-minor"]);
+  assert.deepEqual(ignored.get("@types/node"), ["version-update:semver-major"], "the Node types follow the .nvmrc major");
+  assert.equal(ignored.size, 2, "nothing else is held back");
 });
 
 await test("CI's bot path reuses check:base, so the check list has one source", () => {

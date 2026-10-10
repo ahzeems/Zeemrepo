@@ -59,4 +59,6 @@ requests on GitHub (owner decision, 2026-10-09).
   dependencies (development ones grouped). A bot cannot write a
   changelog entry or work record, so for pull requests GitHub reports as authored by
   `dependabot[bot]` the change-record guards are skipped; every other check still applies and
-  the owner still reviews and merges.
+  the owner still reviews and merges. TypeScript minor and major updates and `@types/node` major
+  updates are not proposed (`.github/dependabot.yml`): `typescript-eslint` must support a
+  TypeScript release first, and the Node types follow `.nvmrc`. Upgrade those on a branch of their own.

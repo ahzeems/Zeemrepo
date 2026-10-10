@@ -3,8 +3,10 @@
 ECC `skill-comply` 2.2.3 through `run_comply.py`, scenarios on Sonnet, generation and grading on
 Haiku, in the confined sandbox (`../README.md`). Three owner-approved targets. The reports in this
 folder are from the third run (2026-10-09 23:57 to 2026-10-10 00:30), the first on a harness whose
-specs are pinned (`../specs/`). Each session was checked against its sandbox and its saved raw stream
-by a separate reviewer; the labels below say how each claim is known.
+specs are pinned (`../specs/`). A separate reviewer checked each session against its sandbox and its
+saved raw stream on 2026-10-10; neither the reviewer's notes nor the sandboxes and streams (under `/tmp`
+and `~/.cache`, outside the repository) are committed, so VERIFIED below means verified by that
+review, and a later reader can check only what the reports here show.
 
 ## Scores
 
@@ -16,7 +18,9 @@ by a separate reviewer; the labels below say how each claim is known.
 
 skill-comply grades strictly: steps in order, one label per tool call, the first 500 characters of a
 call's input and 200 of its output. Totals from the earlier runs (67/20/29% in the pilot, 28/20/10% in
-the second run) graded different, regenerated specs and are not comparable with these.
+the second run) graded different, regenerated specs and are not comparable with these. The pinned
+branch-and-merge spec leaves out "report ready, never approved", a claim in the agent's final message
+that tool-call grading cannot see, so 92% says nothing about that clause.
 
 ## What the sessions did
 
@@ -58,9 +62,11 @@ the second run) graded different, regenerated specs and are not comparable with 
 1. ECC's classifier gives each call one step and reads 500 characters of input; a long heredoc call
    stays whole and `fit_for_classifier` keeps only its start and end, so multi-step calls lose credit.
 2. Tool calls made by subagents the scenario agent starts (`parent_tool_use_id` set) are graded as its
-   own. None earned a credit in this run.
+   own. In the one session that started subagents (branch-and-merge neutral), none of their calls
+   earned a credit.
 3. Scenarios are regenerated each run (only specs are pinned), and a generated task can target a guard
-   that already exists, as write-guard's did twice.
+   that already exists, as write-guard's did in this run and in the second run (whose reports were
+   replaced).
 4. `after_step` chains turn one miss into several; write-guard's spec is a straight chain.
 5. A step is credited by its command alone; `npm run pr`'s refusal is past the 200 output characters
    the grader reads.

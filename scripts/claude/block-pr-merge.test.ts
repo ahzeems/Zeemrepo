@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { EXIT_OK, type Output } from "../lib/cli.ts";
-import { HOOK_BLOCK, isBlocked, isPrMerge, main } from "./block-pr-merge.ts";
+import { HOOK_BLOCK, isPrMerge, isPushingToMain, main } from "./block-pr-merge.ts";
 
 await test("ordinary work stays allowed", () => {
   for (const command of [
@@ -51,12 +51,13 @@ await test("a push whose destination is main is blocked; other pushes are not", 
     "git push origin HEAD:refs/heads/main", "git push --force-with-lease origin feat/x:main", "git -C /repo push origin main",
     "git push --force origin feat/x main", "git push --all origin", "git push --mirror origin", "cd x && git push origin main",
     "git push -o ci.skip origin main", "git push origin :main", "git push origin feat/x:refs/heads/main",
-  ]) assert.equal(isBlocked(command), true, command);
+    "git --git-dir .git push origin main", "git --work-tree x push origin main", "git --namespace n push origin main",
+  ]) assert.equal(isPushingToMain(command), true, command);
   for (const command of [
     "git push", "git push origin", "git push -u origin feat/x", "git push origin feat/main-fix", "git push origin main:feat/x",
     "git push --set-upstream origin chore/phase-10", "git commit -m 'never git push origin main'", "git fetch origin main",
     "git push origin --delete feat/old", "git push -o main origin feat/x",
-  ]) assert.equal(isBlocked(command), false, command);
+  ]) assert.equal(isPushingToMain(command), false, command);
 });
 
 await test("the hook blocks a merge with exit 2 and a reason, and passes everything else", () => {

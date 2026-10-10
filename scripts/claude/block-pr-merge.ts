@@ -67,7 +67,7 @@ function ghSubcommand(rest: readonly string[]): string[] {
 const apiMerge = (command: string): boolean => MERGE_MUTATION.test(command) || (MERGE_ENDPOINT.test(command) && PUT.test(command))
   || (REVIEW_ENDPOINT.test(command) && APPROVE_EVENT.test(command));
 
-const GIT_FLAGS_WITH_VALUE = new Set(["-C", "-c"]);
+const GIT_FLAGS_WITH_VALUE = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace"]);
 const PUSH_FLAGS_WITH_VALUE = new Set(["-o", "--push-option", "--repo", "--receive-pack", "--exec"]);
 const MAIN = "main";
 
@@ -77,7 +77,8 @@ function pushDestination(refspec: string): string {
   return target.replace(/^refs\/heads\//, "");
 }
 
-// git push to main in any refspec form, or --all/--mirror, which push main too. A bare `git push` is
+// git push to main in the common refspec forms, or --all/--mirror, which push main too. Quoted or
+// brace-expanded refspecs are not parsed; the pre-push hook and the ruleset still refuse them. A bare `git push` is
 // left to the pre-push branch guard, which knows the current branch.
 function isPushToMain(rest: readonly string[]): boolean {
   let index = 0;
@@ -99,10 +100,6 @@ export function isPushingToMain(command: string): boolean {
     const { program, rest } = programOf(words);
     return program === "git" && isPushToMain(rest);
   });
-}
-
-export function isBlocked(command: string): boolean {
-  return isPrMerge(command) || isPushingToMain(command);
 }
 
 export function isPrMerge(command: string): boolean {

@@ -165,10 +165,11 @@ LOGIN_MINUTES_NEEDED = 60
 
 
 def access_only(login: dict[str, object]) -> dict[str, object]:
+    """Only the Claude login, without its refresh fields; any other credential in the file stays out."""
     oauth = login.get("claudeAiOauth")
     if not isinstance(oauth, dict):
-        return login
-    return {**login, "claudeAiOauth": {key: value for key, value in oauth.items() if key not in REFRESH_FIELDS}}
+        return {}
+    return {"claudeAiOauth": {key: value for key, value in oauth.items() if key not in REFRESH_FIELDS}}
 
 
 def require_fresh_login(credentials: Path, now: float) -> None:
@@ -500,9 +501,11 @@ def stream_keeper(directory: Path) -> Callable[[str], None]:
     count = [0]
 
     def keep(stdout: str) -> None:
-        directory.mkdir(parents=True, exist_ok=True)
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         count[0] += 1
-        (directory / f"{count[0]:02d}.jsonl").write_text(stdout)
+        path = directory / f"{count[0]:02d}.jsonl"
+        path.touch(mode=0o600)
+        path.write_text(stdout)
 
     return keep
 
@@ -598,6 +601,32 @@ def main(argv: list[str]) -> None:
             remove_tree(work)
 
 
+def wire_grading(ecc_run: object, runner: object, parse_spec: Callable[[Path], object], *, spec_path: Path,
+                 keep_stream: Callable[[str], None]) -> None:
+    """Patch ECC so each session's stream is kept and its error flags read, its chained calls split and
+    long calls fitted before grading, and its spec pinned at `spec_path`."""
+    parse_stream_json = getattr(runner, "_parse_stream_json")
+    run_scenario = getattr(runner, "run_scenario")
+    succeeded: set[str] = set()
+
+    def parse_and_note_successes(stdout: str) -> list[object]:
+        keep_stream(stdout)
+        succeeded.clear()
+        succeeded.update(successful_calls(stdout))
+        return parse_stream_json(stdout)
+
+    def run_and_split(scenario: object, model: str) -> object:
+        succeeded.clear()
+        run = run_scenario(scenario, model=model, timeout=SCENARIO_TIMEOUT)
+        split = split_observations(run.observations, set(succeeded))
+        return dataclasses.replace(run, observations=tuple(fit_for_classifier(split)))
+
+    generate_spec = getattr(ecc_run, "generate_spec")
+    setattr(runner, "_parse_stream_json", parse_and_note_successes)
+    setattr(ecc_run, "run_scenario", run_and_split)
+    setattr(ecc_run, "generate_spec", lambda skill, model: pinned_spec(spec_path, lambda: generate_spec(skill, model=model), parse_spec))
+
+
 def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Path, started: list[netproxy.Proxy]) -> None:
     """Isolate the environment, start the proxy (recorded in `started`), confine ECC's subprocesses and run it."""
     (work / "gh").mkdir()
@@ -634,32 +663,11 @@ def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Pa
         commit_baseline(sandbox_dir, confined.run)
 
     runner._setup_sandbox = setup_with_repository
-    run_scenario = runner.run_scenario
 
-    parse_stream_json = runner._parse_stream_json
-    succeeded: set[str] = set()
-    name = report_name(args.target)
-    keep_stream = stream_keeper(STREAMS / f"{time.strftime('%Y%m%d-%H%M%S')}-{name}")
-
-    def parse_and_note_successes(stdout: str) -> list[object]:
-        keep_stream(stdout)
-        succeeded.clear()
-        succeeded.update(successful_calls(stdout))
-        return parse_stream_json(stdout)
-
-    runner._parse_stream_json = parse_and_note_successes
-
-    def run_and_split(scenario: object, model: str) -> object:
-        succeeded.clear()
-        run = run_scenario(scenario, model=model, timeout=SCENARIO_TIMEOUT)
-        split = split_observations(run.observations, set(succeeded))
-        return dataclasses.replace(run, observations=tuple(fit_for_classifier(split)))
-
-    ecc_run.run_scenario = run_and_split
     from scripts.parser import parse_spec
-    generate_spec = ecc_run.generate_spec
-    ecc_run.generate_spec = lambda skill, model: pinned_spec(
-        SPECS / f"{name}.json", lambda: generate_spec(skill, model=model), parse_spec)
+    name = report_name(args.target)
+    wire_grading(ecc_run, runner, parse_spec, spec_path=SPECS / f"{name}.json",
+                 keep_stream=stream_keeper(STREAMS / f"{time.strftime('%Y%m%d-%H%M%S')}-{name}"))
     generate_scenarios = ecc_run.generate_scenarios
     import yaml  # ECC's own dependency, in the venv
 

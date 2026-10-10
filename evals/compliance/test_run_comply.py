@@ -7,7 +7,9 @@ import os
 import subprocess
 import tarfile
 import tempfile
+import types
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import run_comply
@@ -373,7 +375,8 @@ class Login(unittest.TestCase):
             login = {"claudeAiOauth": {"accessToken": "a", "refreshToken": "r", "refreshTokenExpiresAt": 9, "expiresAt": 5, "scopes": []}, "other": 1}
             (source / ".credentials.json").write_text(json.dumps(login))
             copy = json.loads((run_comply.fresh_claude_home(source, base) / ".credentials.json").read_text())
-            self.assertEqual(copy, {"claudeAiOauth": {"accessToken": "a", "expiresAt": 5, "scopes": []}, "other": 1})
+            self.assertEqual(copy, {"claudeAiOauth": {"accessToken": "a", "expiresAt": 5, "scopes": []}},
+                             "only the Claude login, without its refresh fields; other credentials stay out")
             self.assertEqual(json.loads((source / ".credentials.json").read_text()), login, "the owner's file is untouched")
 
     def test_a_run_refuses_to_start_unless_the_login_outlasts_it(self) -> None:
@@ -526,13 +529,69 @@ class PinnedSpec(unittest.TestCase):
             self.assertEqual(generated, [1], "generated once, then pinned")
 
 
+@dataclasses.dataclass(frozen=True)
+class FakeRun:
+    observations: tuple[object, ...]
+
+
+class Wiring(unittest.TestCase):
+    def test_ecc_runs_are_streamed_split_fitted_and_graded_on_the_pinned_spec(self) -> None:
+        long_tail = "git add notes.md && git commit -m 'docs(wiki): x'"
+        commands = ["git add a.ts && git commit -m x", "cat > n.md <<'EOF'\n" + "line\n" * 300 + "EOF\n" + long_tail]
+        stream = "\n".join(
+            [json.dumps({"type": "assistant", "message": {"content": [{"type": "tool_use", "id": f"u{n}", "name": "Bash", "input": {"command": c}}]}})
+             for n, c in enumerate(commands)]
+            + [json.dumps({"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": f"u{n}", "content": "ok", "is_error": False}]}})
+               for n in range(len(commands))])
+        seen: dict[str, object] = {}
+        runner = types.SimpleNamespace()
+
+        def parse(stdout: str) -> list[object]:
+            return [run_comply.Observation(f"T{n:04d}", "tool_complete", "Bash", "s", json.dumps({"command": c}), "ok") for n, c in enumerate(commands)]
+
+        def run_scenario(scenario: object, model: str, timeout: int) -> FakeRun:
+            seen["timeout"] = timeout
+            return FakeRun(tuple(runner._parse_stream_json(stream)))
+
+        runner._parse_stream_json, runner.run_scenario = parse, run_scenario
+        spec = FakeSpec("s", "S", "r.md", "1", (), 0.6)
+        generated: list[str] = []
+        ecc_run = types.SimpleNamespace(generate_spec=lambda skill, model: generated.append(model) or spec)
+        kept: list[str] = []
+        with tempfile.TemporaryDirectory() as directory:
+            run_comply.wire_grading(ecc_run, runner, parse_fake, spec_path=Path(directory) / "s.json", keep_stream=kept.append)
+            events = ecc_run.run_scenario(object(), model="sonnet").observations
+            self.assertEqual(ecc_run.generate_spec("SKILL.md", model="haiku"), spec)
+            self.assertEqual(ecc_run.generate_spec("SKILL.md", model="haiku"), spec)
+        self.assertEqual(kept, [stream], "the raw stream is kept")
+        self.assertEqual(seen["timeout"], run_comply.SCENARIO_TIMEOUT)
+        self.assertEqual([e.timestamp for e in events], ["T0000.001", "T0000.002", "T0001"], "the plain chain is split")
+        self.assertLessEqual(len(events[2].input), run_comply.CLASSIFIER_INPUT_LIMIT, "the long call is fitted")
+        self.assertIn("docs(wiki): x", events[2].input)
+        self.assertEqual(generated, ["haiku"], "the spec is generated once, then read from its pin")
+
+    def test_a_run_stops_before_anything_else_when_the_login_is_about_to_expire(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            (Path(directory) / ".claude").mkdir()
+            (Path(directory) / ".claude/.credentials.json").write_text(json.dumps({"claudeAiOauth": {"expiresAt": 0}}))
+            with mock.patch.dict(os.environ, {"HOME": directory}), \
+                 mock.patch.object(run_comply, "require_skill_comply", lambda path: None), \
+                 mock.patch.object(run_comply, "repo_snapshot", side_effect=AssertionError("ran past the login check")):
+                with self.assertRaises(SystemExit) as stopped:
+                    run_comply.main([".claude/skills/write-guard/SKILL.md"])
+            self.assertEqual(stopped.exception.code, 2)
+
+
 class Streams(unittest.TestCase):
     def test_each_session_stream_is_kept_for_audit_in_order(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             keep = run_comply.stream_keeper(Path(directory) / "run")
             keep("first\n")
             keep("second\n")
-            self.assertEqual([p.read_text() for p in sorted((Path(directory) / "run").iterdir())], ["first\n", "second\n"])
+            saved = sorted((Path(directory) / "run").iterdir())
+            self.assertEqual([p.read_text() for p in saved], ["first\n", "second\n"])
+            self.assertEqual({p.stat().st_mode & 0o777 for p in saved}, {0o600}, "a printed token stays private")
+            self.assertEqual((Path(directory) / "run").stat().st_mode & 0o777, 0o700)
 
 
 class Arguments(unittest.TestCase):

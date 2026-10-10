@@ -11,7 +11,7 @@ owner: human
 priority: P1
 next_action: "Finish the owner steps tracked in the Zimi migration project."
 evidence:
-  - "VERIFIED: delivered by the Zimi migration project (wiki/work/projects/Zimi migration.md), through owner-merged pull requests #1 to #20 (except #17, closed unmerged) and the machine-account branch."
+  - "VERIFIED: delivered through owner-merged pull requests #1 to #20 (except #17, closed unmerged), tracked in wiki/work/projects/Zimi migration.md; the machine-account branch and the owner steps it names remain."
 project: "[[Zimi migration]]"
 ---
 

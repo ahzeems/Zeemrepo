@@ -45,8 +45,8 @@ requests on GitHub (owner decision, 2026-10-09).
 7. The owner reviews, approves and merges on GitHub: **Files changed**, **Review changes**,
    **Approve**, then **Merge pull request** (merge commit or squash; rebase merging is off so
    the landing audit can match each commit to its PR). Agents push and open the pull request as
-   the machine account, which cannot approve it, so it cannot merge until the owner approves
-   ([[ADR-0025 Agents use a machine account and the owner approves]]). Agents never merge or
+   the machine account, which cannot approve it; with code-owner review on and no bypass actors (owner
+   steps), it cannot merge until the owner approves ([[ADR-0025 Agents use a machine account and the owner approves]]). Agents never merge or
    approve; a Claude Code hook also refuses commands that would.
 8. After the merge: `git switch main && git pull --ff-only`, then delete your own merged
    branch and, once `npm run worktree:guard` passes, your own clean worktree. Deleting anything

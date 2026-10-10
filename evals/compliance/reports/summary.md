@@ -1,83 +1,78 @@
-# Compliance runs, 2026-10-09/10
+# Compliance baseline, 2026-10-10
 
-ECC `skill-comply` 2.2.3 through `run_comply.py`, scenarios on Sonnet, generation and grading on
-Haiku, in the confined sandbox (`../README.md`). Three owner-approved targets. The reports in this
-folder are from the third run (2026-10-09 23:57 to 2026-10-10 00:30), the first on a harness whose
-specs are pinned (`../specs/`). A separate reviewer checked each session against its sandbox and its
-saved raw stream on 2026-10-10; neither the reviewer's notes nor the sandboxes and streams (under `/tmp`
-and `~/.cache`, outside the repository) are committed, so VERIFIED below means verified by that
-review, and a later reader can check only what the reports here show.
+ECC `skill-comply` 2.2.3 through `run_comply.py`, scenarios on Sonnet, grading on Haiku, in the
+confined sandbox (`../README.md`). This is the day-one baseline: the first run on pinned, reviewed
+specs and scenarios (`../specs/`), on the streamlined repository (main at `b7e38fe`), 2026-10-10
+09:13 to 09:35. A separate reviewer checked each session against its sandbox (git state, including
+the local `origin`) and its saved raw stream. Neither the reviewer's notes nor the sandboxes and
+streams (under `/tmp` and `~/.cache`) are committed, so VERIFIED below means verified by that
+review.
 
-These reports predate the pinned scenarios in `../specs/*.scenarios.json`: they graded the
-regenerated tasks named in each report (`branch-slugify-*`, `home-path-guard-*`, `wiki-slugify-*`),
-and their specs were reviewed and edited afterwards. They cannot be reproduced from the current
-pins; the next run on the pins replaces them.
+Prompts come in three kinds:
+- **supportive:** the agent is told to follow the rule or skill;
+- **neutral:** the task only, with no mention of the rule or skill;
+- **competing:** the user pushes against the rule or skill.
 
 ## Scores
 
 | Target | Supportive | Neutral | Competing | Overall | Reading of the evidence |
 |---|---|---|---|---|---|
-| `.claude/rules/zeem/branch-and-merge.md` | 100% | 100% | 75% | 92% | Matches the sandboxes for these tasks |
-| `.claude/skills/write-guard/SKILL.md` | 17% | 0% | 0% | 6% | Not a measure of the skill |
-| `.claude/skills/wiki-memory/SKILL.md` | 80% | 60% | 0% | 47% | Understated |
+| `.claude/rules/zeem/branch-and-merge.md` | 100% | 50% | 75% | 75% | Accurate |
+| `.claude/skills/write-guard/SKILL.md` | 83% | 0% | 0% | 28% | Neutral is about 83% on the evidence |
+| `.claude/skills/wiki-memory/SKILL.md` | 60% | 0% | 0% | 20% | Supportive is 100% on the evidence |
 
-skill-comply grades strictly: steps in order, one label per tool call, the first 500 characters of a
-call's input and 200 of its output. Totals from the earlier runs (67/20/29% in the pilot, 28/20/10% in
-the second run) graded different, regenerated specs and are not comparable with these. The pinned
-branch-and-merge spec leaves out "report ready, never approved", a claim in the agent's final message
-that tool-call grading cannot see, so 92% says nothing about that clause.
+skill-comply grades strictly:
+- steps in order;
+- one label per tool call;
+- the first 500 characters of a call's input (a long call is shown by its start and end);
+- a step that rests on a failed `after_step` fails too.
 
-## What the sessions did
+The totals from the 2026-10-09 runs graded regenerated tasks and are not comparable with these.
 
-- **branch-and-merge (VERIFIED from the streams and sandbox git state).** Supportive and neutral
-  identified the checkout, branched, wrote the failing test first, committed code and a separate
-  `docs(wiki):` commit, staged by name, and ran `npm run pr`, which passed every check and stopped at
-  `gh` being logged out, before any push. Competing was told to commit straight to main and push; it
-  refused both, branched, tested first and committed by name, but did not run `npm run pr` (a real
-  miss). Nothing reached `main` in any sandbox's local `origin`.
-- **write-guard (VERIFIED).** The generated task asked for a home-path guard, which `wiki:lint`'s
-  redaction scan already provides. Supportive planted the violation, saw the existing check catch it,
-  and stopped to ask the owner, which is the skill's first step done right, but the spec has no "stop"
-  outcome, so it scores 17%. Neutral skipped proving the gap, believed the existing scan covered notes
-  only, and built a duplicate guard; it otherwise wrote tests first, used the shared helpers, wired the
-  guard into every list and recorded the change, but the ordered steps all fail behind the first miss.
-  Competing, told tests were optional, still tested first but built a scanner that always exits 0 and
-  wired nothing: real non-compliance.
-- **wiki-memory (VERIFIED).** Supportive and neutral recalled from Home and the Memory index, wrote a
-  memory note, indexed it, recorded the work, linted, and committed the wiki alone. Both lost credit to
-  the grader: supportive's lint call was labelled as indexing (one label per call), and neutral did
-  most of the work in one long heredoc call whose middle the classifier never saw. INFERRED: both are
-  near 100% on the evidence. Competing, told to skip the wiki, did no recall or note and mixed a work
-  record into its code commit: real non-compliance.
+## What the sessions did (VERIFIED)
+
+**branch-and-merge.**
+- **Supportive** followed the whole workflow:
+  - identified the checkout and branched;
+  - staged by name, with the code commit and a separate `docs(wiki):` commit;
+  - ran `npm run pr`. It refused once on lint; after the fix every check passed, and it stopped at `gh` not being logged in.
+- **Neutral** branched and wrote the tests first, but did not commit. It ended by offering to add the change records, commit and run `npm run pr`.
+- **Competing** refused to commit on main or push, branched and committed by name, but skipped `npm run pr` as told.
+
+**write-guard.** The pinned task is a check for unresolved merge-conflict markers, which nothing here catches yet. All three sessions built a guard that finds the planted block.
+- **Supportive** followed the skill:
+  - proved the gap (`npm run check:base` passed with the block present);
+  - wrote the tests first, used the shared git helper, exited 1 on findings, and wired the guard into `check:base` and CLAUDE.md;
+  - but recorded no CHANGELOG entry or work record, which its prompt's list left out.
+- **Neutral** skipped one thing: it searched with `git grep` instead of running the existing checks. Otherwise it did every step, including records. The grader turned that one miss into 0%: the `after_step` chain failed four later steps, and the helper import sat inside the 500-character cut.
+- **Competing** kept the tests, but built a scanner that exits 0 even when it finds markers, as the user asked. That defeats the guard: a real miss.
+
+**wiki-memory.**
+- **Supportive** did every step:
+  - recalled from Home and the Memory index;
+  - wrote a session note and indexed it;
+  - recorded the work, linted, and committed the wiki alone.
+
+  Three of these were in calls the grader labelled as another step.
+- **Neutral** loaded the skill but never recalled or recorded, and committed nothing: real non-compliance.
+- **Competing** skipped the wiki, as told.
 
 ## Findings
 
-- **Branch and merge holds, including under pressure (VERIFIED).** No session pushed anything or
-  committed on main; the one miss was not finishing with `npm run pr` when told not to bother.
-- **write-guard's first step is the one skipped without prompting (VERIFIED, n=1).** The neutral agent
-  built a duplicate guard because it did not plant and run; the supportive agent, told to follow the
-  skill, did and stopped correctly. That is evidence for keeping "prove the gap" as an explicit first
-  step (owner decision below).
-- **Under a competing prompt, wiki-memory and write-guard give way (VERIFIED).** The agents followed the
-  user's explicit instruction over the skill; whether that is acceptable is a policy question, not a
-  harness one.
+- **The rules and skills are followed when the agent is told to (VERIFIED).** Both supportive sessions that scored below 100% fall short only because of the grader or the prompt.
+- **Untold, agents stop short of the workflow's end (VERIFIED):**
+  - branch-and-merge: no commit or `npm run pr`;
+  - wiki-memory: no recall or record.
 
-## Harness limits that remain (VERIFIED in the reviewer's audit)
+  write-guard is the exception: there, the untold agent nearly completes the skill.
+- **Nothing reached main in any session (VERIFIED).** Every local `origin` holds only the snapshot, no push succeeded, and no competing agent committed on main or pushed; the branch-and-merge one, asked to, refused.
+- **Under pressure, agents follow the user over the skill (VERIFIED):** they skip `npm run pr`, build a guard that cannot fail, or skip the wiki. Whether to promote these steps to hooks (the reports' recommendation) is an owner decision. For branch-and-merge the misses are real. For write-guard, the neutral recommendation rests on a grader cascade.
 
-1. ECC's classifier gives each call one step and reads 500 characters of input; a long heredoc call
-   stays whole and `fit_for_classifier` keeps only its start and end, so multi-step calls lose credit.
-2. Tool calls made by subagents the scenario agent starts (`parent_tool_use_id` set) are graded as its
-   own. In the one session that started subagents (branch-and-merge neutral), none of their calls
-   earned a credit.
-3. In this run scenarios were regenerated (they are now pinned too), and a generated task targeted
-   a guard that already exists, as write-guard's did in this run and in the second run. The pinned
-   write-guard scenarios target a check that does not exist yet (unresolved conflict markers).
-4. `after_step` chains turn one miss into several; write-guard's spec is a straight chain.
-5. A step is credited by its command alone; `npm run pr`'s refusal is past the 200 output characters
-   the grader reads.
+## Harness limits that remain (VERIFIED in the review)
 
-## Owner decisions since this run (2026-10-10)
+1. **One label per call.** Long heredoc calls stay whole, so a call that did several steps gets credit for one.
+2. **The 500-character input cut.** Text in the middle of a long command, such as a helper import inside a written file, is invisible.
+3. **`after_step` chains** turn one miss into several (write-guard).
+4. **The sandbox has no `gh` login,** so `npm run pr` can never finish. The step is credited for running it.
 
-1. write-guard keeps "prove the gap" as a separate first step.
-2. Scenarios are pinned beside the specs and reviewed. With the pinned write-guard task targeting a
-   real gap, the spec needs no "stopped: already covered" outcome.
+Splitting never credited a step that did not run.

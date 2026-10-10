@@ -9,7 +9,7 @@ agent: claude-code
 status: in-progress
 owner: human
 priority: P1
-next_action: "Re-run the three compliance targets on the pinned scenarios now that the baseline has landed and replace evals/compliance/reports from that run; the owner then sets up the machine account (account, write access, gh login as it, own gh login removed from this machine, 1 required approval) for the merge-control branch."
+next_action: "Owner: set up the machine account (create it, give it write access, log gh in as it, remove the owner's own gh login from this machine, require 1 approving review in the ruleset); then the merge-control branch. Owner may decide whether low-compliance steps (finish with npm run pr; wiki recall and record when untold) become hooks."
 idea: "[[Migrate Zimi into Zeemrepo]]"
 evidence:
   - "VERIFIED: PRs #1-#5 merged by the owner (audit, toolchain, shared library, wiki system, skills)."
@@ -53,6 +53,7 @@ evidence:
   - "INFERRED: grill-plan and verify-work stay: the byte-protected imported skills link to them, so removing them would fail skills:lint."
   - "VERIFIED: PR #18 merged by the owner (day-one baseline); PR #16 (setup-node 7.1.0) merged and PR #17 closed by the owner after its check failed: npm ci refused TypeScript 7 against typescript-eslint 8.71 (peer range below 6.1)."
   - "VERIFIED: Dependabot now ignores major updates of typescript and @types/node; scripts/git/hooks.test.ts fails without the ignore entries (shown failing first)."
+  - "VERIFIED: by a separate reviewer on 2026-10-10 (its notes, sandboxes and streams are not committed), compliance baseline on pinned scenarios at main b7e38fe: branch-and-merge 75% (accurate), write-guard 28% (neutral about 83% on the evidence; a step-chain cascade), wiki-memory 20% (supportive 100% on the evidence); nothing pushed or committed on main in any sandbox; see evals/compliance/reports/summary.md."
   - "OWNER DECISION: nothing is pushed to main; work lands by pull request and only the owner merges (2026-10-09)."
 ---
 

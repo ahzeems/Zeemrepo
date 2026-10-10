@@ -31,6 +31,7 @@ await test("refusals say what the record is missing", async (t) => {
   const cases: [string, RecordChange[], RegExp][] = [
     ["no work record", [], /updates no work record under wiki\/work\//],
     ["evidence unchanged", [record({ ...before, status: "in-progress" })], /gains no VERIFIED: or OWNER DECISION: evidence/],
+    ["unspaced label", [record({ ...before, status: "done", evidence: [...before.evidence, "VERIFIED:npm test passes"] })], /gains no VERIFIED: or OWNER DECISION/],
     ["inference only", [record({ ...before, status: "done", evidence: [...before.evidence, "INFERRED: probably fine"] })], /gains no VERIFIED: or OWNER DECISION/],
     ["status unchanged", [record({ ...before, evidence: [...before.evidence, "VERIFIED: npm test passes"] })], /status and next action are unchanged/],
     ["deleted record", [record(null)], /updates no work record/],

@@ -16,13 +16,11 @@ const SPLIT_ADVICE = "Commit the wiki/ files alone and the rest separately; to m
 
 // --no-renames: a rename is otherwise reported only at its destination, so moving a note out
 // of wiki/ would hide the wiki side of a mixed commit.
-// A merge is judged only on what it adds itself: --cc lists files that differ from every
-// parent, which is empty for a clean merge of main and catches changes slipped in during one.
 // A merge is judged only on what its author changed by hand: --remerge-diff compares the
 // merge with git's own automatic merge of its parents, so a clean merge of main lists
 // nothing, while conflict resolutions and changes slipped in during a merge are listed.
 // (--cc is not enough: it lists files whose hunks came from both sides even when git merged
-// them cleanly.) Requires git 2.36 or later.
+// them cleanly.) Requires git 2.36 or later; an older git fails the check as an error (exit 2).
 // The conflict style is pinned so a user's diff3 setting cannot add base lines to "the sides".
 const REMERGE = ["-c", "merge.conflictStyle=merge", "show", "--remerge-diff"];
 

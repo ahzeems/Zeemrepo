@@ -9,7 +9,7 @@ agent: claude-code
 status: in-progress
 owner: human
 priority: P1
-next_action: "Owner: set up the machine account (create it, give it write access, log gh in as it, remove the owner's own gh login from this machine, require 1 approving review in the ruleset); then the merge-control branch; then /login and the compliance re-run on the pinned scenarios."
+next_action: "Re-run the three compliance targets on the pinned scenarios now that the baseline has landed and replace evals/compliance/reports from that run; the owner then sets up the machine account (account, write access, gh login as it, own gh login removed from this machine, 1 required approval) for the merge-control branch."
 idea: "[[Migrate Zimi into Zeemrepo]]"
 evidence:
   - "VERIFIED: PRs #1-#5 merged by the owner (audit, toolchain, shared library, wiki system, skills)."

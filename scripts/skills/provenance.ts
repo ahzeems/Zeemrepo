@@ -10,7 +10,7 @@ import { isRecord } from "../lib/record.ts";
 export const BASELINE_PATH = ".claude/skills/import-baseline.json";
 
 type Revision = { sha256: string; approval: { record: string; quote: string }; reason: string };
-export type BaselineEntry = { name: string; source: string; sourceSha256: string; installedSha256: string; revisions: Revision[] };
+type BaselineEntry = { name: string; source: string; sourceSha256: string; installedSha256: string; revisions: Revision[] };
 
 const SHA256 = /^[a-f0-9]{64}$/;
 const SKILL_NAME = /^[a-z][a-z0-9-]*$/;

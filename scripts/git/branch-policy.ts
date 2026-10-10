@@ -5,7 +5,7 @@
 // earlier, on this machine, so the mistake never leaves it.
 
 export type PushUpdate = { localRef: string; localOid: string; remoteRef: string; remoteOid: string };
-export type IsAncestor = (ancestor: string, descendant: string) => boolean;
+type IsAncestor = (ancestor: string, descendant: string) => boolean;
 
 const MAIN = "refs/heads/main";
 const OID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i;

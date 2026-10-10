@@ -12,7 +12,7 @@ import { CHANGELOG, WORK_DIR } from "../lib/paths.ts";
 type Fields = Readonly<Record<string, unknown>>;
 /** A changed work record: its frontmatter and text at the base (null if new) and now (null if deleted). */
 export type RecordChange = { path: string; before: Fields | null; after: Fields | null; beforeText: string; afterText: string };
-export type MemoryInput = { changed: readonly string[]; records: readonly RecordChange[]; addedOperatingDocLines: readonly string[] };
+type MemoryInput = { changed: readonly string[]; records: readonly RecordChange[]; addedOperatingDocLines: readonly string[] };
 
 // Only a checked result or an owner decision counts. Phrases that say the check did not
 // happen void the item; they are scoped to such phrases so an unrelated clause

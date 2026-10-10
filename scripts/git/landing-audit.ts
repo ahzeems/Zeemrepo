@@ -5,13 +5,14 @@ import { spawnSync } from "node:child_process";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
 import { git, gitLines, type GitOptions } from "../lib/git.ts";
 import { isRecord } from "../lib/record.ts";
+import { CONFIG_DIR } from "../lib/paths.ts";
 
-export type Landing = { sha: string; subject: string };
-export type Verdict = Landing & { verdict: "ok" | "no-pr" | "unverified-pr"; pr: number | null };
-export type MergedCheck = (pr: number, sha: string) => boolean;
+type Landing = { sha: string; subject: string };
+type Verdict = Landing & { verdict: "ok" | "no-pr" | "unverified-pr"; pr: number | null };
+type MergedCheck = (pr: number, sha: string) => boolean;
 export type Options = { cwd?: string; output?: Output; merged?: MergedCheck };
 
-const CONFIG = "config/landing-audit.json";
+const CONFIG = `${CONFIG_DIR}landing-audit.json`;
 
 /** The PR number in a GitHub merge-commit or squash-merge subject. */
 export function prNumberOf(subject: string): number | null {

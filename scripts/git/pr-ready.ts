@@ -10,7 +10,7 @@ import { environmentFor } from "../lib/git.ts";
 
 // inherit streams the command's output to the terminal (npm run check can run for a minute
 // and its failure explains itself); env adds variables for that command.
-export type RunOptions = { inherit?: boolean; env?: Record<string, string> };
+type RunOptions = { inherit?: boolean; env?: Record<string, string> };
 export type Run = (command: string, args: readonly string[], options?: RunOptions) => { status: number | null; stdout: string };
 export type Options = { cwd?: string; output?: Output; run?: Run };
 

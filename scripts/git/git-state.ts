@@ -19,7 +19,7 @@ import { isRecord } from "../lib/record.ts";
 export type Options = { cwd?: string; output?: Output; stdin?: string };
 
 type Config = Record<string, string>;
-export type GitState = {
+type GitState = {
   head: string | null; branch: string | null; bare: string | null;
   config: Config; worktreeConfig: Config | null; refs: string; index: string; tree: string;
 };
@@ -66,7 +66,7 @@ function worktreeConfig(options: GitOptions): Config | null {
 // the core.bare change itself is the refusal, so those two read as "bare".
 const BARE = "bare";
 
-export function readState(options: GitOptions = {}): GitState {
+function readState(options: GitOptions = {}): GitState {
   git(["rev-parse", "--git-dir"], options);
   const bare = absentOnOne(["config", "--local", "--get", "core.bare"], options);
   const workTree = bare !== "true";
@@ -114,7 +114,7 @@ function configChanges(label: string, before: Config | null, after: Config | nul
   return names.length === 0 ? [] : [`${label} changed: ${names.join(", ")}`];
 }
 
-export function stateChanges(before: GitState, after: GitState): string[] {
+function stateChanges(before: GitState, after: GitState): string[] {
   const changes: string[] = [];
   if (before.head !== after.head) changes.push(`HEAD moved from ${before.head ?? "(none)"} to ${after.head ?? "(none)"}`);
   if (before.branch !== after.branch) changes.push(`the checked-out branch changed from ${before.branch ?? "(detached)"} to ${after.branch ?? "(detached)"}`);

@@ -2,12 +2,14 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { devNull, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { environmentFor } from "../lib/git.ts";
 
 // Git run from inside a hook inherits GIT_DIR and GIT_INDEX_FILE, so a fixture's git
 // commands would act on the hooked repository instead of the fixture. Every GIT_ variable
-// is dropped, user and system config are ignored, and discovery stops at the temp dir.
+// is dropped (lib/git.ts's rule for a repository named by path), user and system config are
+// ignored, and discovery stops at the temp dir.
 export const cleanGitEnv: NodeJS.ProcessEnv = {
-  ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_"))),
+  ...environmentFor({ cwd: tmpdir() }),
   GIT_CONFIG_NOSYSTEM: "1",
   GIT_CONFIG_GLOBAL: devNull,
   GIT_TERMINAL_PROMPT: "0",

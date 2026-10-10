@@ -4,8 +4,8 @@ import { join } from "node:path";
 // includeDot: also descend into dot entries. skipDirs: directory names never entered, at any
 // depth. skipAtRoot: names skipped only directly under `dir`. Defaults skip dot entries plus .git
 // and node_modules, which are never authored here.
-export type WalkOptions = { pattern?: RegExp; includeDot?: boolean; skipDirs?: ReadonlySet<string>; skipAtRoot?: ReadonlySet<string> };
-export type WalkResult = { files: string[]; symlinks: string[] };
+type WalkOptions = { includeDot?: boolean; skipDirs?: ReadonlySet<string>; skipAtRoot?: ReadonlySet<string> };
+type WalkResult = { files: string[]; symlinks: string[] };
 
 const DEFAULT_SKIPPED = new Set([".git", "node_modules"]);
 
@@ -31,7 +31,7 @@ function collect(dir: string, options: WalkOptions, skipHere: ReadonlySet<string
       const nested = collect(path, options, NONE);
       result.files.push(...nested.files);
       result.symlinks.push(...nested.symlinks);
-    } else if (entry.isFile() && (options.pattern?.test(entry.name) ?? true)) {
+    } else if (entry.isFile()) {
       result.files.push(path);
     }
   }

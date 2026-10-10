@@ -15,7 +15,7 @@ export const WORK_TYPES: ReadonlyMap<string, TypeSpec> = new Map([
 export const WORK_STATUSES: readonly string[] = ["backlog", "clarifying", "proposed", "approved", "ready", "in-progress", "blocked", "in-review", "done", "parked", "superseded"];
 // A plan flagged `job_specs: required` makes each build ticket a job spec: these sections in
 // addition to the four every build ticket carries. note-schema.md quotes this list.
-export const JOB_SPEC_SECTIONS: readonly string[] = [
+const JOB_SPEC_SECTIONS: readonly string[] = [
   "Inputs", "Allowed files", "Forbidden files", "Human checkpoints", "Secrets needed",
   "Tests and evals", "Rollback and recovery", "Evidence", "Wiki and doc updates",
 ];

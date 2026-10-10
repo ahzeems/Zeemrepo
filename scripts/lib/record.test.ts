@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isRecord, isStringArray, isUnknownArray, stringValue } from "./record.ts";
+import { isRecord, isStringArray, stringValue } from "./record.ts";
 
 await test("isRecord", async (t) => {
   await t.test("accepts non-array objects", () => {
@@ -10,11 +10,6 @@ await test("isRecord", async (t) => {
   await t.test("rejects arrays, null and primitives", () => {
     for (const value of [[], null, undefined, "x", 1, true]) assert.equal(isRecord(value), false);
   });
-});
-
-await test("isUnknownArray accepts arrays only", () => {
-  assert.equal(isUnknownArray([1, "a"]), true);
-  assert.equal(isUnknownArray({ length: 0 }), false);
 });
 
 await test("isStringArray requires every item to be a string", () => {

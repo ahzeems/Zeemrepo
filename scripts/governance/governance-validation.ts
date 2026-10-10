@@ -6,9 +6,9 @@ import { isRecord, isStringArray } from "../lib/record.ts";
 // skills, rules, code comments and config are all interface: one that still asserts a
 // replaced rule is drift. Zimi scanned a hand-picked set of Markdown files only.
 
-export type Surface = { path: string; text: string };
-export type StaleClaim = { id: string; pattern: string; supersededBy: string };
-export type Exclusion = { glob: string; reason: string };
+type Surface = { path: string; text: string };
+type StaleClaim = { id: string; pattern: string; supersededBy: string };
+type Exclusion = { glob: string; reason: string };
 export type Allowance = { path: string; contains: string; reason: string; claims: string[] };
 export type Violation = { path: string; line: number; claim: string; text: string };
 export type Config = { surfaces: string[]; exclude: Exclusion[]; staleClaims: StaleClaim[]; allowed: Allowance[] };

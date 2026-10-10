@@ -1,6 +1,6 @@
 // Worktree rules. Pure; the CLI lives in worktree-guard.ts.
 export type Risk = { path: string; uncommitted: number; unpushed: number };
-export type Worktree = { path: string; bare: boolean };
+type Worktree = { path: string; bare: boolean };
 
 // `git worktree list --porcelain -z`: records end with NUL NUL, fields with NUL. A bare
 // record has no HEAD and is not a checkout; every other record has exactly one HEAD.

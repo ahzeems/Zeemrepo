@@ -6,10 +6,10 @@ import { walk } from "../lib/walk.ts";
 import { escapeRegExp } from "./schema.ts";
 
 export type Identity = { host: string; user: string };
-export type RedactionCheck = { name: string; test(line: string): boolean };
-export type Finding = { line: number; name: string };
+type RedactionCheck = { name: string; test(line: string): boolean };
+type Finding = { line: number; name: string };
 // staged: files whose index copy differs from the working copy, with the index text.
-export type Targets = { files: string[]; symlinks: string[]; staged: { file: string; text: string }[] };
+type Targets = { files: string[]; symlinks: string[]; staged: { file: string; text: string }[] };
 
 export function currentIdentity(): Identity {
   return { host: hostname(), user: userInfo().username };

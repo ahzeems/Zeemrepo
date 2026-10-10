@@ -8,10 +8,11 @@ import { join, relative, resolve } from "node:path";
 import { EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
 import { walk } from "../lib/walk.ts";
 import { checkGovernance, configProblems, globToRegExp, readConfig, type Config, type Result } from "./governance-validation.ts";
+import { CONFIG_DIR } from "../lib/paths.ts";
 
 export type Options = { output?: Output };
 
-const CONFIG = "config/governance-alignment.json";
+const CONFIG = `${CONFIG_DIR}governance-alignment.json`;
 const REPOSITORY = join(import.meta.dirname, "../..");
 const USAGE = "usage: node scripts/governance/governance-guard.ts [--json] [--root <repository>]";
 // Never authored here: git internals, installed dependencies and other checkouts. Only at

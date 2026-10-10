@@ -27,6 +27,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 from collections.abc import Callable, Mapping, Sequence
 import dataclasses
 import json
@@ -157,13 +158,39 @@ def remove_tree(path: Path) -> None:
     shutil.rmtree(path, ignore_errors=True)
 
 
+# A sandboxed claude that refreshes its login rotates the refresh token, which logs the owner out (the
+# 2026-10-09 re-run). So the copy holds only the access token, and a run needs one that outlasts it.
+REFRESH_FIELDS = ("refreshToken", "refreshTokenExpiresAt")
+LOGIN_MINUTES_NEEDED = 60
+
+
+def access_only(login: dict[str, object]) -> dict[str, object]:
+    """Only the Claude login, without its refresh fields; any other credential in the file stays out."""
+    oauth = login.get("claudeAiOauth")
+    if not isinstance(oauth, dict):
+        return {}
+    return {"claudeAiOauth": {key: value for key, value in oauth.items() if key not in REFRESH_FIELDS}}
+
+
+def require_fresh_login(credentials: Path, now: float) -> None:
+    """Refuse to run unless the login's access token is valid for LOGIN_MINUTES_NEEDED more minutes."""
+    try:
+        expires = json.loads(credentials.read_text())["claudeAiOauth"]["expiresAt"] / 1000
+    except (OSError, ValueError, KeyError, TypeError):
+        expires = 0
+    if expires - now < LOGIN_MINUTES_NEEDED * 60:
+        print(f"run_comply: the Claude login in {credentials} has under {LOGIN_MINUTES_NEEDED} minutes left (or none);"
+              " run `claude` on the host to refresh it, then retry.", file=sys.stderr)
+        raise SystemExit(2)
+
+
 def fresh_claude_home(source: Path, base: Path) -> Path:
     """A new Claude config directory per call holding only the login, so no call can plant for the next."""
     base.mkdir(parents=True, exist_ok=True)
     target = Path(tempfile.mkdtemp(prefix="claude-home-", dir=base))
     credentials = source / ".credentials.json"
     if credentials.is_file():
-        shutil.copy2(credentials, target / ".credentials.json")
+        (target / ".credentials.json").write_text(json.dumps(access_only(json.loads(credentials.read_text()))))
     (target / "plugins").mkdir()
     return target
 
@@ -178,10 +205,10 @@ def shared_deps(repo: Path, cache: Path) -> Path:
 
 
 def repo_snapshot(repo: Path) -> bytes:
-    """The committed tree at HEAD as a tar archive, without earlier reports or the seeds' expected behaviours."""
+    """The committed tree at HEAD as a tar archive, without earlier reports or the expected behaviours (seeds, specs)."""
     env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
     return subprocess.run(
-        ["git", "archive", "--format=tar", "HEAD", "--", ".", ":(exclude)evals/compliance/reports", ":(exclude)evals/compliance/seeds.md"],
+        ["git", "archive", "--format=tar", "HEAD", "--", ".", ":(exclude)evals/compliance/reports", ":(exclude)evals/compliance/seeds.md", ":(exclude)evals/compliance/specs"],
         cwd=repo, env=env, check=True, capture_output=True,
     ).stdout
 
@@ -239,7 +266,7 @@ DISARMED = ["-c", "core.fsmonitor=", "-c", "core.hooksPath=/dev/null"]
 
 
 def commit_baseline(sandbox: Path, run: Callable[..., object]) -> None:
-    """Commit the seeded tree as main, with origin/main at it, so the branch guards have a base."""
+    """Commit the seeded tree as main and push it to a local origin, so the branch guards have a base."""
     def step(*args: str) -> None:
         run(list(args), cwd=sandbox, check=True, capture_output=True)
 
@@ -247,7 +274,11 @@ def commit_baseline(sandbox: Path, run: Callable[..., object]) -> None:
     step("git", *DISARMED, "add", "--all")
     step("git", *DISARMED, "commit", "--quiet", "--allow-empty", "--no-verify", "-m", "Zeemrepo snapshot")
     step("git", *DISARMED, "branch", "-M", "main")
-    step("git", *DISARMED, "update-ref", "refs/remotes/origin/main", "HEAD")
+    # A real origin inside .git (never part of the tree), so npm run pr can fetch and push there.
+    origin = str(sandbox.resolve() / ".git" / "origin.git")
+    step("git", *DISARMED, "init", "--quiet", "--bare", origin)
+    step("git", *DISARMED, "remote", "add", "origin", origin)
+    step("git", *DISARMED, "push", "--quiet", "--set-upstream", "origin", "main")
 
 
 # Scenario sessions that follow the rules run npm run check (and npm run pr runs it again), which
@@ -393,6 +424,35 @@ def bash_input(event: object) -> dict[str, object] | None:
     return parsed if isinstance(parsed, dict) and isinstance(parsed.get("command"), str) else None
 
 
+# The chain's output belongs to all of it; an early piece shown that output gets judged by it.
+SPLIT_OUTPUT = "(ran as part of a chain; its output is on the chain's last command)"
+# ECC's classifier reads only the first 500 characters of a tool call's input.
+CLASSIFIER_INPUT_LIMIT = 500
+ELLIPSIS = " ... "
+
+
+def fit_for_classifier(events: Sequence[object]) -> list[object]:
+    """Bash calls whose input would be cut keep the start and the end of their command, so a `git commit`
+    at the end of a long heredoc call is still visible to the classifier."""
+    result: list[object] = []
+    for event in events:
+        fields = bash_input(event)
+        raw = getattr(event, "input", "")
+        if fields is None or len(raw) <= CLASSIFIER_INPUT_LIMIT:
+            result.append(event)
+            continue
+        command = str(fields["command"])
+        overhead = len(json.dumps({**fields, "command": ""})) + len(json.dumps(ELLIPSIS))
+        keep = max(0, (CLASSIFIER_INPUT_LIMIT - overhead) // 2 - 20)
+        while keep > 0:
+            fitted = json.dumps({**fields, "command": command[:keep] + ELLIPSIS + command[-keep:]})
+            if len(fitted) <= CLASSIFIER_INPUT_LIMIT:
+                break
+            keep -= 10
+        result.append(dataclasses.replace(event, input=fitted if keep > 0 else raw[:CLASSIFIER_INPUT_LIMIT]))  # type: ignore[type-var]
+    return result
+
+
 def split_observations(events: Sequence[object], succeeded: set[str]) -> list[object]:
     """One observation per part of a plain chained Bash call that succeeded (its timestamp is in
     `succeeded`, see successful_calls), so the grader can credit each step (ECC gives each tool call a
@@ -408,21 +468,64 @@ def split_observations(events: Sequence[object], succeeded: set[str]) -> list[ob
         if len(parts) < 2 or backgrounded or stamp not in succeeded or not isinstance(output, str) or FAILED_OUTPUT.match(output):
             result.append(event)
             continue
-        result += [dataclasses.replace(event, timestamp=f"{stamp}.{n:03d}", input=json.dumps({**fields, "command": part}))  # type: ignore[type-var]
+        result += [dataclasses.replace(event, timestamp=f"{stamp}.{n:03d}", input=json.dumps({**fields, "command": part}),  # type: ignore[type-var]
+                                       output=output if n == len(parts) else SPLIT_OUTPUT)
                    for n, part in enumerate(parts, start=1)]
     return result
 
+
+def spec_document(spec: object) -> dict[str, object]:
+    """The fields ECC's parse_spec reads, from a ComplianceSpec."""
+    return {
+        "id": getattr(spec, "id"), "name": getattr(spec, "name"), "source_rule": getattr(spec, "source_rule"),
+        "version": getattr(spec, "version"),
+        "steps": [{"id": step.id, "description": step.description, "required": step.required,
+                   "detector": {"description": step.detector.description, "after_step": step.detector.after_step,
+                                "before_step": step.detector.before_step}} for step in getattr(spec, "steps")],
+        "scoring": {"threshold_promote_to_hook": getattr(spec, "threshold_promote_to_hook")},
+    }
+
+
+def pinned_spec(path: Path, generate: Callable[[], object], parse: Callable[[Path], object]) -> object:
+    """ECC writes a new spec every run, so totals from two runs grade different steps. The first run
+    saves its spec here (JSON, which ECC's YAML parser reads); later runs reuse it, edited or not."""
+    if not path.is_file():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(spec_document(generate()), indent=2) + "\n")
+    return parse(path)
+
+
+def stream_keeper(directory: Path) -> Callable[[str], None]:
+    """Save each session's raw stream-json, numbered in run order, so outputs, splits and error flags
+    can be audited after the run."""
+    count = [0]
+
+    def keep(stdout: str) -> None:
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        count[0] += 1
+        path = directory / f"{count[0]:02d}.jsonl"
+        path.touch(mode=0o600)
+        path.write_text(stdout)
+
+    return keep
+
+
+SPECS = Path(__file__).resolve().parent / "specs"
+# Raw session streams hold sandbox content and paths, so they stay outside the repository.
+STREAMS = Path.home() / ".cache" / "zeemrepo" / "comply-runs"
 
 REPO_CONTEXT = """
 
 ## Scenario environment (added by run_comply.py, not part of the file under test)
 
 The sandbox is a copy of this repository: TypeScript run directly by Node, tests with node:test
-through `npm test`, every guard through `npm run check`, wiki notes with YAML frontmatter (type,
-title, summary, tags, dates, agent, status). Its package.json, CLAUDE.md, .claude/, scripts/ and
-config/ replace any scenario copies. There is no pip and no network for packages, so write
+through `npm test`, which runs only tests beside the code as scripts/<area>/*.test.ts; every guard
+through `npm run check`. Wiki notes have YAML frontmatter (type, title, summary, tags, created, updated,
+agent, status, plus fields by type), and `npm run wiki:lint` already enforces those fields, their
+values and each type's sections, so do not ask for a guard it already provides. Its package.json,
+CLAUDE.md, .claude/, scripts/ and config/ replace any scenario copies. There is no pip and no network for packages, so write
 scenarios in TypeScript or JavaScript with node:test, not Python. Setup commands should only create the
-files the task needs and commit locally; do not push or create remotes.
+files the task needs and commit locally; do not push or create remotes (the sandbox gets a local origin).
 """
 
 
@@ -479,6 +582,7 @@ def main(argv: list[str]) -> None:
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
     require_skill_comply(SKILL_COMPLY)
+    require_fresh_login(Path.home() / ".claude" / ".credentials.json", now=time.time())
     snapshot = repo_snapshot(REPO)
     deps = shared_deps(REPO, Path.home() / ".cache/zeemrepo/comply-deps")
     # Everything the run creates (login copies, the proxy socket, the gh config) lives here and is
@@ -495,6 +599,32 @@ def main(argv: list[str]) -> None:
                 proxy.close()
         finally:
             remove_tree(work)
+
+
+def wire_grading(ecc_run: object, runner: object, parse_spec: Callable[[Path], object], *, spec_path: Path,
+                 keep_stream: Callable[[str], None]) -> None:
+    """Patch ECC so each session's stream is kept and its error flags read, its chained calls split and
+    long calls fitted before grading, and its spec pinned at `spec_path`."""
+    parse_stream_json = getattr(runner, "_parse_stream_json")
+    run_scenario = getattr(runner, "run_scenario")
+    succeeded: set[str] = set()
+
+    def parse_and_note_successes(stdout: str) -> list[object]:
+        keep_stream(stdout)
+        succeeded.clear()
+        succeeded.update(successful_calls(stdout))
+        return parse_stream_json(stdout)
+
+    def run_and_split(scenario: object, model: str) -> object:
+        succeeded.clear()
+        run = run_scenario(scenario, model=model, timeout=SCENARIO_TIMEOUT)
+        split = split_observations(run.observations, set(succeeded))
+        return dataclasses.replace(run, observations=tuple(fit_for_classifier(split)))
+
+    generate_spec = getattr(ecc_run, "generate_spec")
+    setattr(runner, "_parse_stream_json", parse_and_note_successes)
+    setattr(ecc_run, "run_scenario", run_and_split)
+    setattr(ecc_run, "generate_spec", lambda skill, model: pinned_spec(spec_path, lambda: generate_spec(skill, model=model), parse_spec))
 
 
 def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Path, started: list[netproxy.Proxy]) -> None:
@@ -533,24 +663,11 @@ def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Pa
         commit_baseline(sandbox_dir, confined.run)
 
     runner._setup_sandbox = setup_with_repository
-    run_scenario = runner.run_scenario
 
-    parse_stream_json = runner._parse_stream_json
-    succeeded: set[str] = set()
-
-    def parse_and_note_successes(stdout: str) -> list[object]:
-        succeeded.clear()
-        succeeded.update(successful_calls(stdout))
-        return parse_stream_json(stdout)
-
-    runner._parse_stream_json = parse_and_note_successes
-
-    def run_and_split(scenario: object, model: str) -> object:
-        succeeded.clear()
-        run = run_scenario(scenario, model=model, timeout=SCENARIO_TIMEOUT)
-        return dataclasses.replace(run, observations=tuple(split_observations(run.observations, set(succeeded))))
-
-    ecc_run.run_scenario = run_and_split
+    from scripts.parser import parse_spec
+    name = report_name(args.target)
+    wire_grading(ecc_run, runner, parse_spec, spec_path=SPECS / f"{name}.json",
+                 keep_stream=stream_keeper(STREAMS / f"{time.strftime('%Y%m%d-%H%M%S')}-{name}"))
     generate_scenarios = ecc_run.generate_scenarios
     import yaml  # ECC's own dependency, in the venv
 

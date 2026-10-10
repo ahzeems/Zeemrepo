@@ -1,4 +1,4 @@
-// Claude Code PreToolUse hook: refuse Bash commands that merge or approve a pull request.
+// Claude Code PreToolUse hook: refuse Bash commands that merge or approve a pull request, or push to main.
 //
 // Claude prepares changes, runs checks, pushes its branch and opens the PR; merging is the
 // owner's act on GitHub (owner decision, 2026-10-09). The deny rules in .claude/settings.json
@@ -67,6 +67,41 @@ function ghSubcommand(rest: readonly string[]): string[] {
 const apiMerge = (command: string): boolean => MERGE_MUTATION.test(command) || (MERGE_ENDPOINT.test(command) && PUT.test(command))
   || (REVIEW_ENDPOINT.test(command) && APPROVE_EVENT.test(command));
 
+const GIT_FLAGS_WITH_VALUE = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace"]);
+const PUSH_FLAGS_WITH_VALUE = new Set(["-o", "--push-option", "--repo", "--receive-pack", "--exec"]);
+const MAIN = "main";
+
+// The destination of a refspec: `src:dst`, `+src:dst`, `:dst` (delete) or `name`, without refs/heads/.
+function pushDestination(refspec: string): string {
+  const target = refspec.replace(/^\+/, "").split(":").pop() ?? "";
+  return target.replace(/^refs\/heads\//, "");
+}
+
+// git push to main in the common refspec forms, or --all/--mirror, which push main too. Quoted or
+// brace-expanded refspecs are not parsed; the pre-push hook and the ruleset still refuse them. A bare `git push` is
+// left to the pre-push branch guard, which knows the current branch.
+function isPushToMain(rest: readonly string[]): boolean {
+  let index = 0;
+  while ((rest[index] ?? "").startsWith("-")) index += GIT_FLAGS_WITH_VALUE.has(rest[index] ?? "") ? 2 : 1;
+  if (rest[index] !== "push") return false;
+  const positional: string[] = [];
+  const args = rest.slice(index + 1);
+  for (let at = 0; at < args.length; at++) {
+    const word = args[at] ?? "";
+    if (word === "--all" || word === "--mirror") return true;
+    if (PUSH_FLAGS_WITH_VALUE.has(word)) at++;
+    else if (!word.startsWith("-")) positional.push(word);
+  }
+  return positional.slice(1).some((refspec) => pushDestination(refspec) === MAIN);
+}
+
+export function isPushingToMain(command: string): boolean {
+  return commandParts(command).some((words) => {
+    const { program, rest } = programOf(words);
+    return program === "git" && isPushToMain(rest);
+  });
+}
+
 export function isPrMerge(command: string): boolean {
   return commandParts(command).some((words) => {
     const { program, rest } = programOf(words);
@@ -92,6 +127,10 @@ export function main(_args: readonly string[], options: Options = {}): number {
   }
   if (!isRecord(input) || input.tool_name !== "Bash" || !isRecord(input.tool_input)) return EXIT_OK;
   const command = typeof input.tool_input.command === "string" ? input.tool_input.command : "";
+  if (isPushingToMain(command)) {
+    output.warn("block-pr-merge: this command would push to main, and work is never pushed to main. Push your branch and open or update the PR instead (npm run pr).");
+    return HOOK_BLOCK;
+  }
   if (!isPrMerge(command)) return EXIT_OK;
   output.warn("block-pr-merge: this command would merge or approve a pull request. Only the owner merges or approves, on GitHub. Push the branch and open or update the PR instead (npm run pr).");
   return HOOK_BLOCK;

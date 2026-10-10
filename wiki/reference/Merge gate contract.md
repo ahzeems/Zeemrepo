@@ -4,7 +4,7 @@ title: Merge gate contract
 summary: "The merge gate is GitHub: the protect-main ruleset, the required check and guards workflows, the local backstops, and the read-only landing audit."
 tags: [area/git, area/github, kind/convention]
 created: 2026-09-20
-updated: 2026-10-09
+updated: 2026-10-10
 agent: claude-code
 status: active
 related: ["[[Land a change]]", "[[ADR-0008 Owner merges pull requests on GitHub]]"]
@@ -36,7 +36,9 @@ dependencies install with `--ignore-scripts`, the token is read-only, and no PR 
 The guards do read the PR's own configuration (`config/`, the note schema's allowlists), so a
 PR that loosens an exclusion or drops a stale claim is judged by its loosened config. Those
 files are workflow-critical, and the owner's review is what catches such a change. For
-`dependabot[bot]` pull requests both workflows skip only the two change-record guards. If
+`dependabot[bot]` pull requests both workflows skip only the two change-record guards: `check`
+runs `npm run check:base`, which is `npm run check` without them, so the list lives once in
+`package.json`. If
 `guards` fails at once with "couldn't find remote ref", GitHub had not built the merge ref
 yet: re-run it.
 
@@ -47,9 +49,11 @@ yet: re-run it.
 | `.githooks/pre-commit` (`branch-guard.ts commit`, `wiki-compliance.ts --staged`) | Commits on main or a detached HEAD, and a staged mix of wiki and other files |
 | `.githooks/pre-push` (`branch-guard.ts push`) | Pushes to main, rewrites of a published branch, deletion of a branch not contained in `origin/main`; then runs `npm run check` and refuses if the check changed HEAD, the branch, `core.bare`, local or per-worktree git config, refs, the index or the working tree (`git-state.ts`) |
 | `.claude/settings.json` deny rules | `git push origin main`, force pushes, `gh pr merge`, and the REST merge endpoint |
-| `scripts/claude/block-pr-merge.ts` (PreToolUse hook) | Bash commands that merge or approve a PR in other spellings: `gh pr merge` behind wrappers or flags, a PUT to `pulls/<n>/merge` through `gh api`, `curl` or `wget`, the GraphQL merge and auto-merge mutations, `gh pr review --approve`, and an `APPROVE` review through the REST or GraphQL API |
+| `scripts/claude/block-pr-merge.ts` (PreToolUse hook) | Bash commands that push to main in the common refspec forms (`HEAD:main`, `+x:main`, `refs/heads/main`, `:main`, `--all`, `--mirror`, after `-C`, `-c`, `--git-dir`, `--work-tree`; not quoted refspecs), and that merge or approve a PR in other spellings: `gh pr merge` behind wrappers or flags, a PUT to `pulls/<n>/merge` through `gh api`, `curl` or `wget`, the GraphQL merge and auto-merge mutations, `gh pr review --approve`, and an `APPROVE` review through the REST or GraphQL API |
 
-The hook is a heuristic, not a sandbox; the owner's review is the control.
+The hook is a heuristic, not a sandbox; the `protect-main` ruleset (no bypass actors) and the
+owner's review are the control. `npm run audit` asks `gh` with a 60-second timeout, so a hung `gh`
+is an error, not a stall.
 
 ## Commands
 

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
-import { classifyLandings, prNumberOf } from "./landing-audit.ts";
+import { classifyLandings, githubMerged, prNumberOf } from "./landing-audit.ts";
 
 await test("prNumberOf reads GitHub merge and squash subjects", () => {
   assert.equal(prNumberOf("Merge pull request #12 from ahzeems/feat/x"), 12);
@@ -46,4 +49,18 @@ await test("the audit reads its start point from origin/main and needs a full co
   repo.write("config/landing-audit.json", JSON.stringify({ since: "916259b", repo: "o/r" }));
   repo.git(["update-ref", "refs/remotes/origin/main", repo.commit("start")]);
   assert.throws(() => main([], { cwd: repo.dir, output: { write: () => undefined, warn: () => undefined }, merged: () => true }), /full "since" commit id/);
+});
+
+await test("a gh that hangs is stopped at the timeout and reported as an error, not a verdict", () => {
+  const directory = mkdtempSync(join(tmpdir(), "landing-audit-"));
+  try {
+    const hanging = join(directory, "gh");
+    writeFileSync(hanging, "#!/bin/sh\nsleep 10\n");
+    chmodSync(hanging, 0o755);
+    const started = Date.now();
+    assert.throws(() => githubMerged(directory, "o/r", { program: hanging, timeoutMs: 200 })(1, "a".repeat(40)), /gh could not run/);
+    assert.ok(Date.now() - started < 5000, "the audit does not wait for gh to finish");
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });

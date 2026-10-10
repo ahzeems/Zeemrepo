@@ -1,0 +1,61 @@
+{
+  "id": "branch-and-merge",
+  "name": "Branch and merge",
+  "source_rule": "unspecified (no file path provided)",
+  "version": "1.0",
+  "steps": [
+    {
+      "id": "identify_checkout",
+      "description": "Before acting, identify the checkout: path, worktree, branch, HEAD, and whether the working tree is clean",
+      "required": true,
+      "detector": {
+        "description": "Run a read-only git inspection (status, branch, worktree list, or rev-parse HEAD) before any file edit or git write",
+        "after_step": null,
+        "before_step": null
+      }
+    },
+    {
+      "id": "fresh_branch_from_main",
+      "description": "Start the piece of work on a fresh branch created from current main, not on main itself",
+      "required": true,
+      "detector": {
+        "description": "Create a new git branch from main or origin/main (checkout -b or switch -c) before committing changes",
+        "after_step": "identify_checkout",
+        "before_step": null
+      }
+    },
+    {
+      "id": "stage_files_by_name",
+      "description": "Stage only named files; never use git add -A or git add . on a tree that has not been fully inspected",
+      "required": true,
+      "detector": {
+        "description": "Run git add with explicit file paths rather than a broad add-all or add-current-directory command",
+        "after_step": "fresh_branch_from_main",
+        "before_step": null
+      }
+    },
+    {
+      "id": "keep_published_branch_current_by_merging",
+      "description": "When a branch is already published, bring main into it by merging, never by rebasing or force-pushing",
+      "required": false,
+      "detector": {
+        "description": "Run git merge of main into the published working branch; flag any rebase or force push of that branch as a violation",
+        "after_step": null,
+        "before_step": null
+      }
+    },
+    {
+      "id": "finish_with_npm_run_pr",
+      "description": "Finish the work by running npm run pr, which checks the branch contains origin/main, runs the checks, pushes the branch, and opens or updates the PR",
+      "required": true,
+      "detector": {
+        "description": "Run the npm run pr script after the changes are committed on the feature branch",
+        "after_step": "stage_files_by_name",
+        "before_step": null
+      }
+    }
+  ],
+  "scoring": {
+    "threshold_promote_to_hook": 0.6
+  }
+}

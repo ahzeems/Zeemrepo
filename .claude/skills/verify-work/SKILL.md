@@ -43,8 +43,8 @@ only their stated boundary, not authenticated model behavior, GUI rendering, or 
 ## 4. Judge by artifact type
 
 Checks decide what a command can decide: behavior for code, valid fields for a schema,
-working links for documentation. Apply [unslop](../unslop/SKILL.md) and
-[technical-writing](../technical-writing/SKILL.md) when judging prose.
+working links for documentation. Apply [unslop](../unslop/SKILL.md) when judging prose, and
+[technical-writing](../technical-writing/SKILL.md) too when the user has loaded it (it is user-only).
 A passing check plus a rubric still needs review, not an automatic pass. Where the acceptance
 criteria do not define the standard, say so rather than inventing one.
 

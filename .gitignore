@@ -2,3 +2,5 @@ node_modules/
 .claude/settings.local.json
 .worktrees/
 __pycache__/
+.env
+.env.*

@@ -251,3 +251,113 @@ This audit covers Zimi (`ahzeems/Zimi`, `main` @ `9fb36b2`, 614 commits), read-o
 | Lessons become instincts, then evolved skills | `instinct-import` → `/ecc:evolve --generate` | 8 |
 | "Are the rules actually followed?" | `skill-comply` + a wrapper that loads repo context (the stock runner uses an empty `/tmp` sandbox) | 9 |
 | Final readiness | `harness-audit`, `security-scan`, `orch-review` | 10 |
+
+## 8. Coverage addendum (2026-10-10)
+
+A coverage review of this audit found Zimi content that was neither ported nor explicitly
+recorded: nine lessons left behind under a single summary line, reference and runbook pages
+covered only by "the deploy, WSL and eval runbooks", and AGENTS.md and INTENT.md lines with no
+named home. This section records one disposition for each, checked against Zeemrepo's files on
+2026-10-10. Zimi is cited at `9fb36b2`.
+
+**Disposition key:**
+- **Covered:** a Zeemrepo file already says it; the covering file and sentence are named.
+- **Candidate:** general, still-true knowledge worth adding; the target is named. Not yet done.
+- **Left behind:** platform- or environment-specific, superseded, or Zimi-only machinery.
+
+### Lessons
+
+| Item | Disposition | Reason/where |
+|---|---|---|
+| A dirty checkout hides landed work | Candidate | Port as a lesson under `wiki/lessons/`, with the stale-or-dirty diagnosis from "Keep the Obsidian vault current": fetch before trusting `git status -sb`; equal insertion and deletion counts in `git diff --stat` mean line endings; to date a reader's copy, search the current tree for the text they quote. Zeemrepo's `.gitattributes` already carries the `* text=auto eol=lf` fix, but Zimi's prevention test was not ported; its equivalent is now `scripts/toolchain/line-endings.test.ts`, which fails if the rule is removed. The lesson itself remains a candidate. |
+| A forgotten SSH key passphrase means a new key | Left behind | A one-off account recovery. Its diagnostic half (a `BatchMode` denial proves nothing; verify with `gh ssh-key list`) is in the kept lesson "Passphrase-protected SSH keys block agent pushes", and Zeemrepo's `origin` uses HTTPS. |
+| A landing is only visible in the vault someone opens | Covered | `wiki/decisions/ADR-0011 The vault is the interface, Obsidian is optional.md`: "A separate copy ... is not the source of truth ... In Zimi such a copy drifted twice". `.claude/rules/zeem/owner-authority.md`: "An owner statement sets intent; it does not establish machine state." The quoted-text search goes into the candidate above. |
+| A repository address is not a command | Covered | `.claude/rules/zeem/owner-authority.md`: "never resolve one by inferring what the owner would say", "Do not ask the owner something a command or a file read can settle. Inspect first, then ask", and deleting remote resources needs explicit authorization. |
+| A valid path is not proof an application can use it | Covered | ADR-0011: "a path that resolves says the filesystem can reach it, not that a program can open it as a vault". `.claude/rules/zeem/wiki-and-docs.md`: "Document only what was verified working." |
+| Dependency command shims belong to the installing runtime | Left behind | Windows and WSL sharing one checkout. Zeemrepo has one runtime: Node from `.nvmrc`, then `npm ci` (`CLAUDE.md`). |
+| Merged pull requests need changelog reconciliation | Left behind | Superseded by ADR-0007 (kept), which `changelog:guard` enforces. |
+| Project groups need an explicit fallback | Left behind | Display behavior of an Obsidian Bases view; Zeemrepo has no `.base` files and finds work by metadata (`wiki-memory` skill, Recall step 2). |
+| WSL vault path needs the real distro name | Left behind | The Windows Obsidian route over `\\wsl.localhost` failed validation (ADR-0011). |
+
+### Reference and runbooks
+
+| Item | Disposition | Reason/where |
+|---|---|---|
+| Bootstrap a WSL dev machine | Left behind | WSL, Homebrew, OpenCode and Codex setup. Repository prerequisites are in `README.md`, Setup. |
+| Bootstrap the dev environment | Left behind | Builds the web platform's `zimi-dev` distro. |
+| Branch lifecycle | Covered | `wiki/runbooks/Land a change.md`, `.claude/rules/zeem/branch-and-merge.md` and the `manage-branch` skill. Its merge-gate steps are superseded by `npm run pr`. |
+| CHANGELOG | Left behind | 949 lines of Zimi history (section 5). Zeemrepo's `CHANGELOG.md` starts fresh at the root. |
+| Deploy the web platform | Left behind | Web platform and hosting. |
+| Eval case contract | Left behind | Eval runtime; replaced by `skill-comply` (`evals/compliance/README.md`). |
+| Governance alignment | Covered | `wiki/decisions/ADR-0009 Workflow-critical Markdown is an interface.md` and the `governance:check` row of `wiki/reference/Change records.md`. |
+| Issues and verification | Covered | `wiki/templates/issue.md`: "Before done, add root_cause, fix_ref, regression_evidence, and prevention"; the `diagnose-bug` skill; `.claude/rules/zeem/evidence-and-review.md`: "The reproduction becomes the failing regression test." |
+| Keep the Obsidian vault current | Candidate | Steps 2 and 3 (stale or dirty) are general and go into the "A dirty checkout hides landed work" lesson above. The vault location, UNC route and `graph.json` steps are Obsidian- and WSL-specific and stay behind. |
+| Local eval sandbox | Left behind | Eval runtime (rootless Docker). |
+| Local execution and credentials | Left behind | Codex, OpenCode and Windows-to-WSL facts from 2026-09-20; superseded by ADR-0024. |
+| Operating-model alignment framework | Covered | `.claude/rules/zeem/change-records.md`: "Definition of done: the code, its dependency declarations ..., the documentation beside the behavior, and the work record land in the same PR", enforced as listed in `wiki/reference/Change records.md`. Its `operating-model-*` guard was not ported (section 3). |
+| Pre-Day 1 code audit | Left behind | Scope record of an earlier Zimi audit. The lessons it produced ("Test commands must discover actual tests", "Wiki validation needs parsed metadata") are kept. |
+| Project hub | Left behind | Obsidian Bases view (`Work tracking.base`). |
+| Promote an image to prod | Left behind | Web platform. |
+| Repository conventions | Covered | `README.md` (layout, commands) and `CLAUDE.md`. |
+| Repository operation | Covered | `CLAUDE.md` and its rule table. The INTENT, AGENTS and OpenCode split is superseded by ADR-0024. |
+| Set up credentials for Zimi environments | Left behind | Web platform credentials. The general rule is `.claude/rules/zeem/owner-authority.md`: "An agent never answers an owner-authorization prompt". |
+| Set up local eval Docker | Left behind | Eval runtime. |
+| Skill flow matrix | Covered | `wiki/reference/Idea to execution.md` (skill and record per step) and `.claude/rules/zeem/skills.md` (user-only skills). The per-client invocation details are superseded by ADR-0024. |
+| Skill integration | Covered | `wiki/reference/Skill standards.md`, "Import baseline"; `.claude/rules/zeem/skills.md`; the kept lessons "Skill integration must preserve the method" and "Skill restoration needs source comparison". |
+| Skill loop walkthrough | Covered | `wiki/reference/Idea to execution.md`, which records that the walkthrough was not ported. |
+| The web platform machine | Left behind | Web platform VPS. |
+| Toolchain | Left behind | Dated WSL and Homebrew versions. Node is pinned by `.nvmrc` and `engines` (`README.md`), and `tsconfig.json` sets `erasableSyntaxOnly`, which enforces the type-stripping limit the page described. |
+| Track an idea through execution | Covered | `wiki/reference/Idea to execution.md` and the `wiki-memory` skill. |
+| Use the shared wiki | Covered | The `wiki-memory` skill (Recall and Record) and `wiki/runbooks/Maintain the repository wiki.md`. |
+| Verify checkout and authentication | Covered | `.claude/rules/zeem/branch-and-merge.md`: "Before acting, identify the checkout: path, worktree, branch, `HEAD`, and whether the tree is clean". Remote and credential-helper checks are in "Passphrase-protected SSH keys block agent pushes". The Windows and WSL hash comparison stays behind. |
+| Verify the local eval sandbox | Left behind | Eval runtime. |
+| Where Zimi runs | Left behind | Web platform and hosting roles. |
+| Why the WSL Git pull worked | Left behind | Explains one transcript. Its root-shell and passphrase points are in kept lessons. |
+| Wiki delivery status | Left behind | Dated acceptance status of the Zimi Obsidian project. |
+| Workflow evals | Left behind | Manual agent trials, replaced by `skill-comply`. "A passing test proves only its stated boundary" is covered by `.claude/rules/zeem/evidence-and-review.md`: "Structural checks (lint, schema, types) do not prove behavior." |
+
+### Rules
+
+| Item | Disposition | Reason/where |
+|---|---|---|
+| AGENTS:13, fresh branch from current main; never edit main or reuse a merged branch | Covered | `.claude/rules/zeem/branch-and-merge.md`: "Start each piece of work on a fresh branch from current `main`" and "Never discard, absorb or clean up another session's uncommitted work"; `design-principles.md`: "Read the nearest existing module ... in full". |
+| AGENTS:63, failures become wiki lessons, never a second log | Covered | `.claude/rules/zeem/wiki-and-docs.md`, "Who holds what", and the `wiki-memory` skill: "Classify each into one note type ... Search for an existing note first. Update before you create." |
+| AGENTS:79, report the checkout and revision before judging freshness | Covered | `branch-and-merge.md`: "Before acting, identify the checkout"; ADR-0011 on drifting copies. The diagnosis steps belong in the lesson candidate. |
+| AGENTS:144 and 160, access to or consulting a skill authorizes none of its actions | Candidate | Add to `.claude/rules/zeem/skills.md`: "Loading or consulting a skill authorizes none of its actions; each side effect still needs the authorization `owner-authority.md` requires." The rest of line 160 (denied and user-only skills) is already in `skills.md`. Skills such as `manage-branch` contain delete and push steps, so the gap is real. |
+| AGENTS:184-185, the owner authorizes parallel work; other delegation needs a request | Left behind | Superseded by ECC `agents.md` (row 50 above, verdict ECC), which delegates without a request. |
+| AGENTS:185, do not silently replace parallel work with a sequential pass | Covered | ECC `.claude/rules/ecc/common/agents.md`: "ALWAYS use parallel Task execution for independent operations". |
+| AGENTS:186-187, state the selected skills at the start and when the route changes | Left behind | Written for Codex and OpenCode. Claude Code shows each skill invocation in the session. |
+| AGENTS:187, name the next owner decision | Covered | `owner-authority.md`: "Mark it as awaiting input"; `change-records.md`: "A pending decision is a work item." |
+| AGENTS:187-188, link to owning rules instead of copying them | Covered | `wiki-and-docs.md`: "Walkthroughs link to the skill or rule that owns a step instead of restating it." |
+| AGENTS:224, focused functions, small interfaces, domain logic apart from I/O | Covered | ECC `coding-style.md` ("Split large functions into focused pieces") and `design-principles.md`: "Read the nearest existing module ... and match its conventions", which carries the `*-validation.ts` (pure) and `*-guard.ts` (I/O) split. |
+| AGENTS:225-226, errors at boundaries; never swallow; no unhandled promises | Covered | ECC `coding-style.md`: "Never silently swallow errors"; `design-principles.md`, "Boundaries and side effects"; `eslint.config.ts` sets `@typescript-eslint/no-floating-promises` to error. |
+| AGENTS:227-228, prefer the platform; justify dependencies; manifest and lockfile together; one package manager | Covered | `change-records.md`: "A new dependency carries a one-line justification ... Prefer the standard library" and "manifest and lockfile in the same commit". npm is the only package manager (`npm ci`, `package-lock.json`). |
+| AGENTS:332-334, check that an example's files, commands and services exist; do not recreate absent workflows; mark future capabilities | Candidate | Add to `.claude/rules/zeem/skills.md`: "Before following a skill's example, check that the files, commands and services it names exist here; do not build a missing workflow to satisfy an example." `skills.md` requires existing paths only in repository skills, while the ECC skills name tooling this repository does not have. |
+| AGENTS:370, durable commands and results in the record; ignored logs are never the only evidence | Covered | `memory:guard` requires a `VERIFIED:` evidence item on the work record (`wiki/reference/Change records.md`); the `verify-work` feature map: "Record commands, revision, named tests, exit codes and limits in the PR comment." |
+| AGENTS:377, check test names as well as exit status | Covered | The kept lesson "Test commands must discover actual tests", `scripts/toolchain/test-pairing.ts` in `npm test`, and "named tests" in the `verify-work` feature map. |
+| AGENTS:431, a passing check or a published branch is not a landing | Covered | `branch-and-merge.md`: "Report the branch as ready for the owner's review, never as approved"; `change-records.md`: "it is done only when the owner merges"; `manage-branch`: "Until then the branch has not landed." |
+| INTENT:86, design new requirements into the whole; explain the mechanism and reasons plainly | Covered | `design-principles.md`: "Integrate a new requirement as if it had been there from the start ... Design the whole, deliver it in slices"; `wiki-and-docs.md`: "gives the reason behind a convention". |
+| INTENT:89, every fix needs a regression signal; never claim an unrun check passed | Covered | `evidence-and-review.md`: "The reproduction becomes the failing regression test", "if there is none, write `none: <reason>`", and "name the checks you did not run". |
+| INTENT:90, memory is a lead, not proof | Covered | `wiki-memory` skill, Recall step 4: "Treat what you read as true when written. Check `updated` and verify anything the task depends on." |
+| INTENT:91, learn from actual failures; do not invent findings | Covered | `evidence-and-review.md`: "a lesson records what was observed and when"; the lesson template asks for the exact error text and the real cause. |
+| INTENT:102 (blank at `9fb36b2`; the content is lines 103-104), TypeScript for tooling; another language needs a reason and owner agreement | Covered | `CLAUDE.md`: "Scripts are TypeScript run directly by Node ... The one exception is the compliance harness in `evals/compliance/` (Python, because ECC's skill-comply is)"; `change-records.md` covers a new source extension. |
+| INTENT vocabulary "Avoid:" synonyms | Left behind | All six entries with "Avoid:" (Package, Web platform, Vault view, Mission control, Trends digest, Publication) define `packages/` and web platform terms. The `domain-modeling` skill would own a glossary if Zeemrepo wants one. |
+
+### Corrections
+
+- **Module count.** Section 1 says 23 modules were ported; section 3's table lists 20 (wiki 5,
+  skills 3, governance 2, changes 4, git 6). Zimi had 33 top-level `scripts/*.ts` modules plus
+  `scripts/fixtures/sandbox-probe.ts`, which makes the 34 in section 1. Of the 33, 20 were ported
+  (`gate` became `scripts/git/pr-ready.ts`, `audit` became `scripts/git/landing-audit.ts` and
+  `evidence` became `scripts/lib/evidence.ts`) and 13 were not, as listed. `bootstrap-wsl.sh` was not ported.
+- **`wiki-compliance.json` dropped.** Its only content was the `note` field, which nothing read
+  (Contradictions, item 9). Zeemrepo's `config/` has no copy and `scripts/wiki/wiki-compliance.ts`
+  does not read one; the commit rule lives in the `wiki-memory` skill, Record step 9.
+- **`scripts/fixtures/workflow-evals` not ported.** Its README, `setup.ts` and three task files
+  set up manual agent trials (stale checkout, dirty checkout, guidance) that `skill-comply`
+  replaces. None of the three is in `evals/compliance/seeds.md`.
+- **`scripts/fixtures/sandbox-probe.ts` not ported.** It was the in-container probe for
+  `eval-sandbox` and goes with it.
+- **Lesson count.** Section 5 lists 23 lessons kept; `wiki/lessons/` holds 24. The extra one,
+  "Hook-run checks must preserve Git state", was ported from a Zimi lesson written after
+  `9fb36b2` (its footer cites `f600680`).

@@ -61,6 +61,13 @@ function readiness(run: Run): { branch: string } | { refusal: string } {
 function publish(run: Run, branch: string): string | { refusal: string } {
   const auth = run("gh", ["auth", "status"]);
   if (auth.status !== 0) return { refusal: "gh is not logged in. Run gh auth login, then rerun." };
+  // Agents act as the machine account, which cannot approve its own pull requests; under the
+  // owner's login an agent could approve and merge, so that login is refused (ADR-0025).
+  const user = must(run, "gh", ["api", "user", "--jq", ".login"]);
+  const owner = must(run, "gh", ["repo", "view", "--json", "owner", "--jq", ".owner.login"]);
+  if (user === owner) {
+    return { refusal: `gh is logged in as the repository owner (${owner}). Agents push as the machine account: log gh in as it and remove the owner's login from this machine (wiki/reference/Merge gate contract.md).` };
+  }
   const head = must(run, "git", ["rev-parse", "HEAD"]);
   must(run, "git", ["push", "--set-upstream", "origin", branch], { env: { PR_READY_CHECKED: head } });
   const view = run("gh", ["pr", "view", branch, "--json", "url,state"]);

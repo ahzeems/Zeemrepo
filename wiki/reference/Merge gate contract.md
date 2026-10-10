@@ -13,16 +13,17 @@ related: ["[[Land a change]]", "[[ADR-0025 Agents use a machine account and the 
 The merge gate is GitHub: every change lands as a pull request that only the owner approves and
 merges ([[ADR-0025 Agents use a machine account and the owner approves]]). Agents push branches
 and open pull requests as the machine account `zimmybot`, which has write access and cannot
-approve the pull requests it authors. The ruleset requires one approving review, so nothing an
-agent opens can merge until the owner approves it. The owner's GitHub login is not stored on the
-machine agents use, and `npm run pr` refuses to run when `gh` is logged in as the repository
-owner. The Claude Code deny rules and hook below remain as defence in depth.
+approve the pull requests it authors. The ruleset requires one approving review from a code
+owner, and `.github/CODEOWNERS` names the owner alone, so nothing merges until the owner
+approves it, whoever opened it. No credential for the owner's account (a `gh` login or an SSH key
+registered to it) is stored on the machine agents use, and `npm run pr` refuses to run when `gh`
+is logged in as the repository owner. The Claude Code deny rules and hook below remain as defence in depth.
 
 ## Ruleset `protect-main` (default branch)
 
 | Rule | Setting |
 |---|---|
-| Pull request required | Yes, with 1 approving review; stale approvals are dismissed on new commits, and the most recent push must be approved |
+| Pull request required | Yes, with 1 approving review from a code owner (`.github/CODEOWNERS`: the owner); stale approvals are dismissed on new commits, and the most recent push must be approved |
 | Required status checks | `check` and `guards` |
 | Merge methods | Merge commit and squash; rebase merging is off so the audit can match each commit to its PR |
 | Force-push, deletion | Blocked |
@@ -68,7 +69,7 @@ config-protection read from the plugin's `scripts/hooks/config-protection.js`, v
 
 - `npm run pr` (`scripts/git/pr-ready.ts`) refuses unless the branch is a named feature
   branch, clean, contains `origin/main`, has commits of its own and passes `npm run check`.
-  It then checks `gh auth status`, pushes the branch and opens or reports its pull request. It
+  It then checks `gh auth status`, refuses if `gh` is logged in as the repository owner, pushes the branch and opens or reports its pull request. It
   never merges. `--dry-run` stops before pushing.
 - `npm run audit` (`scripts/git/landing-audit.ts`) is read-only. After `git fetch origin`, it
   walks main's first-parent history after the `since` commit in `config/landing-audit.json`,

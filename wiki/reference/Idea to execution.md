@@ -36,7 +36,7 @@ gh pr view <N> --json state,mergedBy
 ```
 
 A status written by an agent is never approval.
-[[ADR-0008 Owner merges pull requests on GitHub]] records why only the owner merges.
+[[ADR-0025 Agents use a machine account and the owner approves]] records why only the owner approves and merges (superseding ADR-0008).
 
 ## While building
 

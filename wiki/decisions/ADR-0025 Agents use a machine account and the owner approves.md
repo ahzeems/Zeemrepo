@@ -32,16 +32,21 @@ The owner chose a machine account (OWNER DECISION, 2026-10-10: "Machine account
 ## Decision
 
 Agents push branches and open pull requests as a machine account with write access. The
-`protect-main` ruleset requires one approving review, dismisses stale approvals, requires
-approval of the most recent push, and has no bypass actors. The owner approves and merges in the
-browser; the owner's GitHub login is not stored on the machine agents use. `npm run pr` refuses
-to run when `gh` is logged in as the repository owner.
+`protect-main` ruleset requires one approving review from a code owner, dismisses stale
+approvals, requires approval of the most recent push, and has no bypass actors;
+`.github/CODEOWNERS` names the owner alone, so only the owner's approval counts. The owner
+approves and merges in the browser. No credential for the owner's GitHub account (a `gh` login
+or an SSH key registered to it) is stored on the machine agents use. `npm run pr` refuses to run
+when `gh` is logged in as the repository owner.
 
 ## Consequences
 
-- No agent can merge, because the machine account cannot approve the pull requests it authors,
-  and the account that can approve is not on this machine. This holds even for a command the
-  hook does not recognise.
+- No agent can merge, because only the owner's approval counts and no credential for the owner's
+  account is on this machine. This holds even for a command the hook does not recognise. It
+  depends on the code-owner requirement: without it, the machine account could approve a pull
+  request it did not open, such as a Dependabot one. It also depends on keeping SSH keys
+  registered to the owner's account off this machine, since a push made with one counts as the
+  owner's.
 - The owner's routine changes: on each pull request, approve under **Files changed**, then
   merge. Dependabot pull requests are approved the same way.
 - The machine account's token lives on this machine (`gh` stores it in plain text where no

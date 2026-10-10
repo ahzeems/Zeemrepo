@@ -17,7 +17,7 @@ requests on GitHub (owner decision, 2026-10-09).
 
 ## Prerequisites
 
-- Node from `.nvmrc`, `npm ci` done, `gh auth status` logged in.
+- Node from `.nvmrc`, `npm ci` done, `gh auth status` logged in as the machine account (never the owner).
 - Hooks installed once per checkout: inspect `git config --get core.hooksPath` first, then
   `npm run hooks:install`.
 

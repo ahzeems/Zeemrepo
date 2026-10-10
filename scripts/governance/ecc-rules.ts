@@ -34,10 +34,11 @@ function pinnedRef(root: string): string | null {
   return isRecord(source) && typeof source.ref === "string" ? source.ref : null;
 }
 
-// Every entry counts, dot files and folders included; a symlink is never a vendored file.
+// Every entry counts, dot files and any folder included; a symlink is never a vendored file.
+// Hashes ignore a byte-order mark and CRLF line endings, as skill provenance does.
 function vendored(root: string): { hashes: Record<string, string>; symlinks: string[] } {
   const dir = join(root, RULES_DIR);
-  const found = walk(dir, { includeDot: true });
+  const found = walk(dir, { includeDot: true, skipDirs: new Set() });
   const entries = found.files.map((path) => [relative(dir, path), provenanceHash(readFileSync(path, "utf8"))] as const);
   return {
     hashes: Object.fromEntries(entries.sort(([a], [b]) => a.localeCompare(b))),

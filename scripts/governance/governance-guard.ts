@@ -15,8 +15,6 @@ export type Options = { output?: Output };
 const CONFIG = `${CONFIG_DIR}governance-alignment.json`;
 const REPOSITORY = join(import.meta.dirname, "../..");
 const USAGE = "usage: node scripts/governance/governance-guard.ts [--json] [--root <repository>]";
-// Never authored here: git internals, installed dependencies and other checkouts. Only at
-// the root; a node_modules folder anywhere else is scanned like any other.
 // .git is skipped at any depth; dependencies and parallel sessions' worktrees only at the root, so a
 // nested node_modules someone committed is still scanned.
 const GIT_DIR = new Set([".git"]);

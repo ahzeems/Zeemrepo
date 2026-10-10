@@ -34,7 +34,7 @@ export function rootFrom(args: readonly string[], fallback: string, usage: strin
   return resolve(value);
 }
 
-export type ModeSpec = { name: string; usage: string; modes: readonly string[] };
+type ModeSpec = { name: string; usage: string; modes: readonly string[] };
 
 function modeList(modes: readonly string[]): string {
   if (modes.length === 1) return `or ${modes[0] ?? ""}`;

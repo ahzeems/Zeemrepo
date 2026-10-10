@@ -35,7 +35,7 @@ function isApproveFlag(word: string): boolean {
   return false;
 }
 // bash -c '...' and eval '...' run their argument, so it is lifted out as a command.
-const SHELL_PAYLOAD = /\b(?:bash|sh|zsh)\s+-c\s+(["'])([\s\S]*?)\1|\beval\s+(["'])([\s\S]*?)\3/g;
+const SHELL_PAYLOAD = /\b(?:bash|sh|zsh)\s+-[a-z]*c\s+(["'])([\s\S]*?)\1|\beval\s+(["'])([\s\S]*?)\3/g;
 // Heredoc bodies are data. A quoted string is joined into its word with only word characters kept,
 // as the shell joins it: "gh" is still gh and 'HEAD:main' still a refspec, while a quoted commit
 // message becomes one harmless word and its separators split nothing.
@@ -64,23 +64,27 @@ function commandParts(command: string): string[][] {
 
 // The index of the first word after a wrapper's own options and arguments.
 function skipWrapper(words: readonly string[], index: number): number {
-  const wrapper = words[index] ?? "";
+  const wrapper = programName(words[index] ?? "");
   const valueFlags = WRAPPER_VALUE_FLAGS[wrapper] ?? new Set<string>();
   let next = index + 1;
   while ((words[next] ?? "").startsWith("-")) next += valueFlags.has(words[next] ?? "") ? 2 : 1;
   return next + (WRAPPER_ARGUMENTS[wrapper] ?? 0);
 }
 
+// The command a word names: a path (/usr/bin/gh) or a leading backslash (\gh, which skips aliases)
+// still runs that program.
+const programName = (word: string): string => word.replace(/^\\/, "").split("/").pop() ?? "";
+
 function programOf(words: readonly string[]): { program: string | undefined; rest: string[] } {
   let index = 0;
   while (index < words.length) {
     const word = words[index] ?? "";
-    if (WRAPPERS.has(word)) index = skipWrapper(words, index);
+    if (WRAPPERS.has(programName(word))) index = skipWrapper(words, index);
     else if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) index++;
     else break;
   }
-  // A path to the binary (/usr/bin/gh) is still that program.
-  return { program: words[index]?.split("/").pop(), rest: words.slice(index + 1) };
+  const word = words[index];
+  return { program: word === undefined ? undefined : programName(word), rest: words.slice(index + 1) };
 }
 
 // gh's global flags (-R owner/repo) may come before the subcommand.
@@ -91,8 +95,10 @@ function ghSubcommand(rest: readonly string[]): string[] {
 }
 
 // API merges are judged on the whole command, because the endpoint or mutation is usually quoted.
-const apiMerge = (command: string): boolean => MERGE_MUTATION.test(command) || (MERGE_ENDPOINT.test(command) && PUT.test(command))
+const apiMergeIn = (command: string): boolean => MERGE_MUTATION.test(command) || (MERGE_ENDPOINT.test(command) && PUT.test(command))
   || (REVIEW_ENDPOINT.test(command) && APPROVE_EVENT.test(command));
+// Quotes around a flag's value (-X 'PUT') do not change what gh or curl sends.
+const apiMerge = (command: string): boolean => apiMergeIn(command) || apiMergeIn(command.replace(/["']/g, ""));
 
 const GIT_FLAGS_WITH_VALUE = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace"]);
 const PUSH_FLAGS_WITH_VALUE = new Set(["-o", "--push-option", "--repo", "--receive-pack", "--exec"]);

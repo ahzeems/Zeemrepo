@@ -1,6 +1,7 @@
 """Tests for run_comply.py: the sandbox seeding and isolation, without calling ECC or claude."""
 
 import dataclasses
+import inspect
 import io
 import json
 import os
@@ -378,6 +379,8 @@ class Login(unittest.TestCase):
             self.assertEqual(copy, {"claudeAiOauth": {"accessToken": "a", "expiresAt": 5, "scopes": []}},
                              "only the Claude login, without its refresh fields; other credentials stay out")
             self.assertEqual(json.loads((source / ".credentials.json").read_text()), login, "the owner's file is untouched")
+            for other in ({"mcpOAuth": {"refreshToken": "r"}}, {"claudeAiOauth": "not a login", "x": 1}):
+                self.assertEqual(run_comply.access_only(other), {}, "without a Claude login entry nothing is copied")
 
     def test_a_run_refuses_to_start_unless_the_login_outlasts_it(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -569,6 +572,10 @@ class Wiring(unittest.TestCase):
         self.assertLessEqual(len(events[2].input), run_comply.CLASSIFIER_INPUT_LIMIT, "the long call is fitted")
         self.assertIn("docs(wiki): x", events[2].input)
         self.assertEqual(generated, ["haiku"], "the spec is generated once, then read from its pin")
+
+    def test_the_confined_run_installs_the_wiring(self) -> None:
+        # Structural: run_confined needs bwrap, the proxy and ECC, so its call is checked by reading it.
+        self.assertIn("wire_grading(ecc_run, runner, parse_spec,", inspect.getsource(run_comply.run_confined))
 
     def test_a_run_stops_before_anything_else_when_the_login_is_about_to_expire(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

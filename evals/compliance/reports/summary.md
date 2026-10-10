@@ -8,11 +8,16 @@ saved raw stream on 2026-10-10; neither the reviewer's notes nor the sandboxes a
 and `~/.cache`, outside the repository) are committed, so VERIFIED below means verified by that
 review, and a later reader can check only what the reports here show.
 
+These reports predate the pinned scenarios in `../specs/*.scenarios.json`: they graded the
+regenerated tasks named in each report (`branch-slugify-*`, `home-path-guard-*`, `wiki-slugify-*`),
+and their specs were reviewed and edited afterwards. They cannot be reproduced from the current
+pins; the next run on the pins replaces them.
+
 ## Scores
 
 | Target | Supportive | Neutral | Competing | Overall | Reading of the evidence |
 |---|---|---|---|---|---|
-| `.claude/rules/zeem/branch-and-merge.md` | 100% | 100% | 75% | 92% | Trustworthy |
+| `.claude/rules/zeem/branch-and-merge.md` | 100% | 100% | 75% | 92% | Matches the sandboxes for these tasks |
 | `.claude/skills/write-guard/SKILL.md` | 17% | 0% | 0% | 6% | Not a measure of the skill |
 | `.claude/skills/wiki-memory/SKILL.md` | 80% | 60% | 0% | 47% | Understated |
 
@@ -64,16 +69,15 @@ that tool-call grading cannot see, so 92% says nothing about that clause.
 2. Tool calls made by subagents the scenario agent starts (`parent_tool_use_id` set) are graded as its
    own. In the one session that started subagents (branch-and-merge neutral), none of their calls
    earned a credit.
-3. Scenarios are regenerated each run (only specs are pinned), and a generated task can target a guard
-   that already exists, as write-guard's did in this run and in the second run (whose reports were
-   replaced).
+3. In this run scenarios were regenerated (they are now pinned too), and a generated task targeted
+   a guard that already exists, as write-guard's did in this run and in the second run. The pinned
+   write-guard scenarios target a check that does not exist yet (unresolved conflict markers).
 4. `after_step` chains turn one miss into several; write-guard's spec is a straight chain.
 5. A step is credited by its command alone; `npm run pr`'s refusal is past the 200 output characters
    the grader reads.
 
-## For the owner
+## Owner decisions since this run (2026-10-10)
 
-1. write-guard: keep "prove the gap" as a separate first step (recommended on this run's evidence) or
-   fold it into the first failing test.
-2. Whether to pin scenarios and add a "stopped: already covered" outcome to write-guard's spec before
-   using its total.
+1. write-guard keeps "prove the gap" as a separate first step.
+2. Scenarios are pinned beside the specs and reviewed. With the pinned write-guard task targeting a
+   real gap, the spec needs no "stopped: already covered" outcome.

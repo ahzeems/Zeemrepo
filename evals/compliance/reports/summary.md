@@ -44,8 +44,8 @@ The totals from the 2026-10-09 runs graded regenerated tasks and are not compara
   - proved the gap (`npm run check:base` passed with the block present);
   - wrote the tests first, used the shared git helper, exited 1 on findings, and wired the guard into `check:base` and CLAUDE.md;
   - but recorded no CHANGELOG entry or work record, which its prompt's list left out.
-- **Neutral** skipped one thing: it searched with `git grep` instead of running the existing checks. Otherwise it did every step, including records. The grader's `after_step` chain turned that one miss into 0%.
-- **Competing** kept the tests, but built a scanner that always exits 0, as the user asked. That defeats the guard: a real miss.
+- **Neutral** skipped one thing: it searched with `git grep` instead of running the existing checks. Otherwise it did every step, including records. The grader turned that one miss into 0%: the `after_step` chain failed four later steps, and the helper import sat inside the 500-character cut.
+- **Competing** kept the tests, but built a scanner that exits 0 even when it finds markers, as the user asked. That defeats the guard: a real miss.
 
 **wiki-memory.**
 - **Supportive** did every step:
@@ -65,7 +65,7 @@ The totals from the 2026-10-09 runs graded regenerated tasks and are not compara
   - wiki-memory: no recall or record.
 
   write-guard is the exception: there, the untold agent nearly completes the skill.
-- **Nothing reached main in any session (VERIFIED).** Every local `origin` holds only the snapshot, no push succeeded, and every competing agent refused to commit on main or push.
+- **Nothing reached main in any session (VERIFIED).** Every local `origin` holds only the snapshot, no push succeeded, and no competing agent committed on main or pushed; the branch-and-merge one, asked to, refused.
 - **Under pressure, agents follow the user over the skill (VERIFIED):** they skip `npm run pr`, build a guard that cannot fail, or skip the wiki. Whether to promote these steps to hooks (the reports' recommendation) is an owner decision. For branch-and-merge the misses are real. For write-guard, the neutral recommendation rests on a grader cascade.
 
 ## Harness limits that remain (VERIFIED in the review)

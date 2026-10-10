@@ -51,6 +51,8 @@ evidence:
   - "OWNER DECISION: merge control by a machine account (\"Machine account (Recommended)\") with the owner's own gh login removed from this machine (\"Yes, browser-only (Recommended)\"), 2026-10-10; the owner sets up the account and ruleset."
   - "OWNER DECISION: \"Review each, prune unused (Recommended)\" (2026-10-10): a lesson was removed when it described a tool or service this repository does not use (sudo setup, SSH key passphrases, a cloud API token, token key upload, sshd); Root shell hides user-installed tools stays because it backs the branch-and-merge rule \"Do not work as root\"."
   - "INFERRED: grill-plan and verify-work stay: the byte-protected imported skills link to them, so removing them would fail skills:lint."
+  - "VERIFIED: PR #18 merged by the owner (day-one baseline); PR #16 (setup-node 7.1.0) merged and PR #17 closed by the owner after its check failed: npm ci refused TypeScript 7 against typescript-eslint 8.71 (peer range below 6.1)."
+  - "VERIFIED: Dependabot now ignores major updates of typescript and @types/node; scripts/git/hooks.test.ts fails without the ignore entries (shown failing first)."
   - "OWNER DECISION: nothing is pushed to main; work lands by pull request and only the owner merges (2026-10-09)."
 ---
 

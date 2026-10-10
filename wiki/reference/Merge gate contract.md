@@ -28,7 +28,7 @@ from any account with write access still counts. The Claude Code deny rules and 
 | Required status checks | `check` and `guards` |
 | Merge methods | Merge commit and squash; rebase merging is off so the audit can match each commit to its PR |
 | Force-push, deletion | Blocked |
-| Bypass actors | None |
+| Bypass actors | None (read with the owner's token before the machine-account switch; the owner reconfirms it, since the machine account cannot see it) |
 
 ## Required checks
 

@@ -1,7 +1,7 @@
 ---
 type: decision
 title: ADR-0025 Agents use a machine account and the owner approves
-summary: Agents push and open pull requests as a machine account that cannot approve its own work; the ruleset requires the owner's approval, and the owner's GitHub login is not on the machine agents use.
+summary: Agents act as a machine account that cannot approve its own work; with code-owner review on and no owner credential on their machine, only the owner's approval counts.
 tags: [area/git, area/github, area/agents, kind/architecture]
 created: 2026-10-10
 updated: 2026-10-10
@@ -46,8 +46,8 @@ when `gh` is logged in as the repository owner.
 
 ## Consequences
 
-- No agent can merge, because only the owner's approval counts and no credential for the owner's
-  account is on this machine. This holds even for a command the hook does not recognise. It
+- Once both owner steps are done, no agent can merge, because only the owner's approval counts and
+  no credential for the owner's account is on this machine. This holds even for a command the hook does not recognise. It
   depends on the code-owner requirement: without it, the machine account could approve a pull
   request it did not open, such as a Dependabot one. It also depends on keeping SSH keys
   registered to the owner's account off this machine, since a push made with one counts as the

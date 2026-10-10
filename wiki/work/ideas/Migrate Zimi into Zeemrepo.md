@@ -10,8 +10,8 @@ status: done
 owner: human
 priority: P1
 evidence:
-  - "VERIFIED: delivered through owner-merged pull requests #1 to #20 (except #17, closed unmerged), tracked in wiki/work/projects/Zimi migration.md; the machine-account branch and the owner steps it names remain."
-  - "VERIFIED: PR #21 (machine account and code-owner review) merged by the owner, and the owner steps it named are done (checks in wiki/work/projects/Zimi migration.md)."
+  - "VERIFIED: delivered through owner-merged pull requests #1 to #20 (except #17, closed unmerged), tracked in wiki/work/projects/Zimi migration.md; at that point the machine-account branch and its owner steps remained (done since; next item)."
+  - "VERIFIED: PR #21 (machine account and code-owner review) merged by the owner; code-owner review is on and the owner's account has no SSH key registered. The empty bypass list and two-factor authentication on the machine account are owner-reported (see wiki/work/projects/Zimi migration.md)."
 project: "[[Zimi migration]]"
 ---
 

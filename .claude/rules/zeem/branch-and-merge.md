@@ -1,6 +1,6 @@
 # Branch and merge
 
-How work reaches `main`. Decisions: `wiki/decisions/ADR-0008 Owner merges pull requests on GitHub.md` and
+How work reaches `main`. Decisions: `wiki/decisions/ADR-0025 Agents use a machine account and the owner approves.md` and
 `wiki/decisions/ADR-0021 Authority comes from an identified checkout.md`. Steps: `wiki/runbooks/Land a change.md`.
 
 ## Landing (OWNER DECISION, 2026-10-09)

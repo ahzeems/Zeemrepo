@@ -4,7 +4,7 @@ title: S09 Explicit phase outcomes and review eligibility
 summary: Implement the approved phase outcomes so failures cannot report success and only checked, reviewed results are eligible for integration.
 tags: [area/agents, area/typescript, area/planning]
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 agent: opencode
 status: proposed
 owner: agent
@@ -53,7 +53,7 @@ Durable retry storage, trusted verifier receipts, notification reconciliation an
 
 - `scripts/sandcastle/coordinator*.ts`, `scripts/sandcastle/afk.ts`, `scripts/sandcastle/afk*.test.ts`.
 - New `scripts/sandcastle/run-result*.ts` with sibling tests; `.sandcastle/review-prompt.md`, `.sandcastle/merge-prompt.md` for the result contract.
-- Relevant coordinator test support, `wiki/runbooks/Run Sandcastle on GitHub issues.md`, this ticket and `CHANGELOG.md`.
+- Relevant coordinator test support, `wiki/runbooks/Run Sandcastle on GitHub issues.md`, this ticket and a new `changelog/` fragment.
 
 ## Forbidden files
 

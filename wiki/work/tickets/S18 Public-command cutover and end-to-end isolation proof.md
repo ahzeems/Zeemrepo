@@ -4,7 +4,7 @@ title: S18 Public-command cutover and end-to-end isolation proof
 summary: Route the public Sandcastle commands through the complete isolated pipeline and retire replaced host-execution paths only after end-to-end proof.
 tags: [area/agents, area/git, area/planning]
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 agent: opencode
 status: proposed
 owner: agent
@@ -54,7 +54,7 @@ New model-provider runtime ports, unrelated cleanup and authenticated external a
 - `.sandcastle/main.ts`, relevant `.sandcastle/*-prompt.md` files and `scripts/sandcastle/*.ts` for the explicit cutover/retirement only.
 - `package.json`, `eslint.config.ts`, `tsconfig.json`, `.github/workflows/check.yml` as required to keep executed code checked.
 - `scripts/lib/change-policy.ts` and its test for newly declared runtime surfaces.
-- `wiki/runbooks/Run Sandcastle on GitHub issues.md`, `wiki/runbooks/Verify a repository change.md`, `.claude/skills/verify-work/references/feature-map.md`, `README.md`, `CLAUDE.md`, this ticket and `CHANGELOG.md`.
+- `wiki/runbooks/Run Sandcastle on GitHub issues.md`, `wiki/runbooks/Verify a repository change.md`, `.claude/skills/verify-work/references/feature-map.md`, `README.md`, `CLAUDE.md`, this ticket and a new `changelog/` fragment.
 
 ## Forbidden files
 

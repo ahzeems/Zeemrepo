@@ -4,7 +4,7 @@ title: S11 Non-executable branch inputs
 summary: Keep branch and ref inputs as data when preparing review diffs and logs, including Git-valid shell metacharacters.
 tags: [area/git, area/agents, area/planning]
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 agent: opencode
 status: proposed
 owner: agent
@@ -52,7 +52,7 @@ General shell parsing, GitHub issue mutation and unrelated branch-lifecycle poli
 
 - `.sandcastle/review-prompt.md`, `.sandcastle/main.ts` only for wiring, `scripts/sandcastle/coordinator*.ts`.
 - `scripts/sandcastle/branch-guard.ts`, `scripts/sandcastle/branch-guard.test.ts`; bounded new `scripts/sandcastle/review-input*.ts` with sibling tests if needed.
-- `wiki/runbooks/Run Sandcastle on GitHub issues.md`, this ticket and `CHANGELOG.md`.
+- `wiki/runbooks/Run Sandcastle on GitHub issues.md`, this ticket and a new `changelog/` fragment.
 
 ## Forbidden files
 

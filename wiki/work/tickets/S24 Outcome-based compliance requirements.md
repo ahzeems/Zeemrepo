@@ -4,7 +4,7 @@ title: S24 Outcome-based compliance requirements
 summary: Check prohibited actions and required artifacts/outcomes independently instead of treating positive tool-call labels as complete compliance evidence.
 tags: [area/evals, area/compliance, area/planning]
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 agent: opencode
 status: proposed
 owner: agent
@@ -53,7 +53,7 @@ Unapproved live model runs, retroactive rewriting of old scores and claims of co
 
 - `evals/compliance/specs/*.json`, `evals/compliance/run_comply.py`, `evals/compliance/test_run_comply.py`.
 - New `evals/compliance/outcome_validation.py` and `evals/compliance/test_outcome_validation.py` if needed.
-- `evals/compliance/README.md`; new separately identified reports only after authorized measurement; this ticket and `CHANGELOG.md`.
+- `evals/compliance/README.md`; new separately identified reports only after authorized measurement; this ticket and a new `changelog/` fragment.
 
 ## Forbidden files
 

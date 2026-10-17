@@ -4,7 +4,7 @@ title: S05 Checked-commit publication invariant
 summary: Prevent publication when checks change the branch, commit or relevant repository state, and certify only the captured checked SHA.
 tags: [area/git, area/github, area/planning]
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 agent: opencode
 status: proposed
 owner: agent
@@ -52,7 +52,7 @@ PR repository/base validation and the new isolated receipt publication path, whi
 
 - `scripts/git/pr-ready.ts`, `scripts/git/pr-ready.test.ts`, `scripts/git/git-state.ts`, `scripts/git/git-state.test.ts`.
 - `.githooks/pre-push`, `scripts/git/hooks.test.ts` only for the checked-SHA contract.
-- `wiki/reference/Merge gate contract.md`, `wiki/lessons/Hook-run checks must preserve Git state.md`, this ticket and `CHANGELOG.md`.
+- `wiki/reference/Merge gate contract.md`, `wiki/lessons/Hook-run checks must preserve Git state.md`, this ticket and a new `changelog/` fragment.
 
 ## Forbidden files
 

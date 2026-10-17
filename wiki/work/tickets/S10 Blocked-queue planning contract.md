@@ -4,7 +4,7 @@ title: S10 Blocked-queue planning contract
 summary: Keep blocked issues out of execution and represent empty and blocked queues as explicit non-executing outcomes.
 tags: [area/agents, area/planning]
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 agent: opencode
 status: proposed
 owner: agent
@@ -52,7 +52,7 @@ Automatically rewriting issue dependencies, adding a new issue tracker or claimi
 
 - `.sandcastle/plan-prompt.md`, `scripts/sandcastle/plan-schema.ts`, `scripts/sandcastle/plan-schema.test.ts`.
 - `scripts/sandcastle/coordinator*.ts`, `scripts/sandcastle/run-result*.ts` and relevant coordinator test support.
-- `wiki/runbooks/Run Sandcastle on GitHub issues.md`, this ticket and `CHANGELOG.md`.
+- `wiki/runbooks/Run Sandcastle on GitHub issues.md`, this ticket and a new `changelog/` fragment.
 
 ## Forbidden files
 

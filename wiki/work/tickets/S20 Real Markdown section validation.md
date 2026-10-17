@@ -4,7 +4,7 @@ title: S20 Real Markdown section validation
 summary: Require actual visible Markdown headings so comments and fenced examples cannot satisfy note or job-spec sections.
 tags: [area/wiki, area/typescript, area/planning]
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 agent: opencode
 status: proposed
 owner: agent
@@ -52,7 +52,7 @@ Rendering, editorial judgment, approval inference and broad Markdown normalizati
 
 - `scripts/wiki/schema.ts`, `scripts/wiki/schema.test.ts`, `scripts/wiki/work-tracking*.ts`, `scripts/wiki/wiki-validation*.ts`, `scripts/wiki/wiki-lint.test.ts`, `scripts/fixtures/valid/wiki-lint/**`, `scripts/fixtures/broken/wiki-lint/**`.
 - `scripts/skills/markdown-references.ts`, its test and a paired `scripts/lib/markdown*.ts` helper only if real callers share parsing.
-- `.claude/skills/wiki-memory/references/note-schema.md`, `wiki/runbooks/Verify a repository change.md`, this ticket and `CHANGELOG.md`.
+- `.claude/skills/wiki-memory/references/note-schema.md`, `wiki/runbooks/Verify a repository change.md`, this ticket and a new `changelog/` fragment.
 
 ## Forbidden files
 

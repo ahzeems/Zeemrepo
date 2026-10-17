@@ -4,7 +4,7 @@ title: S06 Exact PR destination and head identity
 summary: Bind the pushed commit and reused or created PR to the intended repository, main base, source branch and head SHA.
 tags: [area/git, area/github, area/planning]
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 agent: opencode
 status: proposed
 owner: agent
@@ -51,7 +51,7 @@ New account authorization, fork creation, changing CODEOWNERS and bypassing appr
 ## Allowed files
 
 - `scripts/git/pr-ready.ts`, `scripts/git/pr-ready.test.ts`; `scripts/sandcastle/afk.ts` and its tests only if a shared identity/result contract requires adjustment.
-- `wiki/reference/Merge gate contract.md`, `wiki/runbooks/Land a change.md`, this ticket and `CHANGELOG.md`.
+- `wiki/reference/Merge gate contract.md`, `wiki/runbooks/Land a change.md`, this ticket and a new `changelog/` fragment.
 
 ## Forbidden files
 

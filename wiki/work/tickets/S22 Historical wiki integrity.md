@@ -4,7 +4,7 @@ title: S22 Historical wiki integrity
 summary: Enforce protected historical note bodies and immutable author/creation fields while allowing documented same-day and supersession updates.
 tags: [area/wiki, area/git, area/planning]
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 agent: opencode
 status: proposed
 owner: agent
@@ -53,7 +53,7 @@ Rewriting real historical notes, changing the immutability policy or trusting ti
 - `scripts/wiki/wiki-compliance*.ts`, `scripts/wiki/wiki-validation*.ts`, and bounded new `scripts/wiki/wiki-history*.ts` with sibling tests.
 - `scripts/lib/frontmatter.ts`, `scripts/lib/git.ts` and their sibling tests only if a required reusable capability is missing.
 - `package.json`, `.github/workflows/guards.yml` and `CLAUDE.md` only if a separate canonical guard is necessary.
-- `.claude/skills/wiki-memory/references/note-schema.md`, `wiki/runbooks/Maintain the repository wiki.md`, `wiki/runbooks/Verify a repository change.md`, `.claude/skills/verify-work/references/feature-map.md`, this ticket and `CHANGELOG.md`.
+- `.claude/skills/wiki-memory/references/note-schema.md`, `wiki/runbooks/Maintain the repository wiki.md`, `wiki/runbooks/Verify a repository change.md`, `.claude/skills/verify-work/references/feature-map.md`, this ticket and a new `changelog/` fragment.
 
 ## Forbidden files
 

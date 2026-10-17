@@ -4,7 +4,7 @@ title: S08 Testable coordinator entry point
 summary: Expose the actual Sandcastle sequencing to fake external boundaries and include its production code in lint and coverage.
 tags: [area/agents, area/typescript, area/planning]
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 agent: opencode
 status: proposed
 owner: agent
@@ -53,7 +53,7 @@ New failure semantics, isolation deployment, PR publication or a production fake
 - `.sandcastle/main.ts`; new `scripts/sandcastle/coordinator*.ts` with sibling tests.
 - `scripts/test-support/afk-harness.ts` and new bounded `scripts/test-support/coordinator-*.ts` support files.
 - `eslint.config.ts`, `tsconfig.json`, `package.json`, relevant `scripts/toolchain/*.test.ts` controls.
-- `.claude/skills/verify-work/references/feature-map.md`, `wiki/runbooks/Run Sandcastle on GitHub issues.md`, this ticket and `CHANGELOG.md`.
+- `.claude/skills/verify-work/references/feature-map.md`, `wiki/runbooks/Run Sandcastle on GitHub issues.md`, this ticket and a new `changelog/` fragment.
 
 ## Forbidden files
 

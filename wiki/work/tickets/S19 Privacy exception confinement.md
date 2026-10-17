@@ -4,7 +4,7 @@ title: S19 Privacy exception confinement
 summary: Keep the sandbox-home exception confined to genuine role-name paths for every runtime identity, including traversal cases.
 tags: [area/wiki, area/compliance, area/planning]
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 agent: opencode
 status: proposed
 owner: agent
@@ -51,7 +51,7 @@ Changing the general privacy policy, collecting real identifiers or widening oth
 ## Allowed files
 
 - `scripts/wiki/redaction.ts`, `scripts/wiki/redaction.test.ts`, relevant wiki-validation tests/fixtures.
-- `.claude/skills/wiki-memory/references/writing-standards.md`, this ticket and `CHANGELOG.md`.
+- `.claude/skills/wiki-memory/references/writing-standards.md`, this ticket and a new `changelog/` fragment.
 
 ## Forbidden files
 

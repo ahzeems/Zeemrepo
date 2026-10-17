@@ -4,7 +4,7 @@ title: S13 Candidate artifact contract and quarantine
 summary: Validate candidate manifests and explicit-ref bundles as untrusted data without activating candidate code or importing guest Git metadata.
 tags: [area/git, area/agents, area/planning]
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 agent: opencode
 status: proposed
 owner: agent
@@ -52,7 +52,7 @@ Running agents, issuing verifier receipts, publication or treating a bundle as a
 
 - New `scripts/sandcastle/artifact*.ts` and `scripts/sandcastle/quarantine*.ts` modules with sibling tests.
 - Bounded fixture support under `scripts/test-support/artifact-*.ts`; generated bundles stay in disposable directories.
-- `package.json` only for an actually used validation CLI, `.claude/skills/verify-work/references/feature-map.md`, `wiki/runbooks/Run Sandcastle on GitHub issues.md`, this ticket and `CHANGELOG.md`.
+- `package.json` only for an actually used validation CLI, `.claude/skills/verify-work/references/feature-map.md`, `wiki/runbooks/Run Sandcastle on GitHub issues.md`, this ticket and a new `changelog/` fragment.
 
 ## Forbidden files
 

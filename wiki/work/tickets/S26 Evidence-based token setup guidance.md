@@ -4,7 +4,7 @@ title: S26 Evidence-based token setup guidance
 summary: Correct token setup guidance so identity, expiry and write permission are supported by the checks that actually establish them.
 tags: [area/auth, area/docs, area/planning]
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 agent: opencode
 status: proposed
 owner: agent
@@ -51,7 +51,7 @@ Generating/revoking tokens, repairing local auth profiles, changing organization
 ## Allowed files
 
 - `wiki/runbooks/Run Sandcastle on GitHub issues.md`, `wiki/work/ideas/Sandcastle token setup lessons.md`.
-- This ticket and `CHANGELOG.md`; update a directly affected memory-index summary only if its meaning changes.
+- This ticket and a new `changelog/` fragment; update a directly affected memory-index summary only if its meaning changes.
 
 ## Forbidden files
 

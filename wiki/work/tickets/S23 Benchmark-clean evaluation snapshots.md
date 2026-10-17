@@ -4,7 +4,7 @@ title: S23 Benchmark-clean evaluation snapshots
 summary: Exclude prior results and private grading commentary from scenario snapshots while preserving actual operational tooling and valid wiki context.
 tags: [area/evals, area/compliance, area/planning]
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 agent: opencode
 status: proposed
 owner: agent
@@ -51,7 +51,7 @@ Changing scoring requirements, paid model runs, rewriting historical reports or 
 ## Allowed files
 
 - `evals/compliance/run_comply.py`, `evals/compliance/test_run_comply.py`; new `evals/compliance/snapshot_*.py` and `evals/compliance/test_snapshot_*.py` files if needed.
-- `evals/compliance/README.md`, this ticket and `CHANGELOG.md`.
+- `evals/compliance/README.md`, this ticket and a new `changelog/` fragment.
 
 ## Forbidden files
 

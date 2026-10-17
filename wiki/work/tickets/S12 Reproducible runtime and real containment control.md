@@ -4,7 +4,7 @@ title: S12 Reproducible runtime and real containment control
 summary: Align the sandbox toolchain and add a required real-container, non-model control proving the selected boundary before runtime integration.
 tags: [area/agents, area/typescript, area/planning]
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 agent: opencode
 status: proposed
 owner: agent
@@ -56,7 +56,7 @@ Production agent orchestration, verified publication, cloud provisioning and pai
 - `.sandcastle/Dockerfile`, `.dockerignore` or `.sandcastle/.dockerignore` as appropriate to the actual build context.
 - New `scripts/sandcastle/containment-smoke*.ts` with sibling unit tests; bounded fixture support under `scripts/test-support/containment-*.ts`.
 - `package.json`, `.github/workflows/check.yml`, `scripts/lib/change-policy.ts` and its test if new runtime paths need classification.
-- `CLAUDE.md`, `README.md`, `.claude/skills/verify-work/references/feature-map.md`, `wiki/runbooks/Verify a repository change.md`, `wiki/runbooks/Run Sandcastle on GitHub issues.md`, this ticket, its linked environment issue and `CHANGELOG.md`.
+- `CLAUDE.md`, `README.md`, `.claude/skills/verify-work/references/feature-map.md`, `wiki/runbooks/Verify a repository change.md`, `wiki/runbooks/Run Sandcastle on GitHub issues.md`, this ticket, its linked environment issue and a new `changelog/` fragment.
 
 ## Forbidden files
 

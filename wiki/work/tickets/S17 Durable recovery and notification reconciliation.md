@@ -4,7 +4,7 @@ title: S17 Durable recovery and notification reconciliation
 summary: Resume missing phases from trusted durable state while preserving work and reconciling ambiguous publication or notification delivery.
 tags: [area/agents, area/github, area/planning]
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 agent: opencode
 status: proposed
 owner: agent
@@ -53,7 +53,7 @@ New notification channels, automatic owner approval, unrelated issue lifecycle c
 
 - New `scripts/sandcastle/run-state*.ts`, `scripts/sandcastle/recovery*.ts`, `scripts/sandcastle/notifications*.ts` with sibling tests.
 - `scripts/sandcastle/run-result*.ts`, `scripts/sandcastle/artifact*.ts`, `scripts/sandcastle/quarantine*.ts`, `scripts/sandcastle/verification-receipt*.ts`, `scripts/sandcastle/isolated-publication*.ts` for explicit integration; `scripts/test-support/recovery-*.ts` support files.
-- `wiki/runbooks/Run Sandcastle on GitHub issues.md`, `.claude/skills/verify-work/references/feature-map.md`, this ticket and `CHANGELOG.md`.
+- `wiki/runbooks/Run Sandcastle on GitHub issues.md`, `.claude/skills/verify-work/references/feature-map.md`, this ticket and a new `changelog/` fragment.
 
 ## Forbidden files
 

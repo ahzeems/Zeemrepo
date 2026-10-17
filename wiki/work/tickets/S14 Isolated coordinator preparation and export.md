@@ -4,7 +4,7 @@ title: S14 Isolated coordinator preparation and export
 summary: Run the coordinator and workers inside the proven disposable boundary and return untrusted candidate and recovery artifacts through the defined contract.
 tags: [area/agents, area/git, area/planning]
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 agent: opencode
 status: proposed
 owner: agent
@@ -55,7 +55,7 @@ Authoritative verification receipts, final publication, durable cross-run retry 
 - New `scripts/sandcastle/isolated-run*.ts`, `scripts/sandcastle/guest-runner*.ts`, `scripts/sandcastle/prepare-run*.ts` and shared `scripts/sandcastle/container-runtime*.ts`, each with sibling tests.
 - `scripts/sandcastle/coordinator*.ts`, `scripts/sandcastle/containment-smoke*.ts` and `.sandcastle/Dockerfile` for the actual stage integration.
 - `package.json` only for an independently useful preparation command; `scripts/test-support/isolated-run-*.ts` and `scripts/test-support/containment-*.ts` support files.
-- `wiki/runbooks/Run Sandcastle on GitHub issues.md`, `.claude/skills/verify-work/references/feature-map.md`, this ticket and `CHANGELOG.md`.
+- `wiki/runbooks/Run Sandcastle on GitHub issues.md`, `.claude/skills/verify-work/references/feature-map.md`, this ticket and a new `changelog/` fragment.
 
 ## Forbidden files
 

@@ -4,7 +4,7 @@ title: S21 Complete imported-skill provenance
 summary: Extend approved provenance to imported companion instructions and inventory changes without rewriting landed provenance.
 tags: [area/agents, area/compliance, area/planning]
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 agent: opencode
 status: proposed
 owner: agent
@@ -53,7 +53,7 @@ Rewriting skill methods, inventing original-source evidence or removing owner au
 
 - `scripts/skills/provenance*.ts`, `scripts/skills/skill-validation*.ts`, `scripts/skills/skill-lint*.ts`, `scripts/fixtures/valid/skill-lint/**`, `scripts/fixtures/broken/skill-lint/**`.
 - `.claude/skills/import-baseline.json`; `config/skill-standards.json`, `scripts/skills/skill-standards.ts` and `scripts/skills/skill-standards.test.ts` only if the schema genuinely requires them.
-- `wiki/reference/Skill standards.md`, this ticket and `CHANGELOG.md`.
+- `wiki/reference/Skill standards.md`, this ticket and a new `changelog/` fragment.
 
 ## Forbidden files
 

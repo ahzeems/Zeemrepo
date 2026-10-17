@@ -4,7 +4,7 @@ title: S25 Shell-backstop refusal controls
 summary: Refuse the audited conditional, heredoc-substitution and explicit push-repository forms while preserving legitimate shell data and documented heuristic limits.
 tags: [area/shell, area/git, area/planning]
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 agent: opencode
 status: proposed
 owner: agent
@@ -51,7 +51,7 @@ A general shell interpreter, new permissions, bypassing server rules and testing
 ## Allowed files
 
 - `scripts/claude/block-pr-merge.ts`, `scripts/claude/block-pr-merge.test.ts`.
-- `wiki/reference/Merge gate contract.md`, this ticket and `CHANGELOG.md`.
+- `wiki/reference/Merge gate contract.md`, this ticket and a new `changelog/` fragment.
 
 ## Forbidden files
 

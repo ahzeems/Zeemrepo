@@ -1,0 +1,1 @@
+- Open job specs S05, S06 and S08 to S26 now list a new `changelog/` fragment instead of `CHANGELOG.md` among their allowed files.

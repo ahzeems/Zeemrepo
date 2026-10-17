@@ -4,7 +4,7 @@ title: S16 Trusted publication of verified candidate refs
 summary: Publish only receipt-bound candidate refs through pinned host tooling while preserving actor, repository, branch and owner-review protections.
 tags: [area/git, area/github, area/agents]
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 agent: opencode
 status: proposed
 owner: agent
@@ -54,7 +54,7 @@ Owner approval/merging, credential-profile repair, notification retries and publ
 
 - New `scripts/sandcastle/isolated-publication*.ts` with sibling tests; `scripts/sandcastle/artifact*.ts`, `scripts/sandcastle/quarantine*.ts`, `scripts/sandcastle/verification-receipt*.ts` for explicit integration.
 - `scripts/git/pr-ready.ts`, `scripts/git/pr-ready.test.ts`, `.githooks/pre-push`, `scripts/git/hooks.test.ts`, `scripts/git/branch-guard.test.ts`, `scripts/git/branch-policy.test.ts` for preserved invariants.
-- `wiki/reference/Merge gate contract.md`, `wiki/runbooks/Land a change.md`, `wiki/runbooks/Run Sandcastle on GitHub issues.md`, this ticket and `CHANGELOG.md`.
+- `wiki/reference/Merge gate contract.md`, `wiki/runbooks/Land a change.md`, `wiki/runbooks/Run Sandcastle on GitHub issues.md`, this ticket and a new `changelog/` fragment.
 
 ## Forbidden files
 

@@ -4,7 +4,7 @@ title: S15 Independent isolated verification receipts
 summary: Produce trusted verification receipts in fresh isolated contexts, bound to the actual candidate, inputs, check runner and reviewer.
 tags: [area/agents, area/git, area/planning]
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 agent: opencode
 status: proposed
 owner: agent
@@ -55,7 +55,7 @@ Public-command cutover, live publication, payment authorization and a claim that
 - New `scripts/sandcastle/verify-candidate*.ts`, `scripts/sandcastle/verification-receipt*.ts`, `scripts/sandcastle/verifier-driver*.ts` and shared `scripts/sandcastle/container-runtime*.ts`, with sibling tests.
 - `scripts/sandcastle/artifact*.ts`, `scripts/sandcastle/quarantine*.ts`, `scripts/sandcastle/containment-smoke*.ts` only for tested integration; `scripts/test-support/verifier-*.ts` support files.
 - `.sandcastle/Dockerfile` only for packaging the trusted verifier/profile while retaining S12's containment controls.
-- `package.json` for a used verification command, `wiki/runbooks/Verify a repository change.md`, `wiki/runbooks/Run Sandcastle on GitHub issues.md`, `.claude/skills/verify-work/references/feature-map.md`, this ticket and `CHANGELOG.md`.
+- `package.json` for a used verification command, `wiki/runbooks/Verify a repository change.md`, `wiki/runbooks/Run Sandcastle on GitHub issues.md`, `.claude/skills/verify-work/references/feature-map.md`, this ticket and a new `changelog/` fragment.
 
 ## Forbidden files
 

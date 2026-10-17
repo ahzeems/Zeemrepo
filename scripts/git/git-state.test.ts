@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmodSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, type TestContext } from "node:test";
@@ -169,6 +169,23 @@ await test("unchanged dirty and untracked contents pass, and deletion and creati
     repo.write(".gitignore", "ignored.txt\n");
     repo.write("ignored.txt", "one\n");
     assert.equal(changedBy(repo, () => repo.write("ignored.txt", "two\n")).code, EXIT_OK);
+  });
+  await t.test("with this repository's .gitignore, an editor's swap, backup and autosave files stay outside the snapshot", async (t) => {
+    const gitignore = readFileSync(new URL("../../.gitignore", import.meta.url), "utf8");
+    for (const name of [".tracked.txt.swp", ".tracked.txt.swo", "tracked.txt~", "#tracked.txt#", ".#tracked.txt"]) {
+      await t.test(name, (t) => {
+        const repo = dirtyRepo(t);
+        repo.write(".gitignore", gitignore);
+        assert.equal(changedBy(repo, () => repo.write(name, "x\n")).code, EXIT_OK);
+      });
+    }
+    for (const name of ["tracked.swp", ".tracked.txt.swq", "a#b.txt", "a~b.txt", "a.#b.txt", "notes.txt"]) {
+      await t.test(`${name} is still seen`, (t) => {
+        const repo = dirtyRepo(t);
+        repo.write(".gitignore", gitignore);
+        assert.equal(changedBy(repo, () => repo.write(name, "x\n")).code, EXIT_REFUSED);
+      });
+    }
   });
 });
 

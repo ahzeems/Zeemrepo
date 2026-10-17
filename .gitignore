@@ -5,3 +5,9 @@ __pycache__/
 .claude/worktrees/
 .env
 .env.*
+# Editor swap, backup and autosave files (Vim, Emacs), so a save during the pre-push check
+# does not change what git-state sees.
+.*.sw[a-p]
+*~
+\#*\#
+.#*

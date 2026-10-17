@@ -41,10 +41,10 @@ Before committing, run `npm run typecheck` and `npm run test` to ensure the test
 
 Follow `CLAUDE.md` and `.claude/rules/zeem/` in this repository. Make git commits that:
 
-1. Use the subject format `<type>: <description>` (types: feat, fix, refactor, docs, test, chore, perf, ci; a scope is allowed). A commit that contains only wiki files uses `docs(wiki): ...`; code, tests, `CHANGELOG.md` and package files go in separate commits from wiki files.
+1. Use the subject format `<type>: <description>` (types: feat, fix, refactor, docs, test, chore, perf, ci; a scope is allowed). A commit that contains only wiki files uses `docs(wiki): ...`; code, tests, the changelog fragment and package files go in separate commits from wiki files.
 2. Stage files by name. Never `git add -A` or `git add .`.
 3. Write the test first, see it fail, then implement.
-4. Add a `CHANGELOG.md` entry and update a work record under `wiki/work/` on the branch.
+4. Add a new changelog fragment, `changelog/<YYYY-MM-DD>-<slug>.md` dated today (UTC) with one `- ` entry describing the change, and update a work record under `wiki/work/` on the branch. Do not edit `CHANGELOG.md` or a fragment already on main.
 5. Never use `--no-verify`, and never rebase or reset a branch past commits you made: merge instead.
 6. Never push. Sandcastle collects the branch; a person pushes it.
 

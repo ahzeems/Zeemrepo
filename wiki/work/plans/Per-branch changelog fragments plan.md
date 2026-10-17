@@ -6,11 +6,11 @@ tags: [area/git, area/planning, kind/convention]
 created: 2026-10-17
 updated: 2026-10-17
 agent: claude-code
-status: approved
+status: done
 approval_ref: "#24"
 owner: human
 priority: P2
-next_action: Slice 1 is in review; slice 2, Switch the changelog to per-branch fragments, starts after it lands.
+next_action: None once the owner merges slice 2; the follow-up for open job specs is tracked on the idea.
 idea: "[[Changelog entries cannot conflict between branches]]"
 related: ["[[ADR-0027 Changelog entries are per-branch fragment files]]", "[[ADR-0007 Changelog entries carry no post-merge facts]]", "[[Change records]]"]
 evidence:
@@ -22,6 +22,7 @@ evidence:
   - "VERIFIED: an independent verifier at 1424498 found the first draft omitted the AFK wrapper's documentation patterns (scripts/sandcastle/afk.ts:27), the guards workflow running main's old guard on the switching pull request, and the new guard refusing that pull request's own pointer line."
   - "VERIFIED: gh pr view 24 shows the plan PR MERGED by the owner on 2026-10-17 (squash commit 6a28e1d), which approves this plan."
   - "OWNER DECISION: on 2026-10-17 the owner chose \"Move exclusion to slice 2 (Recommended)\": governance:check refuses an exclusion that matches no file, and slice 1 adds no file under changelog/, so the changelog/** exclusion lands with the first fragment in slice 2."
+  - "VERIFIED: slice 1 landed as PR 28 (02fd7cb); slice 2 is recorded in Switch the changelog to per-branch fragments with its own evidence."
   - "INFERRED: the slices below close those gaps and the transition-closing gap a second review found at 3ac46a4; the reviews of this revision record whether they do."
 ---
 
@@ -122,17 +123,17 @@ Ticket: [[Switch the changelog to per-branch fragments]] (parent: slice 1).
 
 ## Acceptance criteria
 
-- [ ] Two concurrent fixture branches each record a change and merge into `main` in either order
+- [x] Two concurrent fixture branches each record a change and merge into `main` in either order
   with no conflict, and the guard passes on both.
-- [ ] Each refusing case in slice 2 is refused by `changelog:guard` with a reason, and was shown
+- [x] Each refusing case in slice 2 is refused by `changelog:guard` with a reason, and was shown
   failing first.
-- [ ] The switching pull request passes both main's old guard and its own new guard, and adds a
+- [x] The switching pull request passes both main's old guard and its own new guard, and adds a
   fragment, so main holds one after it merges and the transition is closed.
-- [ ] Slice 1 adds no file under `changelog/`.
-- [ ] A docs-only Sandcastle branch with a fragment still lands unattended.
-- [ ] No live rule, prompt, runbook, reference, README or config still requires a `CHANGELOG.md`
+- [x] Slice 1 adds no file under `changelog/`.
+- [x] A docs-only Sandcastle branch with a fragment still lands unattended.
+- [x] No live rule, prompt, runbook, reference, README or config still requires a `CHANGELOG.md`
   entry, and `governance:check` refuses one planted back.
-- [ ] Existing `CHANGELOG.md` entries are not edited; after slice 2's base, the only lines added
+- [x] Existing `CHANGELOG.md` entries are not edited; after slice 2's base, the only lines added
   to it are the switching pull request's pointer line and transition entry, and any later change
   to it is refused.
 - [ ] `npm run check` passes, and an independent verifier rates each criterion at each slice's

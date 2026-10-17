@@ -5,10 +5,11 @@ What a branch must carry before it lands. The guards and how to satisfy them are
 
 ## Every branch
 
-- Records itself: a `CHANGELOG.md` entry, an updated work record under `wiki/work/` with labelled evidence,
+- Records itself: a new changelog fragment, `changelog/<YYYY-MM-DD>-<slug>.md`, an updated work record under `wiki/work/` with labelled evidence,
   and, when it touches a workflow-critical path, an operating doc (decision, reference or runbook) or a
   `[no-doc-change: <reason>]` note. Changelog entries describe the change, never facts that only exist after
-  the merge (`wiki/decisions/ADR-0007 Changelog entries carry no post-merge facts.md`).
+  the merge. A fragment on `main` and `CHANGELOG.md` are history; a correction is a new fragment
+  (`wiki/decisions/ADR-0027 Changelog entries are per-branch fragment files.md`).
 - Definition of done: the code, its dependency declarations (manifest and lockfile in the same commit), the
   documentation beside the behavior, and the work record land in the same PR. Work that cannot carry all
   four is too big; split it.

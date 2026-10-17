@@ -9,8 +9,8 @@ provider may work here under the same rules. `AGENTS.md` points to this shared c
   GitHub. Never merge or approve a pull request.
 - **Test first.** Reproduce the failure, write a failing test, then implement and run the checks. Use ECC's TDD
   workflow when available, or the same method with the current harness's tools.
-- **Every branch records itself:** a `CHANGELOG.md` entry, an updated work record under `wiki/work/`, and an
-  operating doc when workflow-critical files change. `npm run check` refuses a branch without them.
+- **Every branch records itself:** a new changelog fragment, `changelog/<YYYY-MM-DD>-<slug>.md`, an updated work record
+  under `wiki/work/`, and an operating doc when workflow-critical files change. `npm run check` refuses a branch without them.
 
 ## Where the rules live
 

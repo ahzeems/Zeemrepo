@@ -33,6 +33,22 @@
       "reason": "History: entries describe what changed, including rules that were retired."
     },
     {
+      "glob": "changelog/**",
+      "reason": "History: each fragment records one branch's change as it was written (ADR-0027)."
+    },
+    {
+      "glob": "wiki/work/plans/Per-branch changelog fragments plan.md",
+      "reason": "Plan of the switch to fragments: it describes the CHANGELOG.md entry rule it replaces and the one transition entry."
+    },
+    {
+      "glob": "wiki/work/tickets/Recognise changelog fragments as documentation.md",
+      "reason": "Work record of slice 1 of the switch, which landed while a CHANGELOG.md entry was still the rule."
+    },
+    {
+      "glob": "wiki/work/tickets/Switch the changelog to per-branch fragments.md",
+      "reason": "Work record of the switch itself: it names the CHANGELOG.md entry rule it retires and the transition entry."
+    },
+    {
       "glob": "scripts/**/*.test.ts",
       "reason": "Test data quotes retired rules to prove the guards refuse them."
     },
@@ -105,6 +121,11 @@
       "id": "agents-self-merge",
       "pattern": "\\bagents (merge|land) (through|via) (an? |the )?(audited )?gate\\b|\\bagents merge and push main\\b|\\bagents merge their own (branch|branches|work|changes)\\b",
       "supersededBy": "Owner decision 2026-10-09: only the owner merges, on GitHub (ADR-0008)"
+    },
+    {
+      "id": "changelog-md-entry",
+      "pattern": "`?CHANGELOG\\.md`?\\s+(?:file\\s+)?entr(?:y|ies)\\b|\\bentr(?:y|ies)\\b[^.`]{0,40}?\\b(?:in|to|into)\\s+(?:the\\s+)?`?CHANGELOG\\.md|\\brecord(?:s|ed)?\\s+(?:the|its|each|every)\\s+change\\s+in\\s+`?CHANGELOG\\.md",
+      "supersededBy": "ADR-0027: each branch adds its own fragment, changelog/<YYYY-MM-DD>-<slug>.md; CHANGELOG.md is history"
     }
   ],
   "allowed": [
@@ -189,6 +210,36 @@
       "claims": [
         "docs-work-paths"
       ]
+    },
+    {
+      "path": "wiki/decisions/ADR-0027 Changelog entries are per-branch fragment files.md",
+      "contains": "The change-records rule requires every branch to record itself with a `CHANGELOG.md` entry",
+      "reason": "Decision body: it states the rule it replaces and the one transition, as written on its day.",
+      "claims": ["changelog-md-entry"]
+    },
+    {
+      "path": "wiki/decisions/ADR-0027 Changelog entries are per-branch fragment files.md",
+      "contains": "the switching pull request itself still adds a dated `CHANGELOG.md` entry",
+      "reason": "Decision body: it states the rule it replaces and the one transition, as written on its day.",
+      "claims": ["changelog-md-entry"]
+    },
+    {
+      "path": "wiki/decisions/ADR-0027 Changelog entries are per-branch fragment files.md",
+      "contains": "Every live text that requires a `CHANGELOG.md` entry",
+      "reason": "Decision body: it states the rule it replaces and the one transition, as written on its day.",
+      "claims": ["changelog-md-entry"]
+    },
+    {
+      "path": "wiki/work/ideas/First real Sandcastle run and the wrapper probe fix.md",
+      "contains": "changelog-guard refused a branch without a CHANGELOG.md entry",
+      "reason": "Evidence recorded on its day, when a CHANGELOG.md entry was the rule.",
+      "claims": ["changelog-md-entry"]
+    },
+    {
+      "path": "wiki/work/ideas/Changelog entries cannot conflict between branches.md",
+      "contains": "requires every branch to add an entry under a date heading in `CHANGELOG.md`",
+      "reason": "The idea's Problem section describes the rule the switch to fragments replaces.",
+      "claims": ["changelog-md-entry"]
     }
   ]
 }

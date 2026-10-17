@@ -48,7 +48,7 @@ export function commitViolations(commits: readonly Commit[]): Violation[] {
 }
 
 // OWNER DECISION, 2026-10-09: a merge may resolve conflicts in wiki and other files at once,
-// because two open pull requests usually conflict on CHANGELOG.md and a work record together;
+// because two open pull requests often conflict on a shared record and a work record together;
 // an unrelated edit still makes it mixed. In the merge's --remerge-diff, every file must be one
 // git itself reported as a content conflict, with no mode change, deletion, creation or rename,
 // and every hunk must remove a whole marker set and add only lines the two sides had. A written

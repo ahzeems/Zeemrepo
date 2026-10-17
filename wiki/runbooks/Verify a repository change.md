@@ -4,7 +4,7 @@ title: Verify a repository change
 summary: Run npm run check and the hooks, review read-only with separate reviewer subagents, and record evidence before opening a pull request.
 tags: [area/git, area/agents, area/typescript, tool/ecc]
 created: 2026-09-20
-updated: 2026-10-16
+updated: 2026-10-17
 agent: claude-code
 status: active
 related: ["[[Land a change]]", "[[Change records]]", "[[ADR-0022 Independent review means a separate reviewer context]]"]
@@ -34,7 +34,7 @@ committing or opening a pull request.
 
 1. State the acceptance criteria from the request or approved ticket as observable results.
    Build test-first (ECC testing rule): write the failing test, then the code.
-2. Update affected guidance and the owning work record, and add a `CHANGELOG.md` entry. See
+2. Update affected guidance and the owning work record, and add a changelog fragment. See
    [[Change records]].
 3. Run `npm run check`. Its parts run in order and stop at the first failure:
 
@@ -49,7 +49,7 @@ committing or opening a pull request.
    | `npm run governance:check` | No text, code or config file asserts a replaced rule. |
    | `npm run rules:check` | The vendored ECC rules match `config/ecc-rules.json` and the plugin pin. |
    | `npm run wiki:compliance` | No commit mixes `wiki/` with other files; wiki-only commits start `docs(wiki): `. |
-   | `npm run changelog:guard` | The branch has a dated `CHANGELOG.md` entry. |
+   | `npm run changelog:guard` | The branch adds a dated changelog fragment and changes no fragment already on main. |
    | `npm run memory:guard` | The branch updates a work record with evidence, and an operating document when workflow-critical files change. |
 
 4. Confirm each checker still fails when it should. `wiki:lint`, `skills:lint` and

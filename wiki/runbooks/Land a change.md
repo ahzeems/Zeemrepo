@@ -29,7 +29,7 @@ requests on GitHub (owner decision, 2026-10-09).
    `docs(wiki): ` commits. The pre-commit hook refuses commits on main and mixed wiki staging,
    and runs lint, types, wiki:lint and skills:lint; the pre-merge-commit hook refuses a merge
    commit on main.
-3. Record the change: a `CHANGELOG.md` entry, the owning work record under `wiki/work/`
+3. Record the change: a new fragment `changelog/<YYYY-MM-DD>-<slug>.md`, the owning work record under `wiki/work/`
    (status or next action, plus `VERIFIED:` evidence), and an operating document when
    workflow-critical files change. See [[Change records]].
 4. If main moved, merge it in: `git fetch origin && git merge origin/main`. Never rebase or
@@ -62,7 +62,7 @@ requests on GitHub (owner decision, 2026-10-09).
 - The pre-push hook refuses `git push origin main`; the GitHub ruleset refuses it too.
 - Dependabot opens weekly pull requests for the pinned GitHub Actions and all npm
   dependencies (development ones grouped). A bot cannot write a
-  changelog entry or work record, so for pull requests GitHub reports as authored by
+  changelog fragment or work record, so for pull requests GitHub reports as authored by
   `dependabot[bot]` the change-record guards are skipped; every other check still applies and
   the owner still reviews and merges. TypeScript minor and major updates and `@types/node` major
   updates are not proposed (`.github/dependabot.yml`): `typescript-eslint` must support a

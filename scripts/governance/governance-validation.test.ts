@@ -22,6 +22,23 @@ await test("repository policy refuses active claims that restrict work to Claude
   }
 });
 
+await test("repository policy refuses live text that still requires a CHANGELOG.md entry, and allows the fragment rule", () => {
+  const config = readConfig(JSON.parse(readFileSync(join(import.meta.dirname, "../../config/governance-alignment.json"), "utf8")));
+  const claimed = (text: string): boolean => checkGovernance([{ path: "wiki/runbooks/Land a change.md", text }], config).violations.some((item) => item.claim === "changelog-md-entry");
+  for (const text of ["3. Record the change: a `CHANGELOG.md` entry and a work record.", "Every branch adds an entry to CHANGELOG.md.", "Write CHANGELOG.md\nentries for each branch.", "Put the entry in `CHANGELOG.md`.", "Add an entry under a date heading in `CHANGELOG.md`.", "Add an entry to the CHANGELOG.md file.", "Write a CHANGELOG.md file entry.", "Record the change in CHANGELOG.md."]) {
+    assert.ok(claimed(text), text);
+  }
+  for (const text of ["Add a new fragment `changelog/<YYYY-MM-DD>-<slug>.md`.", "`CHANGELOG.md` keeps the history written before the switch.", "No branch edits CHANGELOG.md.", "Add a changelog entry in its own fragment.", "The entry it wrote in a fragment, not in the old file.", "Every Sandcastle issue must let the agent write the changelog fragment."]) {
+    assert.ok(!claimed(text), text);
+  }
+});
+
+await test("repository policy does not scan changelog fragments, which are history", () => {
+  const config = readConfig(JSON.parse(readFileSync(join(import.meta.dirname, "../../config/governance-alignment.json"), "utf8")));
+  assert.ok(config.exclude.some((entry) => globToRegExp(entry.glob).test("changelog/2026-10-17-old-rule.md")));
+  assert.ok(!config.exclude.some((entry) => globToRegExp(entry.glob).test("wiki/runbooks/Land a change.md")), "live docs stay scanned");
+});
+
 await test("configProblems accepts a valid config and explains each defect", async (t) => {
   assert.deepEqual(configProblems(valid), []);
   const cases: [string, unknown, RegExp][] = [

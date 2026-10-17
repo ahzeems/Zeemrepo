@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { createRepo } from "../test-support/repo-fixture.ts";
 import { mkdirSync, realpathSync } from "node:fs";
 import { join } from "node:path";
-import { addedLineNumbers, addedLines, atRepositoryRoot, branchBase, changedSince } from "./branch-diff.ts";
+import { addedLines, atRepositoryRoot, branchBase, changedSince } from "./branch-diff.ts";
 
 await test("branch diff", async (t) => {
   const repo = createRepo("branch-diff-");
@@ -42,12 +42,8 @@ await test("branch diff", async (t) => {
     assert.deepEqual(changedSince(base, { cwd: repo.dir }).sort(), [".gitignore", "a.md", "new/.keep", "new/name.md", "old/name.md", "untracked.md"]);
   });
 
-  await t.test("addedLineNumbers gives the positions of added lines in the current file", () => {
-    repo.write("a.md", "zero\none\ntwo\nthree\n");
-    assert.deepEqual(addedLineNumbers(base, "a.md", { cwd: repo.dir }), [1, 3, 4]);
-  });
-
   await t.test("addedLines returns only added lines of the named paths", () => {
+    repo.write("a.md", "zero\none\ntwo\nthree\n");
     assert.deepEqual(addedLines(base, ["a.md"], { cwd: repo.dir }), ["zero", "two", "three"]);
     assert.deepEqual(addedLines(base, [], { cwd: repo.dir }), []);
   });

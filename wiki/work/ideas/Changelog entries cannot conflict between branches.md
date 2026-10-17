@@ -6,10 +6,10 @@ tags: [area/git, area/github, kind/convention]
 created: 2026-10-17
 updated: 2026-10-17
 agent: claude-code
-status: backlog
+status: in-progress
 owner: human
 priority: P2
-next_action: The plan is approved (PR 24); build its tickets in order, starting with Recognise changelog fragments as documentation.
+next_action: After the switch lands, repoint the open job specs' Allowed files from CHANGELOG.md to a changelog fragment in a separate records PR (owner decision, 2026-10-17).
 related: ["[[ADR-0027 Changelog entries are per-branch fragment files]]", "[[Per-branch changelog fragments plan]]"]
 ---
 

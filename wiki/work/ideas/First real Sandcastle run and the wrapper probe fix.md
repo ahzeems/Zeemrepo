@@ -4,7 +4,7 @@ title: First real Sandcastle run and the wrapper probe fix
 summary: The first real Sandcastle and AFK runs worked end to end and confirmed the reflog premise; they exposed a noisy git probe, an owner-token problem and an issue-writing trap, recorded here.
 tags: [area/agents, area/github, tool/claude-code]
 created: 2026-10-15
-updated: 2026-10-15
+updated: 2026-10-17
 agent: claude-code
 status: in-progress
 owner: human
@@ -40,5 +40,5 @@ limited to this repository, with Issues read and write and Metadata read.
 
 - [no-doc-change: the runbook is updated in this branch with what the first run showed; the
   guards, the wrapper's behaviour and its exit codes are unchanged]
-- Every Sandcastle issue must let the agent write the CHANGELOG entry and the work record, or the
-  change-record guard blocks the landing, as it did here.
+- Every Sandcastle issue must let the agent write the changelog record (a fragment since ADR-0027)
+  and the work record, or the change-record guard blocks the landing, as it did here.

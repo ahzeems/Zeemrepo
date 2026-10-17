@@ -7,7 +7,7 @@ Merge the following branches into the current branch:
 For each branch:
 
 1. Run `git merge <branch> --no-edit`
-2. If there are merge conflicts, keep the lines from both sides and change nothing else (`CHANGELOG.md` conflicts are the common case: keep both entries). Do not rewrite code or text while resolving a conflict.
+2. If there are merge conflicts, keep the lines from both sides and change nothing else (a work record edited by two branches is the common case: keep both sides' lines). Do not rewrite code or text while resolving a conflict.
 3. Run `npm run typecheck` and `npm run test` after each merge.
 4. If they fail, make the fix in a separate commit after the merge commit, with its own `<type>: <description>` subject, never inside the merge commit, then run them again. If they still fail, stop and do not comment on that branch's issue.
 

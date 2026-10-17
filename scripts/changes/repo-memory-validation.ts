@@ -1,13 +1,13 @@
 import { isExempt, isOperatingDoc, isWorkflowCritical } from "../lib/change-policy.ts";
 import { STRONG_EVIDENCE } from "../lib/evidence.ts";
 import { isStringArray, stringValue } from "../lib/record.ts";
-import { CHANGELOG, WORK_DIR } from "../lib/paths.ts";
+import { CHANGELOG, CHANGELOG_DIR, WORK_DIR } from "../lib/paths.ts";
 
 // The repo-memory rule. Pure; the CLI lives in repo-memory-guard.ts. If it lands, the wiki
 // records why: one owning work record under wiki/work/ gains labelled evidence and a changed
 // status or next action (compared field by field with the base, not by loose added lines),
-// and a workflow change adds content to an operating document. The changelog belongs to the
-// changelog guard.
+// and a workflow change adds content to an operating document. The changelog (CHANGELOG.md and
+// the fragments under changelog/) belongs to the changelog guard.
 
 type Fields = Readonly<Record<string, unknown>>;
 /** A changed work record: its frontmatter and text at the base (null if new) and now (null if deleted). */
@@ -58,7 +58,7 @@ function recordRefusals(records: readonly RecordChange[]): string[] {
 }
 
 export function memoryRefusals({ changed, records, addedOperatingDocLines }: MemoryInput): string[] {
-  const relevant = changed.filter((file) => file !== CHANGELOG && !isExempt(file));
+  const relevant = changed.filter((file) => file !== CHANGELOG && !file.startsWith(CHANGELOG_DIR) && !isExempt(file));
   if (relevant.length === 0) return [];
   const refusals = recordRefusals(records);
   const workflow = changed.filter(isWorkflowCritical);

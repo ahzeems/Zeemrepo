@@ -6,7 +6,7 @@ tags: [area/git, kind/convention]
 created: 2026-10-17
 updated: 2026-10-17
 agent: claude-code
-status: draft
+status: active
 related: ["[[Changelog entries cannot conflict between branches]]", "[[ADR-0007 Changelog entries carry no post-merge facts]]"]
 ---
 ## Context

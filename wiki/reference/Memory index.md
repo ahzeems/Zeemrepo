@@ -4,7 +4,7 @@ title: Memory index
 summary: Index of every memory note in the wiki, with a one-line summary each, grouped by type.
 tags: [area/wiki, kind/overview]
 created: 2026-10-09
-updated: 2026-10-16
+updated: 2026-10-17
 agent: claude-code
 status: active
 ---
@@ -15,7 +15,7 @@ One line per memory note. Add new notes here; work notes need no entry.
 
 - [[ADR-0001 Wiki is an Obsidian vault in the repository]] - Project memory is an Obsidian vault in wiki/ inside the repo, as plain Markdown with typed folders, YAML frontmatter and an enforced tag list.
 - [[ADR-0005 Work records live in the shared vault]] - Track idea-to-execution work as linked, typed records under wiki/work/, alongside durable agent memory, readable by Obsidian Properties and Bases.
-- [[ADR-0007 Changelog entries carry no post-merge facts]] - Entries record the change in their own PR and never cite a merge commit, removing the closeout PR.
+- [[ADR-0007 Changelog entries carry no post-merge facts]] - Superseded by ADR-0027. Entries record the change in their own PR and never cite a merge commit, removing the closeout PR.
 - [[ADR-0008 Owner merges pull requests on GitHub]] - Superseded by ADR-0025. Nothing is pushed to main; every change lands by pull request, and only the owner merges on GitHub.
 - [[ADR-0009 Workflow-critical Markdown is an interface]] - Documents that declare how work is landed, reviewed, and verified are part of the interface; drift between them and the code is a Blocker and is checked mechanically.
 - [[ADR-0011 The vault is the interface, Obsidian is optional]] - The repository wiki is the source of truth for documentation and memory; no editor is part of the architecture, and the Windows UNC route failed validation.
@@ -24,7 +24,7 @@ One line per memory note. Add new notes here; work notes need no entry.
 - [[ADR-0024 Claude Code is the only harness]] - Superseded by ADR-0026; records the earlier harness restriction and ECC integration.
 - [[ADR-0025 Agents use a machine account and the owner approves]] - Agents push and open PRs as a machine account that cannot approve its own work; code-owner review is on and no owner credential is on the agents' machine, so only the owner's approval counts.
 - [[ADR-0026 Any provider may work under shared rules]] - Any harness or model provider may author and verify work with truthful attribution, one canonical skill library and the shared checks.
-- [[ADR-0027 Changelog entries are per-branch fragment files]] - Draft until its build lands. Each branch records its change in its own dated file under changelog/; CHANGELOG.md keeps the history before the switch, so concurrent branches never conflict on it.
+- [[ADR-0027 Changelog entries are per-branch fragment files]] - Each branch records its change in its own dated file under changelog/; CHANGELOG.md keeps the history before the switch, so concurrent branches never conflict on it.
 
 ## Lessons
 
@@ -51,7 +51,7 @@ One line per memory note. Add new notes here; work notes need no entry.
 ## Runbooks
 
 - [[Land a change]] - Take work from a feature branch to an owner-merged pull request; nothing is ever pushed to main.
-- [[Maintain the repository wiki]] - Keep wiki explanations, work records, the Memory index and CHANGELOG.md current in the same branch as the change, and commit wiki files alone.
+- [[Maintain the repository wiki]] - Keep wiki explanations, work records, the Memory index and the changelog current in the same branch as the change, and commit wiki files alone.
 - [[Run Sandcastle on GitHub issues]] - Run npm run sandcastle so Docker-sandboxed Claude agents plan, implement, review and merge issues labelled Sandcastle onto your branch, without pushing or closing anything.
 - [[Verify a repository change]] - Run npm run check and the hooks, review read-only with separate reviewer subagents, and record evidence before opening a pull request.
 - [[Work with any agent provider]] - Load canonical instructions and skills with available tools, attribute notes correctly and arrange independent review in the current harness.

@@ -4,7 +4,11 @@ Every branch adds its own entry here, under a `## YYYY-MM-DD` heading dated betw
 started and the day it lands (UTC). Entries describe the change; they never cite
 facts that only exist after the owner merges. `npm run changelog:guard` enforces this.
 
+From 2026-10-17 each branch records its change in its own fragment under `changelog/` instead ([ADR-0027](wiki/decisions/ADR-0027%20Changelog%20entries%20are%20per-branch%20fragment%20files.md)); the entries below are the history before that switch.
+
 ## 2026-10-17
+
+- Each branch now records its change in its own new fragment, `changelog/<YYYY-MM-DD>-<slug>.md`, instead of an entry in the shared changelog file, so two open pull requests no longer conflict there (ADR-0027, which supersedes ADR-0007 and restates its rule that entries cite no post-merge facts). `npm run changelog:guard` requires at least one valid new fragment for a branch that changes a non-exempt file: named with a real date between the day the branch started and today (UTC) and a lower-case kebab-case slug, holding a `- ` entry outside code fences. It refuses an invalid fragment even beside a valid one, a change to or deletion of a fragment already on main, and any change to `CHANGELOG.md` once main holds a fragment, and tells a branch that still writes there to move its entry. This pull request is the one transition: it adds a line here and its own fragment. `governance:check` now refuses live text that still asks for the old entry and excludes fragments as history, and the rules, `CLAUDE.md`, `README.md`, runbooks, Sandcastle prompts and memory guard are repointed. The unused `addedLineNumbers` helper is retired.
 
 - The Sandcastle AFK wrapper now treats a changelog fragment, `changelog/<YYYY-MM-DD>-<slug>.md` (ADR-0027), as documentation it may land unattended, so a documentation-only branch that records itself with a fragment is not refused as code. `scripts/lib/paths.ts` names the folder and the fragment pattern once; any other file under `changelog/` is still refused. No guard requires fragments yet, and `CHANGELOG.md` stays the required record. The `governance:check` exclusion for fragments moves to the slice that adds the first one, because the check refuses an exclusion that matches no file.
 

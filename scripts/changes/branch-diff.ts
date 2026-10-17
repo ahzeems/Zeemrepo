@@ -1,5 +1,3 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import { git, gitLines, gitPaths, mergeBase, type GitOptions } from "../lib/git.ts";
 
 // The change guards judge the branch as it stands: commits since the fork point plus the
@@ -37,25 +35,6 @@ function diffLines(base: string, paths: readonly string[], options: GitOptions):
 export function addedLines(base: string, paths: readonly string[], options: GitOptions = {}): string[] {
   if (paths.length === 0) return [];
   return diffLines(base, paths, options).filter((line) => line.startsWith("+") && !line.startsWith("+++")).map((line) => line.slice(1));
-}
-
-const HUNK = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/;
-
-/** 1-based positions, in the file as it stands, of lines added since the base. */
-export function addedLineNumbers(base: string, path: string, options: GitOptions = {}): number[] {
-  // git diff does not see an untracked file, but every line of one is new.
-  if (gitPaths(["ls-files", "--others", "--exclude-standard", "--", path], options).length > 0) {
-    const file = join(options.cwd ?? process.cwd(), path);
-    const lines = existsSync(file) ? readFileSync(file, "utf8").replace(/\r\n/g, "\n").split("\n") : [];
-    return lines.map((_, index) => index + 1);
-  }
-  return diffLines(base, [path], options).flatMap((line) => {
-    const hunk = HUNK.exec(line);
-    if (!hunk) return [];
-    const start = Number(hunk[1]);
-    const count = hunk[2] === undefined ? 1 : Number(hunk[2]);
-    return Array.from({ length: count }, (_, offset) => start + offset);
-  });
 }
 
 /** Renamed paths since the base, as new path to old path (git rename detection, staged or committed). */

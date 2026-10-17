@@ -1,10 +1,10 @@
 ---
 type: runbook
 title: Maintain the repository wiki
-summary: Keep wiki explanations, work records, the Memory index and CHANGELOG.md current in the same branch as the change, and commit wiki files alone.
+summary: Keep wiki explanations, work records, the Memory index and the changelog current in the same branch as the change, and commit wiki files alone.
 tags: [area/wiki, area/docs, area/git, kind/convention]
 created: 2026-09-21
-updated: 2026-10-16
+updated: 2026-10-17
 agent: claude-code
 status: active
 related: ["[[Land a change]]", "[[Change records]]", "[[Walkthroughs should not duplicate skill rules]]"]
@@ -57,9 +57,9 @@ records hold scope and evidence. Sessions and superseded decisions are history.
 5. **Validate.** Run `npm run wiki:lint` and fix every error: schema, links, tags, agents,
    evidence labels and the redaction sweep over every tracked file.
 
-6. **Record the change.** Add a `CHANGELOG.md` entry at the repository root, dated from the
+6. **Record the change.** Add a new fragment `changelog/<YYYY-MM-DD>-<slug>.md`, dated from the
    branch's first commit to today, with no post-merge facts
-   ([[ADR-0007 Changelog entries carry no post-merge facts]]). [[Change records]] lists what
+   ([[ADR-0027 Changelog entries are per-branch fragment files]]). [[Change records]] lists what
    each guard requires.
 
 7. **Commit wiki files alone.** Stage files by name. Wiki files go in their own commit with a

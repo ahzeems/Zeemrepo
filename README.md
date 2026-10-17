@@ -50,7 +50,8 @@ branch must record (changelog, work record, operating docs) is `wiki/reference/C
 | `.claude/rules/ecc/` | Every ECC rule set, vendored unchanged (without ECC's rules README, with its LICENSE) and held to the plugin pin by `npm run rules:check` |
 | `.claude/agents/` | No-edit review agents: `finder` (reads only) and `verifier` (also runs checks) |
 | `.github/workflows/` | `check` (the change's own checks) and `guards` (main's guards, `pull_request_target`) |
-| `CHANGELOG.md` | One entry per branch |
+| `changelog/` | One dated fragment per branch: the changelog since ADR-0027 |
+| `CHANGELOG.md` | The changelog before the switch to fragments, kept as written |
 
 ## ECC
 

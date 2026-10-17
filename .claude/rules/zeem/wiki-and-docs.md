@@ -23,7 +23,7 @@ apply everywhere.
 | Constitution: the rules agents follow | `CLAUDE.md` and `.claude/rules/zeem/` |
 | Map: where things are | `wiki/Home.md` and `wiki/reference/Memory index.md` |
 | Status: what is in flight | `wiki/work/` |
-| History: why and what changed | `wiki/decisions/` and `CHANGELOG.md` |
+| History: why and what changed | `wiki/decisions/`, `changelog/` and, before the switch to fragments, `CHANGELOG.md` |
 
 ## Writing
 

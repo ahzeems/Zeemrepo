@@ -236,9 +236,9 @@ Sandcastle loop, a real push, and GitHub's review request reaching the owner.
 - An issue that points at another open issue ("after the sentence added for the first trial") is
   planned as blocked by it, and agents never close issues, so it waits until you close the first
   one. Write independent issues when you want them worked in the same round.
-- A documentation-only issue still needs a `CHANGELOG.md` entry and a work record on its branch,
+- A documentation-only issue still needs a changelog fragment and a work record on its branch,
   because the change-record guard refuses a branch without them when the wrapper lands it
-  (`changelog-guard: ... adds no entry to CHANGELOG.md`). Do not write "change no other file" in a
+  (`changelog-guard: ... adds no changelog fragment`). Do not write "change no other file" in a
   Sandcastle issue; the implementer prompt already asks for both records.
 - The comments an agent posts are authored by whichever account owns the sandbox `GH_TOKEN`. On
   the first run they were posted by the repository owner, because that token was the owner's

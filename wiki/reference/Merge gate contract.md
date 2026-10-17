@@ -60,8 +60,8 @@ built the merge ref yet: re-run it.
 
 The hook is a heuristic, not a sandbox; the `protect-main` ruleset (no bypass actors) and the
 owner's review are the control. `npm run audit` asks `gh` with a 60-second timeout, so a hung `gh`
-is an error, not a stall. Pre-push skips its `npm run check` when `PR_READY_CHECKED` names the
-commit being pushed, which `npm run pr` sets after running the check itself; anyone can set it, so
+is an error, not a stall. Pre-push skips its `npm run check` when `PR_READY_CHECKED` equals the
+checkout's `HEAD` (not the commit being pushed, which it does not compare), and `npm run pr` sets it to the commit it captured before running the check itself; anyone can set it, so
 CI is what enforces the check. ECC's own plugin hooks also run in this repository (the hook
 profile is set in the owner's user settings, not here): GateGuard asks for facts before a first edit or command and before destructive commands,
 and config-protection refuses agent edits to `eslint.config.ts`, so the owner makes an edit there
@@ -76,7 +76,11 @@ config-protection read from the plugin's `scripts/hooks/config-protection.js`, v
   so a narrowed `remote.origin.fetch` cannot leave the ref stale and no other remote ref changes,
   resolves it to a commit, and checks containment, its own commits and `CODEOWNERS` against that
   captured commit; a failed fetch, a missing main or a non-commit is an error.
-  It then checks `gh auth status`, refuses if `gh` is logged in as the repository owner or a code owner, pushes the branch and opens or reports its pull request. It
+  It captures `HEAD` and the state `git-state` compares just before `npm run check` and compares
+  them after it, whether the check passed or failed; any change refuses, naming the classes that
+  changed (never a config value or file content), and nothing is pushed.
+  It then checks `gh auth status`, refuses if `gh` is logged in as the repository owner or a code owner, pushes the captured commit by SHA
+  (`git push origin <sha>:refs/heads/<branch>`, then writes `branch.<branch>.remote` and `.merge`, which works when the fetch refspec covers only main), and opens or reports its pull request. It
   never merges. `--dry-run` stops before pushing.
 - `npm run audit` (`scripts/git/landing-audit.ts`) fetches origin's main itself through the same
   explicit refspec and reads its config and history from the commit that fetch captured, so a

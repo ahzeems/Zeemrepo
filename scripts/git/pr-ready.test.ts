@@ -27,13 +27,17 @@ function fixture(t: TestContext, codeowners?: string): RepoFixture {
 }
 
 // npm and gh are faked; git runs for real against the fixture and its bare remote.
-type Outcomes = { check?: number; prView?: string; ghAuth?: number; ghUser?: string };
+// onCheck runs inside the faked npm run check, as a test that escaped its fixture would.
+type Outcomes = { check?: number; prView?: string; ghAuth?: number; ghUser?: string; onCheck?: () => void };
 
 function runner(repo: RepoFixture, outcomes: Outcomes = {}): { run: Run; calls: (Call & { inherit: boolean; env: Record<string, string> })[] } {
   const calls: (Call & { inherit: boolean; env: Record<string, string> })[] = [];
   const run: Run = (command, args, options = {}) => {
     calls.push({ command, args, inherit: options.inherit === true, env: options.env ?? {} });
-    if (command === "npm") return { status: outcomes.check ?? 0, stdout: "" };
+    if (command === "npm") {
+      outcomes.onCheck?.();
+      return { status: outcomes.check ?? 0, stdout: "" };
+    }
     if (command === "gh" && args[0] === "auth") return { status: outcomes.ghAuth ?? 0, stdout: "" };
     if (command === "gh" && args[0] === "api" && args[1] === "user") return { status: 0, stdout: `${outcomes.ghUser ?? "machine-bot"}\n` };
     if (command === "gh" && args[0] === "repo" && args[1] === "view") return { status: 0, stdout: "repo-owner\n" };
@@ -65,10 +69,74 @@ await test("a ready branch is checked, pushed and gets a PR, and nothing merges"
   assert.match(result.err, /hooks are not installed/);
   const check = calls.find((call) => call.command === "npm" && call.args.join(" ") === "run check");
   assert.ok(check?.inherit, "npm run check streams its output to the terminal");
-  const push = calls.find((call) => call.command === "git" && call.args.join(" ") === "push --set-upstream origin feat/x");
-  assert.ok(push, "pushes the branch");
-  assert.equal(push.env.PR_READY_CHECKED, repo.git(["rev-parse", "HEAD"]), "tells the pre-push hook this commit was just checked");
+  const checked = repo.git(["rev-parse", "HEAD"]);
+  const push = calls.find((call) => call.command === "git" && call.args[0] === "push");
+  assert.deepEqual(push?.args, ["push", "origin", `${checked}:refs/heads/feat/x`], "pushes exactly the checked commit to the branch");
+  assert.equal(push.env.PR_READY_CHECKED, checked, "tells the pre-push hook this commit was just checked");
+  assert.equal(repo.git(["config", "--get", "branch.feat/x.merge"]), "refs/heads/feat/x", "the branch tracks its pushed copy");
   assert.ok(!calls.some((call) => call.args.includes("merge") && call.command === "gh"), "never merges");
+});
+
+// Each class of state git-state compares, changed by what runs as npm run check.
+const MUTATIONS: [string, (repo: RepoFixture) => void, RegExp][] = [
+  ["a commit", (repo) => { repo.write("b.md", "replacement\n"); repo.commit("replacement"); }, /HEAD moved/],
+  ["a branch switch", (repo) => repo.git(["switch", "--quiet", "-c", "other"]), /checked-out branch changed/],
+  ["a new ref", (repo) => repo.git(["tag", "planted"]), /refs changed/],
+  ["local config", (repo) => repo.git(["config", "fixture.planted", "yes"]), /local git config changed: fixture\.planted/],
+  ["a staged file", (repo) => { repo.write("staged.md", "x\n"); repo.git(["add", "staged.md"]); }, /the index changed/],
+  ["a working-tree file", (repo) => repo.write("untracked.md", "x\n"), /the working tree changed/],
+];
+
+await test("a check that changes git state is refused before anything is pushed, whether it passed or failed", async (t) => {
+  for (const check of [0, 1]) {
+    for (const [name, mutate, named] of MUTATIONS) {
+      await t.test(`${name}, check exit ${String(check)}`, (t) => {
+        const repo = fixture(t);
+        const { run, calls } = runner(repo, { check, onCheck: () => mutate(repo) });
+        const result = go(repo, run);
+        assert.equal(result.code, EXIT_REFUSED);
+        assert.match(result.err, named);
+        assert.match(result.err, /changed this repository's git state/);
+        if (check !== 0) assert.match(result.err, /npm run check failed/);
+        assert.ok(!calls.some((call) => call.args[0] === "push"), "nothing is pushed");
+        assert.ok(!calls.some((call) => call.command === "gh"), "no pull request is opened");
+      });
+    }
+  }
+});
+
+await test("a check that commits and passes never certifies the replacement commit", (t) => {
+  const repo = fixture(t);
+  const checked = repo.git(["rev-parse", "HEAD"]);
+  const { run, calls } = runner(repo, { onCheck: () => { repo.write("b.md", "replacement\n"); repo.commit("replacement"); } });
+  const result = go(repo, run);
+  assert.equal(result.code, EXIT_REFUSED);
+  assert.match(result.err, new RegExp(`HEAD moved from ${checked}`));
+  assert.ok(!calls.some((call) => call.env.PR_READY_CHECKED !== undefined), "no commit is handed to the hook as checked");
+});
+
+await test("a state refusal names what changed without printing config values, subsections or file contents", (t) => {
+  const repo = fixture(t);
+  const { run } = runner(repo, { onCheck: () => {
+    repo.git(["config", "remote.https://token-SUBSECTION-XYZ@example.invalid/r.url", "VALUE-SECRET-XYZ"]);
+    repo.write("leak.md", "CONTENT-SECRET-XYZ\n");
+  } });
+  const result = go(repo, run);
+  assert.equal(result.code, EXIT_REFUSED);
+  assert.match(result.err, /local git config changed: remote\.<\.\.\.>\.url/);
+  assert.match(result.err, /the working tree changed/);
+  for (const secret of ["SUBSECTION-XYZ", "VALUE-SECRET-XYZ", "CONTENT-SECRET-XYZ"]) assert.ok(!result.err.includes(secret), secret);
+});
+
+await test("a checkout that fetches only main still pushes the checked commit, tracks it and opens the PR", (t) => {
+  const repo = fixture(t);
+  repo.git(["config", "remote.origin.fetch", "+refs/heads/main:refs/remotes/origin/main"]);
+  const { run, calls } = runner(repo);
+  const result = go(repo, run);
+  assert.equal(result.code, EXIT_OK, result.err);
+  assert.ok(calls.some((call) => call.command === "gh" && call.args[1] === "create"), "the pull request is opened");
+  assert.equal(repo.git(["config", "--get", "branch.feat/x.remote"]), "origin");
+  assert.equal(repo.git(["config", "--get", "branch.feat/x.merge"]), "refs/heads/feat/x");
 });
 
 await test("an existing open PR is reported, not duplicated", (t) => {

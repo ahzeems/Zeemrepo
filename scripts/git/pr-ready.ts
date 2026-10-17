@@ -3,10 +3,13 @@
 // It never merges and never touches main (owner decision, 2026-10-09): it refuses unless the
 // branch is clean, contains origin/main (so the branch is the merge result) and passes
 // npm run check, then pushes the branch and opens or reports its PR. Merging is the owner's act on GitHub.
+// It captures HEAD and the git state git-state compares before the check and refuses if the check
+// changed them, passed or failed, so only the commit that was checked is pushed and certified.
 import { spawnSync } from "node:child_process";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
-import { MAIN_REFSPEC, environmentFor, gitOptionsAt } from "../lib/git.ts";
+import { MAIN_REFSPEC, environmentFor, gitOptionsAt, type GitOptions } from "../lib/git.ts";
 import { parseCodeOwners } from "./code-owners.ts";
+import { readState, stateChanges } from "./git-state.ts";
 
 // inherit streams the command's output to the terminal (npm run check can run for a minute
 // and its failure explains itself); env adds variables for that command.
@@ -43,11 +46,11 @@ function must(run: Run, command: string, args: readonly string[], options?: RunO
   return result.stdout.trim();
 }
 
-/** The branch to publish and the main commit it was checked against, or a refusal. */
-function readiness(run: Run): { branch: string; main: string } | { refusal: string } {
-  const head = run("git", ["symbolic-ref", "--quiet", "--short", "HEAD"]);
-  const branch = head.stdout.trim();
-  if (head.status !== 0 || branch === "main") return { refusal: "Run this on a feature branch, not main or a detached HEAD." };
+/** The branch to publish, the commit that was checked and the main commit it contains, or a refusal. */
+function readiness(run: Run, gitOptions: GitOptions): { branch: string; head: string; main: string } | { refusal: string } {
+  const symbolic = run("git", ["symbolic-ref", "--quiet", "--short", "HEAD"]);
+  const branch = symbolic.stdout.trim();
+  if (symbolic.status !== 0 || branch === "main") return { refusal: "Run this on a feature branch, not main or a detached HEAD." };
   if (must(run, "git", ["status", "--porcelain"]) !== "") return { refusal: "The branch has uncommitted changes. Commit or stash them first." };
   must(run, "git", ["fetch", "--quiet", "origin", MAIN_REFSPEC]);
   const mainCommit = must(run, "git", ["rev-parse", "--verify", "--quiet", "refs/remotes/origin/main^{commit}"]);
@@ -55,8 +58,15 @@ function readiness(run: Run): { branch: string; main: string } | { refusal: stri
   if (contains.status === 1) return { refusal: "The branch is behind main: merge origin/main into this branch (never rebase published history), then rerun." };
   if (contains.status !== 0) throw new Error("cannot compare this branch with origin/main");
   if (must(run, "git", ["rev-list", "--count", `${mainCommit}..HEAD`]) === "0") return { refusal: "The branch has no commits that are not on main; there is nothing to open a pull request for." };
-  if (run("npm", ["run", "check"], { inherit: true }).status !== 0) return { refusal: "npm run check failed (output above). Fix it before opening the pull request." };
-  return { branch, main: mainCommit };
+  const head = must(run, "git", ["rev-parse", "HEAD"]);
+  const before = readState(gitOptions);
+  const passed = run("npm", ["run", "check"], { inherit: true }).status === 0;
+  const changes = stateChanges(before, readState(gitOptions));
+  const refusals = [
+    ...(passed ? [] : ["npm run check failed (output above). Fix it before opening the pull request."]),
+    ...(changes.length === 0 ? [] : [`npm run check changed this repository's git state, so ${head} cannot be certified as checked and nothing is pushed: ${changes.join("; ")}. Inspect and restore it, then rerun.`]),
+  ];
+  return refusals.length > 0 ? { refusal: refusals.join("\npr-ready: ") } : { branch, head, main: mainCommit };
 }
 
 /**
@@ -71,7 +81,7 @@ function codeOwners(run: Run, mainCommit: string): string[] {
 
 // gh is checked before the push, so a missing login never leaves a branch published with no PR.
 // The pre-push hook would rerun npm run check; it skips that for the commit just checked here.
-function publish(run: Run, branch: string, mainCommit: string): string | { refusal: string } {
+function publish(run: Run, { branch, head, main: mainCommit }: { branch: string; head: string; main: string }): string | { refusal: string } {
   const auth = run("gh", ["auth", "status"]);
   if (auth.status !== 0) return { refusal: "gh is not logged in. Run gh auth login, then rerun." };
   // Agents act as the machine account, which cannot approve its own pull requests; under the
@@ -89,8 +99,13 @@ function publish(run: Run, branch: string, mainCommit: string): string | { refus
     refusals.push(`gh is logged in as a code owner (${user}) named in .github/CODEOWNERS. Agents push as the machine account: log gh in as it and remove the owner's login from this machine (wiki/reference/Merge gate contract.md).`);
   }
   if (refusals.length > 0) return { refusal: refusals.join("\npr-ready: ") };
-  const head = must(run, "git", ["rev-parse", "HEAD"]);
-  must(run, "git", ["push", "--set-upstream", "origin", branch], { env: { PR_READY_CHECKED: head } });
+  // The checked commit is pushed by SHA, so a HEAD that moves after the check is never published
+  // under the checked commit's name. --set-upstream needs a branch name as the source, and
+  // --set-upstream-to needs a remote-tracking ref that a fetch refspec narrowed to main never
+  // creates, so tracking is written directly.
+  must(run, "git", ["push", "origin", `${head}:refs/heads/${branch}`], { env: { PR_READY_CHECKED: head } });
+  must(run, "git", ["config", `branch.${branch}.remote`, "origin"]);
+  must(run, "git", ["config", `branch.${branch}.merge`, `refs/heads/${branch}`]);
   const view = run("gh", ["pr", "view", branch, "--json", "url,state"]);
   if (view.status === 0) {
     const parsed: unknown = JSON.parse(view.stdout);
@@ -113,7 +128,7 @@ export function main(args: readonly string[], options: Options = {}): number {
   if (run("git", ["config", "--get", "core.hooksPath"]).stdout.trim() !== ".githooks") {
     output.warn("pr-ready: git hooks are not installed in this checkout; run npm run hooks:install so commits on main are refused locally.");
   }
-  const ready = readiness(run);
+  const ready = readiness(run, gitOptionsAt(options.cwd));
   if ("refusal" in ready) {
     output.warn(`pr-ready: ${ready.refusal}`);
     return EXIT_REFUSED;
@@ -122,7 +137,7 @@ export function main(args: readonly string[], options: Options = {}): number {
     output.write(`pr-ready: ${ready.branch} is ready; dry run, nothing pushed.`);
     return EXIT_OK;
   }
-  const published = publish(run, ready.branch, ready.main);
+  const published = publish(run, ready);
   if (typeof published !== "string") {
     output.warn(`pr-ready: ${published.refusal}`);
     return EXIT_REFUSED;

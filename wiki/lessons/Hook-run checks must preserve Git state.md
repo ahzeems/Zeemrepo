@@ -64,5 +64,6 @@ followed.
   `core.bare` in this checkout and the main one, restore them, and find the test that escaped
   before pushing again. The check detects; it cannot undo, and it does not see global config,
   hooks or the object store.
-- `npm run pr` runs the check outside any hook, so the snapshot matters only for pushes that run
-  the hook's own check.
+- `npm run pr` runs the check outside any hook and takes the same snapshot around it: a change
+  refuses before anything is pushed, even when the check failed, and it pushes the commit it
+  captured by SHA, so the hook skips its own check only for that commit.

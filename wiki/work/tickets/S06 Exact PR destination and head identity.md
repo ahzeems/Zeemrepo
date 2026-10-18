@@ -9,7 +9,7 @@ agent: claude-code
 status: done
 owner: agent
 priority: P1
-next_action: PR 38 is merged; independent verification of the follow-up branch fix/s06-afk-origin-check, then the owner's review of its pull request.
+next_action: None. The follow-up branch landed as PR 42; the bounded wait for GitHub's head lag continues as an idea note.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: build
@@ -46,7 +46,12 @@ evidence:
   - "VERIFIED: a third independent review (Opus 5.5 as the coordinator reports) rated PR 42 at e6cd939 PASS. It found one MEDIUM: the Sandcastle runbook still described the removed gh-answer refusal. It found three LOWs: the unreadable-origin branch was untested (mutant O2, readDestination's catch returning the served repository, survived); two docs said the head lag was observed once; and the review evidence did not name the model."
   - "OWNER DECISION: on 2026-10-18 the owner was asked 'may the agent also update the Sandcastle runbook (outside S06's allowed files) so it describes afk's new origin check instead of the removed one?' and chose 'Yes, update it here (Recommended)' (relayed by the coordinator). Scope: wiki/runbooks/Run Sandcastle on GitHub issues.md, step 1 and its verification paragraph."
   - "VERIFIED: test commit c786b5d adds a wrong-origin case with no origin remote, which must refuse before the loop with origin's URLs cannot be read. It passes on the e6cd939 code. Mutant O2, run alone on that test, failed 2 (the case and its parent)."
-  - "UNKNOWN: independent verification of this round is pending."
+  - "VERIFIED: on 2026-10-18 gh pr view 38 reported MERGED by the code owner's account as 5385769, and git merge-tree --write-tree 5385769^ 5ac895f gave 5385769's own tree, so main received exactly the reviewed head 5ac895f."
+  - "VERIFIED: on 2026-10-18 gh pr view 42 reported MERGED by the code owner's account as 801eb53, and git merge-tree --write-tree 801eb53^ f57b955 gave 801eb53's own tree, so main received exactly the reviewed head f57b955."
+  - "INFERRED: per the final report of an independent verifier (Claude Code subagent, Opus 5.5, separate context), relayed to the coordinator and not reproduced here, f57b955 rated PASS: the runbook's step 1 matches afk.ts, mutant O2 fails 2 tests, the afk suites pass 122 of 122 with no connect call under strace, and CI passes at that head. Its one LOW was that the second head-lag observation had no labelled evidence; the next two lines record it."
+  - "INFERRED: the S06 agent's report on 2026-10-18 says the second live reuse, npm run pr at 5ac895f, pushed and then refused because GitHub still reported the previous head of PR 38, and that gh pr view 38 showed 5ac895f shortly afterwards. The PR 38 body recorded it; the coordinator did not watch the run."
+  - "INFERRED: the S06 agent's report on 2026-10-18 says a third live reuse, npm run pr at f57b955 on PR 42, pushed and then refused because GitHub still reported e6cd939, and that gh pr view 42 showed f57b955 a moment later. Three of three live reuses lagged."
+  - "VERIFIED: on 2026-10-18 the main CI run 39152154817 at 801eb53 concluded success."
 ---
 
 ## Goal
@@ -113,4 +118,4 @@ Document the exact identity checks and post-push recovery boundary; update this 
 
 ## Discovered work
 
-- GitHub head lag after a push. Both live reuses on this branch, at 83e1551 and 5ac895f, pushed and then refused: GitHub still reported the previous head of PR 38, and shortly afterwards it showed the pushed commit. Every rerun repeats `npm run check`, which takes minutes and loads the machine. Next action: a bounded poll in `scripts/git/pr-ready.ts` that re-reads the PR a few times, briefly, and retries only when the head is the sole mismatch, while every other identity field stays strict. The test-first work belongs in its own ticket; the coordinator will record it as an idea note.
+- GitHub head lag after a push. All three live reuses, at 83e1551 and 5ac895f on PR 38 and at f57b955 on PR 42, pushed and then refused: GitHub still reported the PR's previous head, and shortly afterwards it showed the pushed commit. Every rerun repeats `npm run check`, which takes minutes and loads the machine. Next action: a bounded poll in `scripts/git/pr-ready.ts` that re-reads the PR a few times, briefly, and retries only when the head is the sole mismatch, while every other identity field stays strict. The test-first work belongs in its own ticket; the coordinator will record it as an idea note.

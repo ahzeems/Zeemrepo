@@ -9,7 +9,7 @@ agent: opencode
 status: done
 owner: agent
 priority: P1
-next_action: Independent review of the branch head, then the owner's merge; after that S09 and S11, whose parent is S08, are eligible.
+next_action: None. It landed as PR 39; S09 and S11, whose parent is S08, are eligible. The reverse-order overlap gap continues as an idea note.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: build
@@ -32,6 +32,8 @@ evidence:
   - "VERIFIED: 2d9616c adds three coordinate() cases (pipelines overlap, with a bounded 2 s wait; merger order is produced branches then left-over ones, each in plan order; merged and left-over branches are judged in deps.cwd, not the process directory). All 18 coordinator tests pass on the unchanged coordinator. These cases characterize existing behavior, so they were shown red by mutation: sequential pipelines, the swapped merge order, and pendingIssues or aheadIssues given process.cwd() each failed the new case aimed at it, while the earlier 15 cases passed under all four."
   - "VERIFIED: observation, outside this diff: the Known notes bullet in the Sandcastle runbook that says the sandbox image is on Node 22 is stale since S12 moved it to node:24-trixie. Next action: the coordinator records it in a separate records PR."
   - "VERIFIED: the first red commit was made with git commit --no-verify; it was reset before publication and remade as 0e357e6 with a typed stub so the pre-commit hook ran and passed."
+  - "VERIFIED: on 2026-10-18 gh pr view 39 reported MERGED by the code owner's account as 85a8a32, and git merge-tree --write-tree 85a8a32^ 28872e1 gave 85a8a32's own tree, so main received exactly the reviewed head 28872e1."
+  - "INFERRED: per the final report of an independent verifier (Claude Code subagent, Opus 5.5, separate context), relayed to the coordinator and not reproduced here, 28872e1 rated PASS. Its LOWs: the overlap test runs one way only, so a sequential loop in reverse plan order passes all 18 coordinator tests (recorded as the idea note Coordinator concurrency test misses reverse-order runs), and the stale Node 22 runbook line, which PR 40 removed."
 ---
 
 ## Goal

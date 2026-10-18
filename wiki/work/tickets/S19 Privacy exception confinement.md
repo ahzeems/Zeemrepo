@@ -9,7 +9,7 @@ agent: opencode
 status: done
 owner: agent
 priority: P2
-next_action: Independent verification of the round-one head, then the owner's review and merge.
+next_action: None. It landed as PR 35.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: build
@@ -38,7 +38,9 @@ evidence:
   - "VERIFIED: the coordinator's message of 2026-10-18 reports that an independent re-verification at 2c4bd96 rated PASS with four LOW findings: removing whitespace from the break set survived the tests although a climb ended by a space is then missed; the quote and backslash removal over-flags an apostrophe or backslash escape after the role home without saying so; the break list omitted the comma, < and >, and the limits named only one shell expansion; and the discovered work, which the coordinator will record in a separate records PR."
   - "VERIFIED: round-two tests at 66d7d82 (climbs ended by a space, by a comma and by a closing parenthesis, and an apostrophe, a backslash n and a backslash b after the role home pinned as flagged) pass against the unchanged redaction.ts, 111 of 111; they target behaviour the code already has, so their red runs are the planted mutations."
   - "VERIFIED: three break-set mutations of redaction.ts, each run against both test files, were caught (3 failing lines each): whitespace removed, the comma removed and the parentheses removed from PATH_BREAK."
-  - "UNKNOWN: CI on the round-two head and any further independent verification are pending."
+  - "VERIFIED: on 2026-10-18 gh pr view 35 reported MERGED by the code owner's account as 62c682d, and git merge-tree --write-tree 62c682d^ b74327a gave 62c682d's own tree, so main received exactly the reviewed head b74327a."
+  - "VERIFIED: on 2026-10-18 gh run list showed check and guards passing on b74327a."
+  - "INFERRED: per the final report of an independent verifier (Claude Code subagent, Opus 5.5, separate context), relayed to the coordinator and not reproduced here, b74327a rated PASS. Its LOWs were this ticket's stale UNKNOWN about CI and its stale next_action, both corrected here."
 ---
 
 ## Goal

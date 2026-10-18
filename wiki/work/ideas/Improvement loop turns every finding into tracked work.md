@@ -9,7 +9,7 @@ agent: claude-code
 status: backlog
 owner: human
 priority: P1
-next_action: The owner approves this records pull request; then a plan groups these ideas and names the rule and skill changes the loop needs.
+next_action: Write the improvement-loop plan with write-plan, grouping the backlog ideas and naming the rule and skill changes the loop needs, for the owner's approval.
 related: []
 evidence:
   - "OWNER DECISION: on 2026-10-18 the owner said: \"yes follow up tickets always, there needs to be a  Improvement loop /level-up ideas, then plans, then tickets --- and everything in the repo should align to this thinking\"."

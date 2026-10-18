@@ -9,7 +9,7 @@ agent: opencode
 status: done
 owner: agent
 priority: P1
-next_action: None once the owner merges its pull request; S15 then has this parent complete.
+next_action: None. It landed as PR 34 and PR 40; S15 has this parent complete. Two untested guest paths continue as an idea note.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: build
@@ -50,6 +50,9 @@ evidence:
   - "VERIFIED: the npm registry entry for @anthropic-ai/claude-code 2.1.289 (read 2026-10-18) has dependencies {} and only optional platform packages pinned to exactly 2.1.289, so the global install resolves no floating dependency. The remaining gap: the Dockerfile pins the version but no integrity hash (registry integrity sha512-RQWjAlalf9aomgI3JaXDCdFPvmNVnRdjwMtYk5L+Lw1NWxCxbhY5T9F+w1xukqvJh/I2rR2+3hICZxhk0al1nA==), so it trusts the registry to serve the same tarball for that version."
   - "VERIFIED: an independent verifier (Claude Code subagent, Opus 5.5, separate context) rated 1f7afdd PASS with no CRITICAL, HIGH or MEDIUM finding; its LOWs were the untested Python 3.12 boundary, the untested guest OS report, the stale build-comparison and review lines here, and the claim about Claude Code's dependencies."
   - "VERIFIED: after that review a test accepts Python 3.12.0 and refuses 3.11.14, and the guest's toolchainIdentity reads an os-release path its caller gives, with tests that the report carries the parsed values, that another file gives another report and that an empty field reads unknown. Before the change the guest test failed to load (no toolchainIdentity export); after it the two containment test files pass 59 of 59. Mutants run against those two files each fail a test: M3 (Python >= becomes >) 1 failure, M8 (report hard-codes ubuntu 26.04) 1, M9 (report ignores the os-release path) 1, M10 (an empty field is not unknown) 2. The mutant names follow the verifier's; their exact edits are this session's reconstruction."
+  - "VERIFIED: on 2026-10-18 gh pr view 40 reported MERGED by the code owner's account as c11dfa7, and git merge-tree --write-tree c11dfa7^ 387f606 gave c11dfa7's own tree, so main received exactly the reviewed head 387f606."
+  - "INFERRED: per the final report of an independent verifier (Claude Code subagent, Opus 5.5, separate context), relayed to the coordinator and not reproduced here, e425a3d rated PASS with LOWs: its own mutants O3 (the guest reports node as the literal v24.22.0) and O4 (report() reads /etc/hostname instead of /etc/os-release) survive the unit tests, O3 only because the test host runs v24.22.0; and the ticket could not cite the CI run of its own head."
+  - "VERIFIED: on 2026-10-18 gh run view --log showed the smoke print 'guest reports os ubuntu 26.04, node v24.22.0, python Python 3.14.4, git git version 2.53.0, claude 2.1.289 (Claude Code), sdk 0.12.0' and 'contained' in the check run of PR 40's merged head 387f606 (run 39141677649) and in main's runs at c11dfa7 (run 39152110357) and 801eb53 (run 39152154817). Their image IDs differ again: sha256:30333369..., sha256:4ef194a2... and sha256:fc4fe6de...."
 ---
 
 ## Goal

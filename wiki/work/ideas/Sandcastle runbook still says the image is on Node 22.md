@@ -6,13 +6,14 @@ tags: [area/agents, area/wiki]
 created: 2026-10-18
 updated: 2026-10-18
 agent: claude-code
-status: backlog
+status: done
 owner: human
 priority: P3
-next_action: Correct the line in S12's open follow-up (PR 40, the Ubuntu 26.04 image), or after it merges, so it names the final base image.
+next_action: None. PR 40 removed the line.
 related: ["[[Improvement loop turns every finding into tracked work]]", "[[Run Sandcastle on GitHub issues]]"]
 evidence:
   - "INFERRED: the S08 verifier at 3cc809e reported the line, at the time line 288 of the runbook (2026-10-18)."
+  - "VERIFIED: on 2026-10-18 grep found no \"Node 22\" in wiki/runbooks/ or .sandcastle/ on main at 801eb53; PR 40, merged as c11dfa7, replaced the line when it moved the image to Ubuntu 26.04."
 ---
 
 ## Problem
@@ -27,4 +28,4 @@ Every runbook line agrees with `.sandcastle/Dockerfile`.
 
 ## Next step
 
-Fix the line on PR 40's branch, which already changes the sandbox image, or in a records pull request after it merges.
+None. PR 40 fixed the line.

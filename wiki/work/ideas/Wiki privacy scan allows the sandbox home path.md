@@ -4,16 +4,18 @@ title: Wiki privacy scan allows the sandbox home path
 summary: The privacy scan flags every home path with a username; the Sandcastle sandbox runs as the role-name user agent, so its files could not name the workspace until the scan allowed that one home.
 tags: [area/git, area/agents]
 created: 2026-10-14
-updated: 2026-10-14
+updated: 2026-10-18
 agent: claude-code
-status: in-progress
+status: done
 owner: human
 priority: P2
-next_action: Owner reviews and merges the pull request; the Sandcastle integration pull request then passes main's guards.
+next_action: None. The scan change landed as f97761d; S19 later confined the exception.
 evidence:
   - "VERIFIED: GitHub's guards job on the Sandcastle integration pull request ran main's wiki-lint against the branch and reported seven home-path findings (six in the sandbox Dockerfile, one in the changelog), which is why the scan rule ships as a pull request of its own (2026-10-14)."
   - "VERIFIED: scripts/wiki/redaction.test.ts has 37 tests; against main's pattern the case named the role-name home agent is allowed, and every other home path is flagged for every login fails (1 of 37), and with the new pattern 37 of 37 pass (2026-10-14). It covers the allowed path, a longer account name, a different case, a bare path and a path that climbs out of the home."
   - "VERIFIED: npm run check exits 0 on this branch, which is current with origin/main at 927c9d1."
+  - "VERIFIED: on 2026-10-18 git log showed the scan change on main as f97761d."
+  - "INFERRED: correction of 2026-10-18. Audit finding A15 and an independent verifier of PR 41 found that the climb-out case above ran under a personal login, where the exemption never applied, so it did not prove that a climb out of the role home is flagged. Under a neutral identity such a climb got no finding until S19 Privacy exception confinement (PR 35) confined the exception."
 ---
 
 ## Problem

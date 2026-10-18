@@ -4,12 +4,12 @@ title: Repository audit remediation
 summary: Deliver an owner-reviewed remediation plan and independently verifiable work from the repository audit, executable across fresh LLM sessions.
 tags: [area/planning, area/agents, area/compliance]
 created: 2026-10-16
-updated: 2026-10-17
+updated: 2026-10-18
 agent: opencode
 status: in-progress
 owner: human
 priority: P1
-next_action: Start S04 Content-sensitive working-state snapshots on a fresh branch; S01 landed in PR 18 and S02 in PR 21. From S04 on, each ticket's own PR marks it done.
+next_action: Run the next eligible tickets, at most two heavy jobs at a time, S09 and S11 (parent S08), S15 (parents S12 and S13), and S20 to S23 and S26 (parent S01); S21 also needs the owner's approval for its baseline.
 idea: "[[Execute the repository audit remediation]]"
 evidence:
   - "OWNER DECISION: on 2026-10-16 the owner requested committed planning, a pull request and execution by another LLM in a separate terminal session."
@@ -20,6 +20,7 @@ evidence:
   - "OWNER DECISION: on 2026-10-17 the owner chose the machine account as the local commit author (\"zimmybot (Recommended)\")."
   - "VERIFIED: S01 landed as PR 18, merged as 875a2e8 by the code owner after an APPROVED review."
   - "VERIFIED: S02 landed as PR 21, merged as 5d56a42 by the code owner after an APPROVED review."
+  - "VERIFIED: on 2026-10-18 gh pr list --state merged showed twelve of 26 slices landed: S01 (PR 18), S02 (PR 21), S03 (PR 25), S04 (PR 23), S05 (PR 32), S06 (PR 38, follow-up PR 42), S07 (PR 26), S08 (PR 39), S12 (PR 34, follow-up PR 40), S13 (PR 37), S19 (PR 35) and S25 (PR 36)."
 ---
 
 ## Outcome

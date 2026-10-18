@@ -9,7 +9,7 @@ agent: claude-code
 status: done
 owner: agent
 priority: P3
-next_action: Independent re-review of the PR head after the second review round, then the owner's review and merge. The discovered limits below continue as idea notes on main, the text-after-opener gap first.
+next_action: None. It landed as PR 36. The discovered limits below continue as idea notes, the text-after-opener gap first.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: build
@@ -34,11 +34,12 @@ evidence:
   - "VERIFIED: probes at 2bfe278 confirmed the verifier's out-of-scope limits pass the hook (eval with an unquoted argument, also under if; coproc; an opener inside quotes; $(case ...) in a heredoc), plus a double-quoted \\\\$(cmd) outside a heredoc. The contract lists them and the Discovered work section records them."
   - "VERIFIED: the coordinator relayed on 2026-10-18 that an independent verifier re-reviewed PR 36 at 9a355c1 and rated it PASS with no regressions (it reported 121 hand probes and 400,000 fuzzed commands). It reported two MEDIUM findings: six scanner-invariant mutants survive the test file and permit a merge, and the growth test still fails under CPU load. It reported one LOW finding: a small-constant quadratic closer lookup (sorted.find) survives. It also reported four limits present on base: text after an opener on the same line, a backtick in double quotes, a delimiter cut short to word characters, and an opener in a comment or arithmetic shift."
   - "VERIFIED: at 191cccb, the test file at 9a355c1 let all six scanner-invariant mutants pass: < to <= in the binary search, lines before a heredoc dropped, the here-string guards removed from the opener, the skip past a closed body removed, an unclosed opener taken as data, and a closer without tab stripping. The new scanner test fails each one. The code already met these invariants, so this round changes tests only."
-  - "VERIFIED: with the previous test file, the sorted.find mutant failed only narrowly on this machine (ratio 3.3 against a threshold of 3), consistent with the verifier seeing it survive. With the new growth test (four times the input, threshold 8) it fails at 362 ms against 4,686 ms (12.9 times). A full quadratic closer scan fails at 147 ms against 2,290 ms."
+  - "VERIFIED: with the previous test file, the sorted.find mutant failed only narrowly on this machine (ratio 3.3 against a threshold of 3), consistent with the verifier seeing it survive. With the new growth test (four times the input, threshold 8) it fails at 362 ms against 4,686 ms (12.9 times), measured under coverage as npm test runs it; the review line below covers a plain run. A full quadratic closer scan fails at 147 ms against 2,290 ms."
   - "VERIFIED: the new growth test passed 10 of 10 rounds with 8 busy loops on 8 cores (load average 29) and 10 of 10 with 16 busy loops (load average 39); the previous test passed 8 of 10 with 8 busy loops."
   - "VERIFIED: probes on 2026-10-18 confirmed that the four reported limits pass the hook at 9a355c1, each with a merge or a push to main as the command. A delimiter cut short makes the hook close at a later line than bash, for example <<END-OF closed at END. The contract and the Discovered work section list them; the text-after-opener gap is marked highest priority."
   - "INFERRED: the coordinator relayed an owner decision of 2026-10-18 that every discovered gap becomes follow-up work, as ideas, then plans, then tickets, and said it is turning these into idea notes. This agent did not see the owner's words directly."
-  - "UNKNOWN: independent re-review of the new head has not run yet; the implementer does not certify this change."
+  - "VERIFIED: on 2026-10-18 gh pr view 36 reported MERGED by the code owner's account as 5530475, and git merge-tree --write-tree 5530475^ 0f32592 gave 5530475's own tree, so main received exactly the reviewed head 0f32592."
+  - "INFERRED: per the final report of an independent verifier (Claude Code subagent, Opus 5.5, separate context), relayed to the coordinator and not reproduced here, 0f32592 rated PASS. Its one LOW: the sorted.find mutant (F7) fails the growth test only under coverage, as npm test and CI run it; under plain node --test it passed 6 of 6 runs at ratios of 7.1 to 7.6, below the threshold of 8. The line on the growth test above now says so, and the gap is recorded as an idea note."
 ---
 
 ## Goal

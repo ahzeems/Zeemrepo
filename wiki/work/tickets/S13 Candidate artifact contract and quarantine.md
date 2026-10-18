@@ -9,7 +9,7 @@ agent: opencode
 status: done
 owner: agent
 priority: P1
-next_action: Independent re-review of the new pinned head; at merge the owner confirms or changes the agent-chosen limits (64 KiB manifest, 64 MiB bundle, 1 MiB recovery data, 16 prerequisites, 64 MiB GIT_ALLOC_LIMIT, a 120 s deadline per quarantine Git command, a 16 MiB gitOutputBytes cap per command); S14 then produces these artifacts and S15 verifies the quarantined candidate.
+next_action: None. It landed as PR 37, and the owner confirmed its limits; S14 produces these artifacts and S15 verifies the quarantined candidate.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: build
@@ -45,7 +45,10 @@ evidence:
   - "VERIFIED: correction to the round-three mutant line. Late output was reachable but not forced. At 6bdab3c a shell alias that backgrounds its output and exits forces it, and the case rejects in about 0.3 s. With both settlement halves removed (the exit-side fail and close's re-report) it ended 'Promise resolution is still pending' in 3 of 3 runs; removing either half alone survived 3 of 3, an equivalent mutant since each covers the path alone. An exact-boundary case keeps output at the cap and refuses one byte over; turning > into >= failed it in 3 of 3 runs. Both new cases pass against the current code."
   - "INFERRED: the deadline does not bound a group member that outlives git and holds its pipes, because git's exit clears the timer and an unstopped command settles on close. Only aliases or hooks could start such a member, and quarantine's trusted config and empty-template repository have neither, so candidate content cannot reach it; the runGit comment now says so (15f6a02)."
   - "VERIFIED: the required check at cee4538 (run 39133561433) failed one S13 case, 'kill EPERM: Missing expected rejection'. Under a 0 ms deadline, git version exited before the timer fired, so the injected kill never ran. At 982b4d9 the ESRCH and EPERM cases run a shell alias that sleeps 0.5 s under a 50 ms deadline, so the timer always fires first. The case passed 3 of 3 runs locally, and removing the ESRCH guard still fails it, both as a rejection and as a throw out of the callback."
-  - "UNKNOWN: no real disposable run has produced an artifact yet (S14); receipts (S15) and publication (S16) are out of scope. Re-review of the new head is pending."
+  - "VERIFIED: on 2026-10-18 gh pr view 37 reported MERGED by the code owner's account as fdd46ff, and git merge-tree --write-tree fdd46ff^ 4622b1e gave fdd46ff's own tree, so main received exactly the reviewed head 4622b1e."
+  - "OWNER DECISION: on 2026-10-18 the owner said \"yes i accept the afk-harness change and the limits\", after being asked to confirm the seven limits S13 chose: 64 KiB manifest, 64 MiB bundle, 1 MiB recovery data, 16 prerequisites, and per quarantine Git command a 64 MiB GIT_ALLOC_LIMIT, a 120 s deadline and a 16 MiB output cap."
+  - "INFERRED: per the final report of an independent verifier (Claude Code subagent, Opus 5.5, separate context), relayed to the coordinator and not reproduced here, 4622b1e rated PASS with every earlier finding fixed. Its observation: the runGit comment says the trusted config allows neither aliases nor hooks, but runGit still runs an alias passed as a -c argument; the guarantee comes from quarantine's fixed argument lists. Recorded as an idea note."
+  - "UNKNOWN: no real disposable run has produced an artifact yet (S14); receipts (S15) and publication (S16) are out of scope."
 ---
 
 ## Goal

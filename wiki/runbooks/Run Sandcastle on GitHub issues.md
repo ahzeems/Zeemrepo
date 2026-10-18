@@ -313,9 +313,96 @@ recover from a refusal.
 
 What acceptance does not certify: that the candidate's checks pass, that it was reviewed, or
 that it may be published. The builder's `claims` are reported as data with no authority, and
-`recovery.data` is never restored into your checkout. Verification receipts (S15) and trusted
-publication (S16) are separate later steps. Tests:
+`recovery.data` is never restored into your checkout. Verification receipts (S15, next section)
+and trusted publication (S16) are separate later steps. Tests:
 `node --test scripts/sandcastle/artifact.test.ts scripts/sandcastle/quarantine.test.ts`.
+
+## Verification receipts
+
+A verification receipt is the host's record that one quarantined candidate passed the base
+commit's checks in a fresh container and an independent review. `scripts/sandcastle/verifier-driver.ts`
+(S15, 2026-10-18) issues it; `npm run sandbox:verify` is the command:
+
+```sh
+npm run sandbox:verify -- --artifacts <artifact-dir> --source <trusted-repo> \
+  --repository Zimfra/software_testing --task issue-42 --base <base-sha> \
+  --ref refs/heads/sandcastle/issue-42 --run <run-id>
+```
+
+Today it always exits 1 with `blocked: no reviewer`, before it touches Docker. No live reviewer
+is authorised (OWNER DECISION, 2026-10-18, relayed by the coordinator: "Fake reviewer only
+(Recommended)"), so no real receipt can be issued yet. Blocked is never a pass.
+
+What the driver does, in order:
+
+1. Quarantines the artifact (previous section). Builder claims stay data.
+2. Reads the check commands from the base commit's `package.json`, never the candidate's (OWNER
+   DECISION, 2026-10-18, relayed by the coordinator: "Base commit's checks (Recommended)"). The
+   checks are the links of the base's own `check:base` (each must be `npm run <script>` or
+   `npm test`), each run from its own definition. A base command that goes through a package
+   manager (`npm`, `npx`, `pnpm`, `yarn`, `bun`, `corepack`, `node --run` or `$npm_execpath`,
+   quoted or not) is refused, because it would read the candidate's scripts.
+3. Lists the candidate's changes to check machinery: `package.json`, `package-lock.json`,
+   `.npmrc`, `.nvmrc`, `tsconfig*.json`, `eslint.config.*`, `scripts/`, `evals/`, `config/`,
+   `.sandcastle/`, `.githooks/`, `.github/`, any `.gitattributes` and
+   `.claude/skills/import-baseline.json`. It adds inputs that can shadow what a check loads:
+   Python files and `.pth` files anywhere, `pyproject.toml`, `setup.cfg`, any `.gitignore`,
+   `node_modules/`, a new top-level directory, and a new top-level code or config file (`.js`,
+   `.mjs`, `.ts`, `.json`, `.toml`, `.cfg`, `.ini` and the like). These are inputs for a human
+   reviewer, not trusted.
+4. Copies the candidate's tracked tree (a `git archive`, with no Git metadata, manifest or
+   recovery data) into a new container launched and inspected with the S12 refusals, then runs
+   `npm ci` and each check as its own `docker exec`. The checkout inside commits every archived
+   file (`git add --all --force`), so files the candidate's `.gitignore` covers stay tracked. Each
+   step unsets `PYTHONPATH`, `NODE_OPTIONS` and similar import settings and runs with
+   `PYTHONSAFEPATH=1`: without it, `python3 -m unittest` puts the working directory first on
+   `sys.path`, and a candidate's own `unittest/__main__.py` turned a failing eval into exit 0 in
+   the S15 review (2026-10-18). Exit codes and output digests come from Docker on the host; step
+   logs stay in the quarantine directory under `logs/`.
+5. Gives the reviewer the diff, the machinery list and the check results, and parses its raw
+   response as exactly `{verdict, findings}`.
+6. Writes the receipt to the host-only store.
+
+**Where the authority comes from.** There is no signing key (OWNER DECISION, 2026-10-18,
+relayed by the coordinator: "Host-only store (Recommended)"). The store is
+`$XDG_STATE_HOME/zeemrepo/verification-receipts`, or `~/.local/state/zeemrepo/verification-receipts`
+when that variable is unset or relative. The driver creates it with mode 0700 and refuses a store
+that is not this user's private directory, or that lies inside (or contains) the trusted source
+or the artifact directory. No container mounts it, and no Docker argument may name it. Each
+receipt file is named by the SHA-256 of its bytes and must be byte-identical to the driver's
+`JSON.stringify` output, so a repeated key refuses. `validateReceipt` reads only the directory its
+caller names. A consumer must name the configured store (`defaultStore()`), never a path taken
+from an artifact or a guest; validation refuses a store inside, or containing, the consumer's
+trusted source or artifact directory, but it cannot tell the configured store from another
+private directory the host user made. Anyone with write access to the store, or able to choose
+the directory a consumer reads, as this host user can forge a receipt; that is the accepted limit
+of the no-key design.
+
+**What a receipt binds** (the contract S16 and S17 consume, `validateReceipt` in
+`scripts/sandcastle/verification-receipt.ts`): repository, task, run id, base, candidate ref and
+SHA, the manifest and bundle digests, the runner (a digest of the driver's own source files, the
+runtime and the image id), the check definitions digest with every command, exit and output
+digest, the changed check machinery, the reviewer's identity, input digest, raw response, verdict
+and findings, the outcome, and `reusedFrom`. Validation refuses unless the file reads back under
+its digest, every field is well formed, the outcome follows from the exits and the verdict, the
+verdict and findings match the raw response, the human review flag matches the machinery list,
+every expected identity matches (repository, task, run, base, candidate, check definitions
+digest from the consumer's own trusted base) and the outcome is `passed`. A valid receipt
+returns `humanReview`: while it lists any path, the receipt alone does not authorise publication.
+
+**When a receipt goes stale.** It covers one run of one candidate SHA on one base under one set
+of check definitions. A new SHA (an integration with main, an amended commit) needs a new
+verification. A later run with unchanged inputs (same repository, task, base, candidate SHA, check
+definitions, runner digest, image and reviewer identity) reuses a stored passing receipt: the
+driver issues a new receipt for the new run with `reusedFrom` naming the old one, without
+rerunning anything. Failed receipts are never reused. Changing the driver code, the image or the
+reviewer makes every older receipt ineligible for reuse.
+
+`npm run sandbox:smoke` runs `scripts/sandcastle/verifier-driver-smoke.ts` on the image it built,
+so the required CI `check` job drives the real Docker path with a fake reviewer: a good fixture
+candidate must receive a receipt that validates from a temporary store, and a candidate that
+rewrites its test script to `exit 0` must still fail the base's test. Tests:
+`node --test scripts/sandcastle/verifier-driver.test.ts scripts/sandcastle/verification-receipt.test.ts scripts/sandcastle/container-runtime.test.ts scripts/sandcastle/verify-candidate.test.ts scripts/sandcastle/verifier-driver-smoke.test.ts`.
 
 ## Known notes
 

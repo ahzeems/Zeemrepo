@@ -5,7 +5,8 @@
 // plants a core.fsmonitor command and hooks. The verdict is the host's alone. It needs the
 // planted command to have fired inside the guest during close(), nothing on the host, an
 // unchanged host checkout, and a container that inspection shows has no mounts, no privilege
-// and no credential in its environment. Missing Docker is a blocked result, never a pass.
+// and no credential in its environment. It then runs verifier-driver-smoke.ts, the real-container
+// control for the S15 verifier driver, on the same image. Missing Docker is blocked, never a pass.
 import { randomBytes } from "node:crypto";
 import { existsSync, lstatSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -24,6 +25,7 @@ Builds the sandbox image and proves the containment boundary with a fake agent; 
 and makes no model calls. Exit: 0 contained, 1 refused or blocked, 2 the tool failed.`;
 
 const IMAGE = "zeemrepo-sandbox:containment-smoke";
+const VERIFIER_CONTROL = join(import.meta.dirname, "verifier-driver-smoke.ts");
 const RESULT_PATH = "/tmp/containment-result.json";
 const CHECKS = ["lint", "typecheck", "test", "evals:test"];
 // The owner's machine runs Ubuntu 26.04, and the sandbox matches it (OWNER DECISION, 2026-10-18).
@@ -222,7 +224,10 @@ function smoke(run: Run, cwd: string, markerRoot: string, output: Output): numbe
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
-  output.write(`containment-smoke: contained. Image ${image || IMAGE}, SDK ${prepared.expected.sdk}; docker inspect showed no mounts, privilege or credential; the guest reports the planted fsmonitor fired during close(); no marker appeared on the host and the host checkout is unchanged.`);
+  // S15: the trusted verifier driver on the same image, in containers of its own.
+  const control = run("node", [VERIFIER_CONTROL, IMAGE], { inherit: true }).status;
+  if (control !== 0) return refuse([`the verifier control exited ${String(control)}`], output);
+  output.write(`containment-smoke: contained. Image ${image || IMAGE}, SDK ${prepared.expected.sdk}; docker inspect showed no mounts, privilege or credential; the guest reports the planted fsmonitor fired during close(); no marker appeared on the host and the host checkout is unchanged. The verifier driver issued a valid receipt and failed a no-op check rewrite in real containers.`);
   return EXIT_OK;
 }
 

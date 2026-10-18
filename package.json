@@ -27,7 +27,8 @@
     "hooks:install": "git config --local core.hooksPath .githooks",
     "sandcastle": "node .sandcastle/main.ts",
     "sandcastle:afk": "node scripts/sandcastle/afk.ts",
-    "sandbox:smoke": "node scripts/sandcastle/containment-smoke.ts"
+    "sandbox:smoke": "node scripts/sandcastle/containment-smoke.ts",
+    "sandbox:verify": "node scripts/sandcastle/verify-candidate.ts"
   },
   "devDependencies": {
     "@ai-hero/sandcastle": "^0.12.0",

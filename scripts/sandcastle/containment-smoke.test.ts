@@ -84,7 +84,23 @@ await test("a contained run builds the image, launches a clean container without
     assert.ok(order.includes(step), step);
   }
   assert.ok(order.indexOf("docker inspect") < order.indexOf("docker start"), "the container is inspected before it runs");
-  assert.equal(order.at(-1), "docker rm", "the container is removed last");
+  assert.equal(order.filter((step) => step.startsWith("docker ")).at(-1), "docker rm", "the container is removed last");
+});
+
+await test("after containment passes, the verifier control runs on the same image and its failure refuses", (t) => {
+  const repo = host(t);
+  const { run, calls } = fakeDocker();
+  assert.equal(go(repo, run).code, EXIT_OK);
+  const control = calls.filter((call) => call[0] === "node");
+  assert.equal(control.length, 1);
+  assert.match(control[0]?.[1] ?? "", /verifier-driver-smoke\.ts$/);
+  assert.equal(control[0]?.[2], "zeemrepo-sandbox:containment-smoke");
+  const order = calls.map((call) => call.slice(0, 2).join(" "));
+  assert.ok(order.lastIndexOf("docker rm") < order.findIndex((step) => step.startsWith("node ")), "the probe container is gone first");
+  const failing: Run = (command, args, options) => (command === "node" ? { status: 1, stdout: "" } : run(command, args, options));
+  const refused = go(repo, failing);
+  assert.equal(refused.code, EXIT_REFUSED);
+  assert.match(refused.err, /verifier control exited 1/);
 });
 
 await test("missing Docker is a blocked result, never a pass", (t) => {

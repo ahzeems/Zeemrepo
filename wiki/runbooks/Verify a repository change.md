@@ -62,7 +62,9 @@ committing or opening a pull request.
    also refuses a checkout with uncommitted changes, because it builds the image from the working
    tree but copies `HEAD` into the container. It judges each container's own settings through
    `docker inspect`; it cannot see a Docker daemon configured with weaker defaults, such as an
-   unconfined default seccomp profile. Read its result on the pull request with `gh pr checks <n>`.
+   unconfined default seccomp profile. After the containment proof it runs the S15 verifier
+   control on the same image (see "Verification receipts" in [[Run Sandcastle on GitHub issues]]).
+   Read its result on the pull request with `gh pr checks <n>`.
 
 4. Confirm each checker still fails when it should. `wiki:lint`, `skills:lint` and
    `governance:check` each run in their tests against a valid and a broken fixture under

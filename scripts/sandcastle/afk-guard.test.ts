@@ -82,7 +82,7 @@ await test("a refused run tells the issues, so an unattended owner is not left w
   const result = go(repo, run);
   assert.equal(result.code, EXIT_REFUSED);
   const [only] = comments(calls);
-  assert.match(only ?? "", /^gh issue comment 4 -R Zimfra\/software_testing --body /);
+  assert.match(only ?? "", /^gh issue comment 4 -R github\.com\/Zimfra\/software_testing --body /);
   assert.match(only ?? "", /not landed/);
   assert.ok(!calls.some((call) => call.includes("pr-ready")));
 });

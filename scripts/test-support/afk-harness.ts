@@ -37,13 +37,34 @@ export function mergeInto(repo: RepoFixture, target: string, name: string): void
   repo.git(["merge", "--quiet", "--no-ff", "-m", `Merge ${name}`, name]);
 }
 
+// The open pull request GitHub would list for the branch at `head`; a test overrides a field to break it.
+export function exactPr(head: string, overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    number: 21, url: PR_URL, state: "OPEN", baseRefName: "main", headRefName: "feat/afk-work", headRefOid: head,
+    headRepository: { name: "software_testing" }, headRepositoryOwner: { login: "Zimfra" }, isCrossRepository: false, ...overrides,
+  };
+}
+
+type Reply = { status: number; stdout: string };
+export const prList = (...prs: Record<string, unknown>[]): Reply => ({ status: 0, stdout: `${JSON.stringify(prs)}\n` });
+
 export type Script = {
   loop?: () => number;
-  pr?: { status: number; stdout: string };
-  view?: { status: number; stdout: string };
-  ghRepo?: { status: number; stdout: string };
+  pr?: Reply;
+  // What gh pr list answers for the branch, given the commit at HEAD; by default the exact open PR.
+  prs?: (head: string) => Reply;
+  ghRepo?: Reply;
   failComments?: string[];
 };
+
+// The commit GitHub would show as the branch's pull request head: the branch's tip on origin.
+function pushedTip(repo: RepoFixture): string {
+  const listed = repo.git(["ls-remote", "origin", `refs/heads/${repo.git(["symbolic-ref", "--short", "HEAD"])}`]);
+  return listed.split("\t")[0] ?? "";
+}
+
+// Only local transports, so no git a test or a mutation starts can reach a network.
+const NETWORK_FENCE = ["-c", "protocol.allow=never", "-c", "protocol.file.allow=always"];
 
 // git runs for real; the Sandcastle loop, pr-ready, gh and npm are scripted and recorded.
 export function runner(repo: RepoFixture, script: Script = {}): { run: Run; calls: string[]; inherited: string[] } {
@@ -54,13 +75,21 @@ export function runner(repo: RepoFixture, script: Script = {}): { run: Run; call
     calls.push(line);
     if (options?.inherit === true) inherited.push(line);
     if (command === "git") {
-      const result = spawnSync("git", args, { cwd: repo.dir, env: cleanGitEnv, encoding: "utf8" });
+      const result = spawnSync("git", [...NETWORK_FENCE, ...args], { cwd: repo.dir, env: cleanGitEnv, encoding: "utf8" });
       return { status: result.status, stdout: result.stdout };
     }
     if (line === "node .sandcastle/main.ts") return { status: script.loop?.() ?? 0, stdout: "" };
-    if (line === "node scripts/git/pr-ready.ts") return script.pr ?? { status: 0, stdout: `pr-ready: pull request ${PR_URL} is open.\n` };
-    if (line === "gh repo view --json nameWithOwner --jq .nameWithOwner") return script.ghRepo ?? { status: 0, stdout: "Zimfra/software_testing\n" };
-    if (command === "gh" && args[0] === "pr" && args[1] === "view") return script.view ?? { status: 0, stdout: `OPEN\t${PR_URL}\n` };
+    if (line === "node scripts/git/pr-ready.ts") {
+      const landed = script.pr ?? { status: 0, stdout: `pr-ready: pull request ${PR_URL} is open.\n` };
+      // A successful landing pushed the checked HEAD to the branch on origin, as pr-ready does.
+      if (landed.status === 0) repo.git(["push", "--quiet", "origin", `HEAD:refs/heads/${repo.git(["symbolic-ref", "--short", "HEAD"])}`]);
+      return landed;
+    }
+    if (line === GH_REPO) return script.ghRepo ?? { status: 0, stdout: "Zimfra/software_testing\n" };
+    if (command === "gh" && args[0] === "pr" && args[1] === "list") {
+      const head = pushedTip(repo);
+      return script.prs?.(head) ?? prList(exactPr(head));
+    }
     if (command === "gh" && args[0] === "issue" && args[1] === "comment") {
       return { status: script.failComments?.includes(args[2] ?? "") === true ? 1 : 0, stdout: "" };
     }
@@ -77,6 +106,6 @@ export function go(repo: RepoFixture, run: Run, args: string[] = [], env: NodeJS
 }
 
 export const comments = (calls: string[]): string[] => calls.filter((call) => call.startsWith("gh issue comment"));
-export const GH_REPO = "gh repo view --json nameWithOwner --jq .nameWithOwner";
+export const GH_REPO = "gh repo view github.com/Zimfra/software_testing --json nameWithOwner --jq .nameWithOwner";
 export const sawAnything = (calls: string[]): boolean => calls.some((call) => !call.startsWith("git ") && call !== GH_REPO);
 

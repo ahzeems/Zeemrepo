@@ -4,7 +4,7 @@ import { PROMPT_REPO } from "./afk.ts";
 import { test } from "node:test";
 import type { Run } from "../git/pr-ready.ts";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED } from "../lib/cli.ts";
-import { PR_URL, comments, fixture, go, issueBranch, mergeInto, runner, sawAnything } from "../test-support/afk-harness.ts";
+import { GH_REPO, PR_URL, comments, exactPr, fixture, go, issueBranch, mergeInto, prList, runner, sawAnything } from "../test-support/afk-harness.ts";
 
 await test("the issues this run merged are announced on a pull request and commented on, and nothing merges", (t) => {
   const repo = fixture(t);
@@ -32,14 +32,15 @@ await test("the issues this run merged are announced on a pull request and comme
   assert.equal(result.code, EXIT_OK, result.err);
   assert.match(result.out, new RegExp(PR_URL));
   const nonGit = calls.filter((call) => !call.startsWith("git "));
-  assert.deepEqual(nonGit.slice(0, 4), [
-    "gh repo view --json nameWithOwner --jq .nameWithOwner", "node .sandcastle/main.ts", "node scripts/git/pr-ready.ts", "gh pr view feat/afk-work --json state,url --jq [.state,.url]|@tsv",
-  ], "repository and login first, then the loop, then the landing tool, then the pull request it opened");
+  assert.deepEqual(nonGit.slice(0, 3), [GH_REPO, "node .sandcastle/main.ts", "node scripts/git/pr-ready.ts"],
+    "repository and login first, then the loop, then the landing tool");
+  assert.ok(nonGit[3]?.startsWith("gh pr list --repo github.com/Zimfra/software_testing --head feat/afk-work --state open --json "),
+    "then the pull request it opened, looked up in the named repository and host");
   assert.equal(comments(calls).length, 2, "one comment per merged issue branch, and no other");
   assert.equal(nonGit.length, 6);
   const [first, second] = comments(calls);
-  assert.match(first ?? "", /^gh issue comment 4 -R Zimfra\/software_testing --body /);
-  assert.match(second ?? "", /^gh issue comment 12 -R Zimfra\/software_testing --body /);
+  assert.match(first ?? "", /^gh issue comment 4 -R github\.com\/Zimfra\/software_testing --body /);
+  assert.match(second ?? "", /^gh issue comment 12 -R github\.com\/Zimfra\/software_testing --body /);
   assert.ok(first?.includes(PR_URL) && first.includes("waiting for the owner's review"));
   assert.ok(first?.includes("may be incomplete") === true && !/\bopened\b/.test(first ?? ""), "does not claim to have opened the pull request or that the work is finished");
   assert.ok(!calls.some((call) => /push|--no-verify|\.env|issue close|pr merge|pr review|--admin/.test(call.replace(PR_URL, ""))), "no push, no bypass, no .env, no close or merge");
@@ -52,7 +53,7 @@ await test("nothing merged by this run opens nothing and exits 0", (t) => {
   const result = go(repo, run);
   assert.equal(result.code, EXIT_OK, result.err);
   assert.match(result.out, /no Sandcastle issue branch was merged/i);
-  assert.deepEqual(calls.filter((call) => !call.startsWith("git ")), ["gh repo view --json nameWithOwner --jq .nameWithOwner", "node .sandcastle/main.ts"]);
+  assert.deepEqual(calls.filter((call) => !call.startsWith("git ")), [GH_REPO, "node .sandcastle/main.ts"]);
 });
 
 await test("a failing Sandcastle loop stops the run with exit 2", (t) => {
@@ -108,12 +109,45 @@ await test("a pull request gh cannot find after landing is an error and nothing 
   issueBranch(repo, "sandcastle/issue-4");
   const { run, calls } = runner(repo, {
     loop: () => { mergeInto(repo, "feat/afk-work", "sandcastle/issue-4"); return 0; },
-    view: { status: 1, stdout: "" },
+    prs: () => ({ status: 1, stdout: "" }),
   });
   const result = go(repo, run);
   assert.equal(result.code, EXIT_ERROR);
   assert.match(result.err, /pull request URL/);
   assert.equal(comments(calls).length, 0);
+});
+
+await test("after landing, a pull request that is not exactly the landed commit into main is never commented", async (t) => {
+  const cases: [string, (head: string) => Record<string, unknown>][] = [
+    ["a stale head", () => ({ headRefOid: "0".repeat(40) })],
+    ["another repository's URL", () => ({ url: "https://github.com/decoy/elsewhere/pull/5" })],
+    ["another base", () => ({ baseRefName: "release" })],
+    ["another source repository", () => ({ headRepositoryOwner: { login: "decoy" } })],
+  ];
+  for (const [name, overrides] of cases) {
+    await t.test(name, (t) => {
+      const repo = fixture(t);
+      issueBranch(repo, "sandcastle/issue-4");
+      const { run, calls } = runner(repo, {
+        loop: () => { mergeInto(repo, "feat/afk-work", "sandcastle/issue-4"); return 0; },
+        prs: (head) => prList(exactPr(head, overrides(head))),
+      });
+      const result = go(repo, run);
+      assert.equal(result.code, EXIT_ERROR);
+      assert.equal(comments(calls).length, 0, "no issue is told about a pull request that does not hold this work");
+      assert.ok(!result.out.includes("decoy"));
+    });
+  }
+});
+
+await test("every gh call afk makes names the repository with its host, so GH_REPO and GH_HOST cannot redirect it", (t) => {
+  const repo = fixture(t);
+  issueBranch(repo, "sandcastle/issue-4");
+  const { run, calls } = runner(repo, { loop: () => { mergeInto(repo, "feat/afk-work", "sandcastle/issue-4"); return 0; } });
+  assert.equal(go(repo, run).code, EXIT_OK);
+  const gh = calls.filter((call) => call.startsWith("gh "));
+  assert.ok(gh.length >= 3);
+  for (const call of gh) assert.match(call, /^gh (repo view github\.com\/Zimfra\/software_testing |pr list --repo github\.com\/Zimfra\/software_testing |issue comment \d+ -R github\.com\/Zimfra\/software_testing )/, call);
 });
 
 await test("only issue branches with commits of their own, merged by this run, are announced", (t) => {
@@ -506,7 +540,7 @@ await test("earlier work that is pushed but has no pull request is an error", (t
   mergeInto(repo, "feat/afk-work", "sandcastle/issue-8");
   repo.git(["push", "--quiet", "origin", "feat/afk-work"]);
   repo.git(["fetch", "--quiet", "origin"]);
-  const { run, calls } = runner(repo, { view: { status: 1, stdout: "" } });
+  const { run, calls } = runner(repo, { prs: () => ({ status: 1, stdout: "" }) });
   const result = go(repo, run);
   assert.equal(result.code, EXIT_ERROR);
   assert.match(result.err, /no (open )?pull request/);
@@ -580,7 +614,7 @@ await test("a closed or merged pull request for the branch is not an open one", 
     mergeInto(repo, "feat/afk-work", "sandcastle/issue-8");
     repo.git(["push", "--quiet", "origin", "feat/afk-work"]);
     repo.git(["fetch", "--quiet", "origin"]);
-    const { run } = runner(repo, { view: { status: 0, stdout: `CLOSED\t${PR_URL}\n` } });
+    const { run } = runner(repo, { prs: (head) => prList(exactPr(head, { state: "CLOSED" })) });
     const result = go(repo, run);
     assert.equal(result.code, EXIT_ERROR);
     assert.match(result.err, /no (open )?pull request/);
@@ -590,7 +624,7 @@ await test("a closed or merged pull request for the branch is not an open one", 
     issueBranch(repo, "sandcastle/issue-4");
     const { run, calls } = runner(repo, {
       loop: () => { mergeInto(repo, "feat/afk-work", "sandcastle/issue-4"); return 0; },
-      view: { status: 0, stdout: `MERGED\t${PR_URL}\n` },
+      prs: (head) => prList(exactPr(head, { state: "MERGED" })),
     });
     assert.equal(go(repo, run).code, EXIT_ERROR);
     assert.equal(comments(calls).length, 0);

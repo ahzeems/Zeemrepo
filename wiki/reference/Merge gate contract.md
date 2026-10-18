@@ -79,9 +79,39 @@ config-protection read from the plugin's `scripts/hooks/config-protection.js`, v
   It captures `HEAD` and the state `git-state` compares just before `npm run check` and compares
   them after it, whether the check passed or failed; any change refuses, naming the classes that
   changed (never a config value or file content), and nothing is pushed.
+  Before anything leaves the checkout it fixes one destination: the GitHub repository git really
+  pushes origin to. It reads every fetch and push URL (`git remote get-url --all [--push] origin`,
+  after `pushurl` and `insteadOf` rewriting) and refuses, with nothing pushed, unless there is
+  exactly one of each, because `git push origin` pushes to every push URL (every URL when no
+  `pushurl` is set). It also refuses when either URL is not a GitHub URL
+  (`https://HOST/OWNER/REPO`, `git@HOST:OWNER/REPO` or `ssh://git@HOST/OWNER/REPO`) or when the
+  two name different repositories; refusals print `HOST/OWNER/REPO`, never a URL's credentials.
+  Every `gh` call names that host (`--hostname`) or repository (`--repo HOST/OWNER/REPO`), so
+  `GH_REPO`, `GH_HOST` and gh's own choice among remotes cannot redirect the handoff.
   It then checks `gh auth status`, refuses if `gh` is logged in as the repository owner or a code owner, pushes the captured commit by SHA
-  (`git push origin <sha>:refs/heads/<branch>`, then writes `branch.<branch>.remote` and `.merge`, which works when the fetch refspec covers only main), and opens or reports its pull request. It
-  never merges. `--dry-run` stops before pushing.
+  (`git push origin <sha>:refs/heads/<branch>`, then writes `branch.<branch>.remote` and `.merge`, which works when the fetch refspec covers only main), and hands off a pull request.
+  It lists the open pull requests whose head branch has the branch's name and ignores those from
+  a fork, including a deleted fork that GitHub reports with no source repository. With none left it creates one (`--base main --head <branch>`) and reads it back by the
+  number in the URL `gh pr create` printed. The pull request it reports, reused or created, must
+  be `OPEN`, have that URL in the destination repository, base `main`, come from the same
+  branch in the same repository (not cross-repository) and have the checked SHA as its head.
+  Any difference, or more than one open pull request from the branch, refuses and names each
+  difference; it never retargets, closes or duplicates a pull request. A failed `gh` call or an
+  answer that is not JSON, not a list or missing one of those fields is an error. GitHub can
+  still report the previous head just after a push to a branch with an open pull request
+  (observed once, on 2026-10-18, when this check was first used to update a pull request; how
+  long the lag lasts was not measured, and less than a minute later the head was current). That
+  refuses as a stale head; rerun.
+  `npm run sandcastle:afk` comments on issues only with the pull request this same lookup finds,
+  scoped to `github.com/Zimfra/software_testing`, open and exactly the landed commit into main.
+  After the push, every refusal or error, including a failed write of the branch's tracking
+  config, says the commit is already pushed to the branch. That
+  is the recovery boundary: nothing was merged or retargeted, and a rerun pushes the same commit
+  again (a no-op) and reuses a matching open pull request instead of opening another. Never
+  force-push to recover. It never merges. `--dry-run` stops before pushing.
+  Tests fake `gh`, use `.invalid` hosts, and route origin's fetches and pushes to a local bare
+  repository; their git runs with `protocol.allow=never` and only the file transport allowed,
+  so no URL can reach a network. The mismatch cases have not been tried against live GitHub.
 - `npm run audit` (`scripts/git/landing-audit.ts`) fetches origin's main itself through the same
   explicit refspec and reads its config and history from the commit that fetch captured, so a
   stale or narrowed local ref cannot hide a direct push; it writes only that ref and `FETCH_HEAD`.

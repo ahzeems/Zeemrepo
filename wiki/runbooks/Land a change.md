@@ -4,7 +4,7 @@ title: Land a change
 summary: Take work from a feature branch to an owner-merged pull request; nothing is ever pushed to main.
 tags: [area/git, area/github, kind/convention]
 created: 2026-10-09
-updated: 2026-10-17
+updated: 2026-10-18
 agent: claude-code
 status: active
 related: ["[[Change records]]"]
@@ -35,8 +35,16 @@ requests on GitHub (owner decision, 2026-10-09).
 4. If main moved, merge it in: `git fetch origin && git merge origin/main`. Never rebase or
    force-push a published branch.
 5. Run `npm run pr`. It refuses unless the tree is clean, the branch contains `origin/main`
-   and `npm run check` passes; then it pushes the branch and opens or reports the pull
-   request. It never merges. `npm run pr -- --dry-run` checks without pushing.
+   and `npm run check` passes, and unless origin has one fetch URL and one push URL, both for
+   the same GitHub repository; then it pushes the branch and reuses or opens the pull request for exactly that
+   commit into main of that repository. It refuses rather than report a pull request with
+   another repository, base, source branch or head commit, and never retargets one
+   ([[Merge gate contract]] lists the checks). It never merges. `npm run pr -- --dry-run` checks
+   without pushing. If it refuses or fails after saying the commit is already pushed, fix the
+   cause and rerun it (a stray pull request from the branch is the owner's to close): the
+   push repeats as a no-op and an open pull request is reused, not duplicated. A refusal for a
+   stale head right after a push to an open pull request means GitHub had not caught up yet
+   (observed once on 2026-10-18; see [[Merge gate contract]]); rerun. Never force-push to recover.
 6. Wait for both required checks. `check` runs the change's own `npm run check`. `guards`
    runs main's copy of the repository guards on `pull_request_target`, so the pull request
    can neither edit that workflow nor run its own code in it (it does read the PR's `config/`;

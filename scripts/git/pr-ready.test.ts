@@ -6,11 +6,17 @@ import { test, type TestContext } from "node:test";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, type Output } from "../lib/cli.ts";
 import { cleanGitEnv, createRepo, type RepoFixture } from "../test-support/repo-fixture.ts";
 import { main, spawnRunner, type Run } from "./pr-ready.ts";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawnSync, type SpawnSyncReturns } from "node:child_process";
 
 type Call = { command: string; args: readonly string[] };
+type Fixture = RepoFixture & { remote: string; origin: string };
 
-function fixture(t: TestContext, codeowners?: string): RepoFixture {
+// origin names a GitHub repository, as a real checkout's does; the network is a local bare
+// repository that the faked runner routes origin's fetches and pushes to.
+const ORIGIN_URL = "https://gh.example.invalid/o/r.git";
+const REPO = "gh.example.invalid/o/r";
+
+function fixture(t: TestContext, codeowners?: string, origin = ORIGIN_URL): Fixture {
   const repo = createRepo("pr-ready-");
   const remote = mkdtempSync(join(tmpdir(), "pr-ready-remote-"));
   t.after(() => { repo.cleanup(); rmSync(remote, { recursive: true, force: true }); });
@@ -20,33 +26,69 @@ function fixture(t: TestContext, codeowners?: string): RepoFixture {
   repo.git(["remote", "add", "origin", remote]);
   repo.git(["push", "--quiet", "origin", "main"]);
   repo.git(["fetch", "--quiet", "origin"]);
+  repo.git(["remote", "set-url", "origin", origin]);
   repo.git(["switch", "--quiet", "-c", "feat/x"]);
   repo.write("a.md", "work\n");
   repo.commit("feat: work");
-  return repo;
+  return { ...repo, remote, origin };
 }
 
-// npm and gh are faked; git runs for real against the fixture and its bare remote.
-// onCheck runs inside the faked npm run check, as a test that escaped its fixture would.
-type Outcomes = { check?: number; prView?: string; ghAuth?: number; ghUser?: string; onCheck?: () => void };
+// The pull request GitHub would report for the checked commit; a test overrides a field to break it.
+function exactPr(head: string, overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    number: 3, url: "https://gh.example.invalid/o/r/pull/3", state: "OPEN", baseRefName: "main", headRefName: "feat/x", headRefOid: head,
+    headRepository: { name: "r" }, headRepositoryOwner: { login: "o" }, isCrossRepository: false, ...overrides,
+  };
+}
 
-function runner(repo: RepoFixture, outcomes: Outcomes = {}): { run: Run; calls: (Call & { inherit: boolean; env: Record<string, string> })[] } {
+type Reply = { status: number | null; stdout: string };
+const json = (value: unknown): Reply => ({ status: 0, stdout: `${JSON.stringify(value)}\n` });
+const CREATED = "https://gh.example.invalid/o/r/pull/7";
+
+// npm and gh are faked; git runs for real against the fixture, with origin's fetches and pushes
+// routed to its bare remote. onCheck runs inside the faked npm run check, as a test that escaped
+// its fixture would. By default no pull request is open and the one created matches exactly.
+type Outcomes = {
+  check?: number; ghAuth?: number; ghUser?: string; onCheck?: () => void;
+  prList?: (head: string) => Reply; prCreate?: Reply; prCreated?: (head: string) => Reply;
+};
+
+function ghReply(outcomes: Outcomes, head: string, args: readonly string[]): Reply {
+  const [area, verb] = args;
+  if (area === "auth") return { status: outcomes.ghAuth ?? 0, stdout: "" };
+  if (area === "api" && verb === "user") return { status: 0, stdout: `${outcomes.ghUser ?? "machine-bot"}\n` };
+  if (area === "repo" && verb === "view") return { status: 0, stdout: "repo-owner\n" };
+  if (area === "pr" && verb === "list") return outcomes.prList?.(head) ?? json([]);
+  if (area === "pr" && verb === "create") return outcomes.prCreate ?? { status: 0, stdout: `${CREATED}\n` };
+  if (area === "pr" && verb === "view") return outcomes.prCreated?.(head) ?? json(exactPr(head, { number: 7, url: CREATED }));
+  throw new Error(`unexpected gh ${args.join(" ")}`);
+}
+
+// Every git the faked runner starts may use only local file transports, so no URL a test or a
+// mutated pr-ready.ts builds can reach a network: origin's fetches and pushes are rewritten to the
+// bare remote, and anything else fails before connecting. (GIT_ALLOW_PROTOCOL would be stripped
+// with every other GIT_ variable, so the fence is config on the command line.)
+const NETWORK_FENCE = ["-c", "protocol.allow=never", "-c", "protocol.file.allow=always"];
+
+function fencedGit(repo: Fixture, args: readonly string[]): SpawnSyncReturns<string> {
+  const network = args[0] === "fetch" || args[0] === "push" ? ["-c", `url.${repo.remote}.insteadOf=${repo.origin}`] : [];
+  return spawnSync("git", [...NETWORK_FENCE, ...network, ...args], { cwd: repo.dir, env: cleanGitEnv, encoding: "utf8" });
+}
+
+function runner(repo: Fixture, outcomes: Outcomes = {}): { run: Run; calls: (Call & { inherit: boolean; env: Record<string, string> })[] } {
   const calls: (Call & { inherit: boolean; env: Record<string, string> })[] = [];
+  const git = (args: readonly string[]): Reply => {
+    const result = fencedGit(repo, args);
+    return { status: result.status, stdout: result.stdout };
+  };
   const run: Run = (command, args, options = {}) => {
     calls.push({ command, args, inherit: options.inherit === true, env: options.env ?? {} });
     if (command === "npm") {
       outcomes.onCheck?.();
       return { status: outcomes.check ?? 0, stdout: "" };
     }
-    if (command === "gh" && args[0] === "auth") return { status: outcomes.ghAuth ?? 0, stdout: "" };
-    if (command === "gh" && args[0] === "api" && args[1] === "user") return { status: 0, stdout: `${outcomes.ghUser ?? "machine-bot"}\n` };
-    if (command === "gh" && args[0] === "repo" && args[1] === "view") return { status: 0, stdout: "repo-owner\n" };
-    if (command === "gh" && args[1] === "view") return outcomes.prView === undefined ? { status: 1, stdout: "" } : { status: 0, stdout: outcomes.prView };
-    if (command === "gh" && args[1] === "create") return { status: 0, stdout: "https://github.com/o/r/pull/7\n" };
-    if (command === "git") {
-      const result = spawnSync("git", args, { cwd: repo.dir, env: cleanGitEnv, encoding: "utf8" });
-      return { status: result.status, stdout: result.stdout };
-    }
+    if (command === "gh") return ghReply(outcomes, repo.git(["rev-parse", "HEAD"]), args);
+    if (command === "git") return git(args);
     throw new Error(`unexpected ${command}`);
   };
   return { run, calls };
@@ -64,7 +106,7 @@ await test("a ready branch is checked, pushed and gets a PR, and nothing merges"
   const { run, calls } = runner(repo);
   const result = go(repo, run);
   assert.equal(result.code, EXIT_OK, result.err);
-  assert.match(result.out, /https:\/\/github\.com\/o\/r\/pull\/7/);
+  assert.match(result.out, /https:\/\/gh\.example\.invalid\/o\/r\/pull\/7/);
   assert.match(result.out, /the owner merges/);
   assert.match(result.err, /hooks are not installed/);
   const check = calls.find((call) => call.command === "npm" && call.args.join(" ") === "run check");
@@ -139,20 +181,238 @@ await test("a checkout that fetches only main still pushes the checked commit, t
   assert.equal(repo.git(["config", "--get", "branch.feat/x.merge"]), "refs/heads/feat/x");
 });
 
-await test("an existing open PR is reported, not duplicated", (t) => {
+const ghCalls = (calls: readonly Call[]): Call[] => calls.filter((call) => call.command === "gh");
+const created = (calls: readonly Call[]): boolean => ghCalls(calls).some((call) => call.args[1] === "create");
+const IDENTITY_FIELDS = ["url", "state", "baseRefName", "headRefName", "headRefOid", "headRepository", "headRepositoryOwner", "isCrossRepository"];
+
+// Every gh call names origin's host or repository itself, so GH_REPO, GH_HOST and gh's own
+// choice of remote cannot point the handoff somewhere else.
+function assertScoped(calls: readonly Call[], slug = REPO, host = "gh.example.invalid"): void {
+  const after = (args: readonly string[], flag: string): string | undefined => (args.includes(flag) ? args[args.indexOf(flag) + 1] : undefined);
+  for (const { args } of ghCalls(calls)) {
+    const scoped = args[0] === "auth" || args[0] === "api" ? after(args, "--hostname") === host
+      : args[0] === "repo" ? args[2] === slug : after(args, "--repo") === slug;
+    assert.ok(scoped, `gh ${args.join(" ")} names origin's repository`);
+  }
+}
+
+function assertNoSuccess(result: { code: number; out: string }, calls: readonly Call[]): void {
+  assert.equal(result.code, EXIT_REFUSED);
+  assert.equal(result.out, "", "nothing is reported as an open pull request");
+  assert.ok(!ghCalls(calls).some((call) => call.args[1] === "edit" || call.args[1] === "merge"), "nothing is retargeted or merged");
+}
+
+await test("an open PR that is exactly the branch's checked commit into main is reused, not duplicated", (t) => {
   const repo = fixture(t);
-  const { run, calls } = runner(repo, { prView: JSON.stringify({ url: "https://github.com/o/r/pull/3", state: "OPEN" }) });
-  const result = go(repo, run);
+  const { run, calls } = runner(repo, { prList: (head) => json([exactPr(head)]) });
+  const result = withEnv({ GH_REPO: "evil/elsewhere", GH_HOST: "evil.example.invalid" }, () => go(repo, run));
   assert.equal(result.code, EXIT_OK, result.err);
-  assert.match(result.out, /pull\/3/);
-  assert.ok(!calls.some((call) => call.command === "gh" && call.args[1] === "create"));
+  assert.match(result.out, /https:\/\/gh\.example\.invalid\/o\/r\/pull\/3 is open/);
+  assert.ok(!created(calls), "no second pull request");
+  const list = ghCalls(calls).find((call) => call.args[1] === "list");
+  assert.deepEqual(list?.args.slice(0, 9), ["pr", "list", "--repo", REPO, "--head", "feat/x", "--state", "open", "--json"]);
+  for (const field of IDENTITY_FIELDS) assert.ok(String(list.args[9]).split(",").includes(field), field);
+  assertScoped(calls);
 });
 
-await test("a closed or merged PR for the branch does not count as open", (t) => {
+await test("with no open PR, one is created into main from the branch and confirmed as the checked commit", (t) => {
   const repo = fixture(t);
-  const { run, calls } = runner(repo, { prView: JSON.stringify({ url: "https://github.com/o/r/pull/3", state: "CLOSED" }) });
-  assert.equal(go(repo, run).code, EXIT_OK);
-  assert.ok(calls.some((call) => call.command === "gh" && call.args[1] === "create"));
+  const { run, calls } = runner(repo);
+  const result = go(repo, run);
+  assert.equal(result.code, EXIT_OK, result.err);
+  assert.match(result.out, /pull\/7 is open/);
+  const gh = ghCalls(calls);
+  assert.deepEqual(gh.find((call) => call.args[1] === "create")?.args, ["pr", "create", "--repo", REPO, "--base", "main", "--head", "feat/x", "--fill"]);
+  const view = gh.find((call) => call.args[1] === "view" && call.args[0] === "pr");
+  assert.deepEqual(view?.args.slice(0, 5), ["pr", "view", "7", "--repo", REPO]);
+  assert.ok(gh.findIndex((call) => call.args[1] === "list") < gh.findIndex((call) => call.args[1] === "create"), "looks before creating");
+  assertScoped(calls);
+});
+
+// The checked commit with its last hex digit changed: same prefix, different commit.
+const sharingPrefix = (head: string): string => `${head.slice(0, -1)}${head.endsWith("0") ? "1" : "0"}`;
+
+// One field of the reported pull request differs from what was pushed.
+const MISMATCHES: [string, (head: string) => Record<string, unknown>, RegExp][] = [
+  ["a base other than main", () => ({ baseRefName: "release" }), /base is release, not main/],
+  ["a base that only contains main", () => ({ baseRefName: "main-old" }), /base is main-old, not main/],
+  ["a stale head", () => ({ headRefOid: "0".repeat(40) }), /head is 0{40}, not the checked commit/],
+  ["a stale head sharing the checked commit's prefix", (head) => ({ headRefOid: sharingPrefix(head) }), /, not the checked commit/],
+  ["another repository", () => ({ url: "https://gh.example.invalid/other/r/pull/3" }), /https:\/\/gh\.example\.invalid\/other\/r\/pull\/3 is not in gh\.example\.invalid\/o\/r/],
+  ["a merged PR", () => ({ state: "MERGED" }), /state is MERGED/],
+  ["a closed PR", () => ({ state: "CLOSED" }), /state is CLOSED/],
+  ["another source branch", () => ({ headRefName: "feat/y" }), /source branch is feat\/y, not feat\/x/],
+  ["a source branch differing only in case", () => ({ headRefName: "FEAT/X" }), /source branch is FEAT\/X, not feat\/x/],
+  ["another source repository name", () => ({ headRepository: { name: "copy" } }), /source repository is o\/copy, not o\/r/],
+  ["another source owner", () => ({ headRepositoryOwner: { login: "other" } }), /source repository is other\/r, not o\/r/],
+  ["a cross-repository PR that names this repository", () => ({ isCrossRepository: true }), /source repository is o\/r \(cross-repository\), not o\/r/],
+];
+
+await test("an open PR from the branch whose identity differs is refused, never reported, retargeted or duplicated", async (t) => {
+  for (const [name, overrides, named] of MISMATCHES) {
+    await t.test(name, (t) => {
+      const repo = fixture(t);
+      const { run, calls } = runner(repo, { prList: (head) => json([exactPr(head, overrides(head))]) });
+      const result = go(repo, run);
+      assertNoSuccess(result, calls);
+      assert.match(result.err, named);
+      assert.match(result.err, /already pushed/, "says the push happened");
+      assert.ok(!created(calls), "no second pull request");
+    });
+  }
+});
+
+await test("a created PR that GitHub reports with another identity is refused", async (t) => {
+  for (const [name, overrides, named] of MISMATCHES.filter(([name]) => name !== "another repository")) {
+    await t.test(name, (t) => {
+      const repo = fixture(t);
+      const { run, calls } = runner(repo, { prCreated: (head) => json(exactPr(head, { number: 7, url: CREATED, ...overrides(head) })) });
+      const result = go(repo, run);
+      assertNoSuccess(result, calls);
+      assert.match(result.err, named);
+    });
+  }
+  await t.test("a URL printed for another repository", (t) => {
+    const repo = fixture(t);
+    const { run, calls } = runner(repo, { prCreate: { status: 0, stdout: "https://gh.example.invalid/other/r/pull/7\n" } });
+    const result = go(repo, run);
+    assertNoSuccess(result, calls);
+    assert.match(result.err, /https:\/\/gh\.example\.invalid\/other\/r\/pull\/7 is not in gh\.example\.invalid\/o\/r/);
+  });
+});
+
+await test("a PR from a same-named branch in a fork is not this branch's: the PR is created and the fork's never reported", (t) => {
+  const repo = fixture(t);
+  const fork = { number: 5, url: "https://gh.example.invalid/o/r/pull/5", isCrossRepository: true, headRepositoryOwner: { login: "forker" } };
+  const { run, calls } = runner(repo, { prList: (head) => json([exactPr(head, fork)]) });
+  const result = go(repo, run);
+  assert.equal(result.code, EXIT_OK, result.err);
+  assert.ok(created(calls));
+  assert.match(result.out, /pull\/7/);
+  assert.ok(!result.out.includes("pull/5"));
+});
+
+await test("a PR from a deleted fork, with no source repository or owner left, is ignored rather than blocking every rerun", (t) => {
+  const repo = fixture(t);
+  const deleted = { number: 5, url: "https://gh.example.invalid/o/r/pull/5", isCrossRepository: true, headRepository: null, headRepositoryOwner: null };
+  const { run, calls } = runner(repo, { prList: (head) => json([exactPr(head, deleted)]) });
+  const result = go(repo, run);
+  assert.equal(result.code, EXIT_OK, result.err);
+  assert.ok(created(calls));
+  assert.match(result.out, /pull\/7/);
+});
+
+await test("a tracking config write that fails after the push says the commit is already pushed", (t) => {
+  const repo = fixture(t);
+  const base = runner(repo);
+  const run: Run = (command, args, options) =>
+    command === "git" && args[0] === "config" && String(args[1]).startsWith("branch.") ? { status: 1, stdout: "" } : base.run(command, args, options);
+  assert.throws(() => go(repo, run), (error: Error) => /git config branch\.feat\/x\.\w+/.test(error.message) && /already pushed/.test(error.message));
+  assert.ok(!created(base.calls), "no pull request is opened after a failed step");
+});
+
+await test("the test runner's git cannot reach a network: only local transports are allowed", (t) => {
+  const repo = fixture(t);
+  for (const url of ["https://gh.example.invalid/x/y.git", "http://gh.example.invalid/x/y.git", "git@gh.example.invalid:x/y.git",
+    "ssh://git@gh.example.invalid/x/y.git", "git://gh.example.invalid/x/y.git", "ext::sh -c true"]) {
+    const result = fencedGit(repo, ["push", url, "HEAD:refs/heads/fenced"]);
+    assert.notEqual(result.status, 0, url);
+    assert.match(result.stderr, /transport '\w+' not allowed/, url);
+  }
+  assert.equal(fencedGit(repo, ["push", "--quiet", repo.remote, "HEAD:refs/heads/fenced"]).status, 0, "a local path still works, so the refusals above are the fence");
+});
+
+await test("two open PRs from the branch are refused instead of choosing one", (t) => {
+  const repo = fixture(t);
+  const { run, calls } = runner(repo, { prList: (head) => json([exactPr(head), exactPr(head, { number: 4, url: "https://gh.example.invalid/o/r/pull/4", baseRefName: "release" })]) });
+  const result = go(repo, run);
+  assertNoSuccess(result, calls);
+  assert.match(result.err, /2 open pull requests come from feat\/x/);
+  assert.ok(!created(calls));
+});
+
+await test("a failed or malformed GitHub answer fails visibly and reports no pull request", async (t) => {
+  const cases: [string, Outcomes, RegExp][] = [
+    ["the PR list fails", { prList: () => ({ status: 1, stdout: "" }) }, /gh pr list .* failed/],
+    ["the PR list is not JSON", { prList: () => ({ status: 0, stdout: "<html>\n" }) }, /gh pr list .* did not return JSON/],
+    ["the PR list is not a list", { prList: (head) => json(exactPr(head)) }, /gh pr list .* did not return a list/],
+    ["a listed PR lacks its head commit", { prList: (head) => json([{ ...exactPr(head), headRefOid: undefined }]) }, /headRefOid/],
+    ["a listed PR has no source owner", { prList: (head) => json([{ ...exactPr(head), headRepositoryOwner: null }]) }, /headRepositoryOwner/],
+    ["creating fails", { prCreate: { status: 1, stdout: "" } }, /gh pr create .* failed/],
+    ["creating prints no PR URL", { prCreate: { status: 0, stdout: "Warning: 1 uncommitted change\n" } }, /did not print a pull request URL/],
+    ["the created PR cannot be read", { prCreated: () => ({ status: 1, stdout: "" }) }, /gh pr view 7 .* failed/],
+  ];
+  for (const [name, outcomes, named] of cases) {
+    await t.test(name, (t) => {
+      const repo = fixture(t);
+      const { run } = runner(repo, outcomes);
+      assert.throws(() => go(repo, run), (error: Error) => named.test(error.message) && /already pushed/.test(error.message));
+    });
+  }
+});
+
+await test("origin must fetch and push one GitHub repository before anything is pushed", async (t) => {
+  const cases: [string, (repo: Fixture) => void, RegExp][] = [
+    ["a local path", (repo) => { repo.git(["remote", "set-url", "origin", repo.remote]); }, /origin is not a GitHub repository URL/],
+    ["a push URL for another repository", (repo) => repo.git(["config", "remote.origin.pushurl", "https://gh.example.invalid/evil/r.git"]),
+      /origin fetches from gh\.example\.invalid\/o\/r but pushes to gh\.example\.invalid\/evil\/r/],
+    ["a pushInsteadOf rewrite", (repo) => repo.git(["config", "url.git@gh.example.invalid:evil/r.git.pushInsteadOf", ORIGIN_URL]),
+      /pushes to gh\.example\.invalid\/evil\/r/],
+    ["a push URL on another host", (repo) => repo.git(["config", "remote.origin.pushurl", "https://ghe.example.invalid/o/r.git"]),
+      /pushes to ghe\.example\.invalid\/o\/r/],
+    ["a second push URL after the intended one", (repo) => {
+      repo.git(["config", "remote.origin.pushurl", ORIGIN_URL]);
+      repo.git(["config", "--add", "remote.origin.pushurl", "https://gh.example.invalid/evil/r.git"]);
+    }, /origin must have exactly one fetch URL and one push URL; it has 1 and 2/],
+    ["a second URL, which push also uses", (repo) => repo.git(["config", "--add", "remote.origin.url", "https://gh.example.invalid/evil/r.git"]),
+      /origin must have exactly one fetch URL and one push URL; it has 2 and 2/],
+  ];
+  for (const [name, configure, named] of cases) {
+    await t.test(name, (t) => {
+      const repo = fixture(t);
+      configure(repo);
+      const { run, calls } = runner(repo);
+      const result = go(repo, run);
+      assertNoSuccess(result, calls);
+      assert.match(result.err, named);
+      assert.ok(!calls.some((call) => call.args[0] === "push"), "nothing is pushed");
+      assert.deepEqual(ghCalls(calls), [], "gh is not asked about any repository");
+    });
+  }
+});
+
+await test("each GitHub remote URL form names the repository gh is scoped to, and its credentials are never shown", async (t) => {
+  const forms: [string, string][] = [
+    ["https://gh.example.invalid/o/r", REPO], ["https://gh.example.invalid/o/r/", REPO], ["git@gh.example.invalid:o/r.git", REPO], ["ssh://git@gh.example.invalid/o/r.git", REPO],
+    ["https://x-access-token:SECRET-XYZ@gh.example.invalid/fake-owner/fake_repo.git", "gh.example.invalid/fake-owner/fake_repo"],
+    ["https://ghe.example.invalid/team/tool.v2.git", "ghe.example.invalid/team/tool.v2"],
+  ];
+  for (const [origin, slug] of forms) {
+    await t.test(origin, (t) => {
+      const repo = fixture(t, undefined, origin);
+      const [host = "", owner = "", name = ""] = slug.split("/");
+      const url = `https://${slug}/pull/7`;
+      const { run, calls } = runner(repo, {
+        prCreate: { status: 0, stdout: `${url}\n` },
+        prCreated: (head) => json(exactPr(head, { number: 7, url, headRepository: { name }, headRepositoryOwner: { login: owner } })),
+      });
+      const result = go(repo, run);
+      assert.equal(result.code, EXIT_OK, result.err);
+      assertScoped(calls, slug, host);
+      assert.ok(!`${result.out}${result.err}`.includes("SECRET-XYZ"));
+    });
+  }
+  for (const origin of ["file:///tmp/r.git", "http://user:SECRET-XYZ@gh.example.invalid/o/r.git", "https://gh.example.invalid/o", "https://gh.example.invalid/o/r/extra", "git@gh.example.invalid:o/r/extra.git", "ext::sh -c x"]) {
+    await t.test(`refuses ${origin}`, (t) => {
+      const repo = fixture(t, undefined, origin);
+      const { run, calls } = runner(repo);
+      const result = go(repo, run);
+      assertNoSuccess(result, calls);
+      assert.match(result.err, /origin is not a GitHub repository URL/);
+      assert.ok(!result.err.includes("SECRET-XYZ"), "the URL's credentials are not printed");
+      assert.ok(!calls.some((call) => call.args[0] === "push"), "nothing is pushed");
+    });
+  }
 });
 
 await test("gh is checked before anything is pushed", (t) => {
@@ -255,7 +515,7 @@ await test("refusals stop before pushing", async (t) => {
     repo.git(["switch", "--quiet", "main"]);
     repo.write("b.md", "main moved\n");
     repo.commit("main moves");
-    repo.git(["push", "--quiet", "origin", "main"]);
+    repo.git(["push", "--quiet", repo.remote, "main"]);
     repo.git(["switch", "--quiet", "feat/x"]);
     const result = go(repo, runner(repo).run);
     assert.equal(result.code, EXIT_REFUSED);
@@ -407,7 +667,7 @@ await test("a narrowed fetch refspec cannot leave readiness on a stale origin/ma
   repo.git(["switch", "--quiet", "-c", "elsewhere", "main"]);
   repo.write("moved.md", "main moved\n");
   repo.commit("main moved on origin");
-  repo.git(["push", "--quiet", "origin", "elsewhere:main"]);
+  repo.git(["push", "--quiet", repo.remote, "elsewhere:main"]);
   repo.git(["switch", "--quiet", "feat/x"]);
   repo.git(["update-ref", "refs/remotes/origin/main", before]);
   repo.git(["update-ref", "refs/remotes/origin/other", before]);
@@ -420,8 +680,7 @@ await test("a narrowed fetch refspec cannot leave readiness on a stale origin/ma
 
 await test("an origin without main stops readiness instead of comparing a leftover ref", (t) => {
   const repo = fixture(t);
-  const remote = repo.git(["remote", "get-url", "origin"]);
-  execFileSync("git", ["--git-dir", remote, "update-ref", "-d", "refs/heads/main"], { env: cleanGitEnv });
+  execFileSync("git", ["--git-dir", repo.remote, "update-ref", "-d", "refs/heads/main"], { env: cleanGitEnv });
   assert.throws(() => go(repo, runner(repo).run), /git fetch .* failed/);
 });
 
@@ -431,7 +690,7 @@ await test("readiness compares the main commit it captured, even if the tracking
   repo.git(["switch", "--quiet", "-c", "elsewhere", "main"]);
   repo.write("moved.md", "main moved\n");
   repo.commit("main moved on origin");
-  repo.git(["push", "--quiet", "origin", "elsewhere:main"]);
+  repo.git(["push", "--quiet", repo.remote, "elsewhere:main"]);
   repo.git(["switch", "--quiet", "feat/x"]);
   const base = runner(repo).run;
   const run: Run = (command, args, options) => {

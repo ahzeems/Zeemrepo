@@ -11,15 +11,19 @@ import { createHash } from "node:crypto";
 import { lstatSync, readFileSync, readdirSync, readlinkSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
-import { spawnRunner, type Run } from "../git/pr-ready.ts";
+import { exactOpenPullRequest, slug, spawnRunner, type Repository, type Run } from "../git/pr-ready.ts";
 import { MAIN_REFSPEC } from "../lib/git.ts";
 import { CHANGELOG_FRAGMENT_PATTERN } from "../lib/paths.ts";
 import { branchWork, type BranchWork } from "./already-done.ts";
 
 export type Options = { cwd?: string; output?: Output; run?: Run; env?: NodeJS.ProcessEnv };
 
-// The repository the Sandcastle prompts read issues from and comment on (.sandcastle/*.md).
-export const PROMPT_REPO = "Zimfra/software_testing";
+// The repository the Sandcastle prompts read issues from and comment on (.sandcastle/*.md). Every gh
+// call names it with its host, so GH_REPO, GH_HOST and gh's choice among remotes cannot redirect a
+// lookup or a comment.
+const AFK_REPOSITORY: Repository = { host: "github.com", owner: "Zimfra", name: "software_testing" };
+export const PROMPT_REPO = `${AFK_REPOSITORY.owner}/${AFK_REPOSITORY.name}`;
+const REPO_SCOPE = slug(AFK_REPOSITORY);
 // The landing step runs `npm run check` on the host, as the owner and unattended, and that executes
 // the repository's own scripts, tests and configuration, including whatever an agent just changed.
 // So the guard is an allowlist of what is not executed: Markdown documentation, changelog fragments
@@ -47,7 +51,7 @@ function git(run: Run, args: readonly string[]): string {
 // A gh call that times out throws (spawnRunner); it means "cannot resolve", not a crash.
 function resolveRepo(run: Run): string {
   try {
-    const view = run("gh", ["repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"]);
+    const view = run("gh", ["repo", "view", REPO_SCOPE, "--json", "nameWithOwner", "--jq", ".nameWithOwner"]);
     return view.status === 0 ? view.stdout.trim() : "";
   } catch {
     return "";
@@ -120,7 +124,7 @@ function readiness(run: Run, env: NodeJS.ProcessEnv, cwd: string | undefined): {
   }
   const hooks = hooksSnapshot(run, cwd);
   if (hooks === undefined) refused.push("The git hooks directory cannot be read (an unreadable entry or a dangling link), so changes to it could not be seen. Fix or remove that entry, then rerun.");
-  return { branch, repo, refused, hooks: hooks ?? "" };
+  return { branch, repo: REPO_SCOPE, refused, hooks: hooks ?? "" };
 }
 
 const branchesMerged = (run: Run, flag: string, ref: string): string[] =>
@@ -147,13 +151,13 @@ function comment(run: Run, repo: string, issue: string, url: string): boolean {
   }
 }
 
-// A gh call that times out throws (spawnRunner); it means "no open pull request", not a crash. A
-// closed or merged pull request for the branch name is not the one that holds this work.
-function pullRequestUrl(run: Run, branch: string): string {
+// A gh call that fails or times out, or an answer that is malformed, means "no open pull request",
+// not a crash. Only the open pull request that is exactly `head` on this branch into main of the
+// repository holds this work, the same check npm run pr makes; anything else gets no comment.
+function pullRequestUrl(run: Run, branch: string, head: string): string {
   try {
-    const view = run("gh", ["pr", "view", branch, "--json", "state,url", "--jq", "[.state,.url]|@tsv"]);
-    const match = /^OPEN\t(https:\/\/\S+\/pull\/\d+)$/.exec(view.status === 0 ? view.stdout.trim() : "");
-    return match?.[1] ?? "";
+    const found = exactOpenPullRequest(run, { repository: AFK_REPOSITORY, branch, head });
+    return typeof found === "string" ? found : "";
   } catch {
     return "";
   }
@@ -253,7 +257,7 @@ function land(run: Run, output: Output, { repo, branch, issues }: Landing): numb
     output.warn(`afk: the landing step failed (exit ${String(landing.status)}, reason above). A push may already have happened: check origin before rerunning. Nothing was commented, and the work stays merged on this branch.`);
     return EXIT_ERROR;
   }
-  const url = pullRequestUrl(run, branch);
+  const url = pullRequestUrl(run, branch, git(run, ["rev-parse", "HEAD"]).trim());
   if (url === "") {
     output.warn("afk: the landing step succeeded but gh reports no pull request URL for this branch, so no issue was commented. Find the pull request on GitHub.");
     return EXIT_ERROR;
@@ -401,7 +405,7 @@ function nothingToAnnounce(run: Run, output: Output, state: Quiet): number {
     // Pushed work with no open pull request means an earlier run stopped between the push and the
     // pull request; exit 0 would hide that. A comment that failed after the pull request opened
     // is not visible from here and is not retried.
-    if (pullRequestUrl(run, state.branch) === "") {
+    if (pullRequestUrl(run, state.branch, git(run, ["rev-parse", `refs/remotes/origin/${state.branch}`]).trim()) === "") {
       output.warn("afk: the work an earlier run merged is pushed but gh finds no open pull request for this branch. Open it with npm run pr, then comment on the issues by hand.");
       return EXIT_ERROR;
     }

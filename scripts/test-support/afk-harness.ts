@@ -10,17 +10,32 @@ import { main } from "../sandcastle/afk.ts";
 
 export const PR_URL = "https://github.com/Zimfra/software_testing/pull/21";
 
-export function fixture(t: TestContext): RepoFixture {
+// origin names the repository afk serves, as a real checkout's does. The fixture's own config
+// allows only local transports, so neither afk's git nor a test's direct git can reach that URL;
+// the runner routes origin's fetches and pushes to the bare remote, and a test publishes with
+// publish() below.
+export const AFK_ORIGIN = "https://github.com/Zimfra/software_testing.git";
+export type AfkFixture = RepoFixture & { remote: string; origin: string };
+
+export function fixture(t: TestContext, origin = AFK_ORIGIN): AfkFixture {
   const repo = createRepo("afk-");
   const remote = mkdtempSync(join(tmpdir(), "afk-remote-"));
   t.after(() => { repo.cleanup(); rmSync(remote, { recursive: true, force: true }); });
   execFileSync("git", ["init", "--quiet", "--bare", remote], { env: cleanGitEnv });
+  repo.git(["config", "protocol.allow", "never"]);
+  repo.git(["config", "protocol.file.allow", "always"]);
   repo.commit("base");
-  repo.git(["remote", "add", "origin", remote]);
-  repo.git(["push", "--quiet", "origin", "main"]);
-  repo.git(["fetch", "--quiet", "origin"]);
+  repo.git(["remote", "add", "origin", origin]);
+  const fixed = { ...repo, remote, origin };
+  publish(fixed, "main");
   repo.git(["switch", "--quiet", "-c", "feat/afk-work"]);
-  return repo;
+  return fixed;
+}
+
+/** Push a ref to the fixture's bare origin and update the remote-tracking refs, as a real push and fetch would. */
+export function publish(repo: AfkFixture, ref: string): void {
+  repo.git(["push", "--quiet", repo.remote, ref]);
+  repo.git(["fetch", "--quiet", repo.remote, "+refs/heads/*:refs/remotes/origin/*"]);
 }
 
 // An issue branch with one commit, left unmerged; the caller merges it where it should land.
@@ -58,8 +73,8 @@ export type Script = {
 };
 
 // The commit GitHub would show as the branch's pull request head: the branch's tip on origin.
-function pushedTip(repo: RepoFixture): string {
-  const listed = repo.git(["ls-remote", "origin", `refs/heads/${repo.git(["symbolic-ref", "--short", "HEAD"])}`]);
+function pushedTip(repo: AfkFixture): string {
+  const listed = repo.git(["ls-remote", repo.remote, `refs/heads/${repo.git(["symbolic-ref", "--short", "HEAD"])}`]);
   return listed.split("\t")[0] ?? "";
 }
 
@@ -67,7 +82,7 @@ function pushedTip(repo: RepoFixture): string {
 const NETWORK_FENCE = ["-c", "protocol.allow=never", "-c", "protocol.file.allow=always"];
 
 // git runs for real; the Sandcastle loop, pr-ready, gh and npm are scripted and recorded.
-export function runner(repo: RepoFixture, script: Script = {}): { run: Run; calls: string[]; inherited: string[] } {
+export function runner(repo: AfkFixture, script: Script = {}): { run: Run; calls: string[]; inherited: string[] } {
   const calls: string[] = [];
   const inherited: string[] = [];
   const run: Run = (command, args, options) => {
@@ -75,14 +90,15 @@ export function runner(repo: RepoFixture, script: Script = {}): { run: Run; call
     calls.push(line);
     if (options?.inherit === true) inherited.push(line);
     if (command === "git") {
-      const result = spawnSync("git", [...NETWORK_FENCE, ...args], { cwd: repo.dir, env: cleanGitEnv, encoding: "utf8" });
+      const network = args[0] === "fetch" || args[0] === "push" ? ["-c", `url.${repo.remote}.insteadOf=${repo.origin}`] : [];
+      const result = spawnSync("git", [...NETWORK_FENCE, ...network, ...args], { cwd: repo.dir, env: cleanGitEnv, encoding: "utf8" });
       return { status: result.status, stdout: result.stdout };
     }
     if (line === "node .sandcastle/main.ts") return { status: script.loop?.() ?? 0, stdout: "" };
     if (line === "node scripts/git/pr-ready.ts") {
       const landed = script.pr ?? { status: 0, stdout: `pr-ready: pull request ${PR_URL} is open.\n` };
       // A successful landing pushed the checked HEAD to the branch on origin, as pr-ready does.
-      if (landed.status === 0) repo.git(["push", "--quiet", "origin", `HEAD:refs/heads/${repo.git(["symbolic-ref", "--short", "HEAD"])}`]);
+      if (landed.status === 0) publish(repo, `HEAD:refs/heads/${repo.git(["symbolic-ref", "--short", "HEAD"])}`);
       return landed;
     }
     if (line === GH_REPO) return script.ghRepo ?? { status: 0, stdout: "Zimfra/software_testing\n" };

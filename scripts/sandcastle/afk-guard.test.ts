@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { RepoFixture } from "../test-support/repo-fixture.ts";
 import { test } from "node:test";
 import type { Run } from "../git/pr-ready.ts";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED } from "../lib/cli.ts";
-import { comments, fixture, go, issueBranch, mergeInto, runner } from "../test-support/afk-harness.ts";
+import { comments, fixture, go, issueBranch, mergeInto, publish, runner, type AfkFixture } from "../test-support/afk-harness.ts";
 
 // Anything that is not documentation. The guard is an allowlist of documentation paths, so a path
 // no one thought of (a root json.py that `python3 -m unittest` would import, a nested eslint config,
@@ -20,7 +19,7 @@ const EXECUTED = [
 ];
 const DOCS = ["wiki/note.md", "wiki/runbooks/Some page.md", "CHANGELOG.md", "README.md", "docs/guide.md", "NOTES.md", "changelog/2026-10-17-afk-change.md"];
 
-function landingLoop(repo: RepoFixture, paths: string[], extra: { failComments?: string[]; also?: () => void } = {}): { run: Run; calls: string[] } {
+function landingLoop(repo: AfkFixture, paths: string[], extra: { failComments?: string[]; also?: () => void } = {}): { run: Run; calls: string[] } {
   repo.git(["switch", "--quiet", "-c", "sandcastle/issue-4", "feat/afk-work"]);
   for (const path of paths) repo.write(path, "// changed by an agent\n");
   repo.commit("feat: four");
@@ -114,8 +113,7 @@ await test("moving a guarded file away is seen as a change to it", (t) => {
   repo.git(["switch", "--quiet", "main"]);
   repo.write("scripts/git/pr-ready.ts", "// the landing tool\n");
   repo.commit("feat: landing tool");
-  repo.git(["push", "--quiet", "origin", "main"]);
-  repo.git(["fetch", "--quiet", "origin"]);
+  publish(repo, "main");
   repo.git(["switch", "--quiet", "feat/afk-work"]);
   repo.git(["merge", "--quiet", "--no-edit", "origin/main"]);
   repo.git(["switch", "--quiet", "-c", "sandcastle/issue-4", "feat/afk-work"]);
@@ -163,8 +161,7 @@ await test("a stale origin/main tracking ref does not make a documentation-only 
   repo.git(["switch", "--quiet", "main"]);
   repo.write("scripts/app/others-work.ts", "// merged to main by someone else\n");
   repo.commit("feat: others work");
-  repo.git(["push", "--quiet", "origin", "main"]);
-  repo.git(["fetch", "--quiet", "origin"]);
+  publish(repo, "main");
   repo.git(["switch", "--quiet", "feat/afk-work"]);
   repo.git(["merge", "--quiet", "--no-edit", "origin/main"]);
   repo.git(["update-ref", "refs/remotes/origin/main", older]); // the tracking ref is now stale
@@ -300,7 +297,7 @@ await test("a hook written into the shared hooks directory is seen from a linked
   const sibling = `${repo.dir}-linked`;
   repo.git(["worktree", "add", "--quiet", "-b", "feat/linked", sibling, "HEAD"]);
   t.after(() => { try { repo.git(["worktree", "remove", "--force", sibling]); } catch { /* the fixture removes the repository */ } });
-  const linked: RepoFixture = { ...repo, dir: sibling, git: (args) => repo.git(["-C", sibling, ...args]) };
+  const linked: AfkFixture = { ...repo, dir: sibling, git: (args) => repo.git(["-C", sibling, ...args]) };
   const { run } = runner(linked, {
     loop: () => {
       mkdirSync(join(repo.dir, ".git", "hooks"), { recursive: true });

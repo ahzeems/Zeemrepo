@@ -302,6 +302,17 @@ await test("a PR from a deleted fork, with no source repository or owner left, i
   assert.match(result.out, /pull\/7/);
 });
 
+await test("a cross-repository PR from another repository of the same owner is a fork's, not this branch's", (t) => {
+  const repo = fixture(t);
+  const sibling = { number: 5, url: "https://gh.example.invalid/o/r/pull/5", isCrossRepository: true, headRepository: { name: "copy" } };
+  const { run, calls } = runner(repo, { prList: (head) => json([exactPr(head, sibling)]) });
+  const result = go(repo, run);
+  assert.equal(result.code, EXIT_OK, result.err);
+  assert.ok(created(calls), "this branch gets its own pull request");
+  assert.match(result.out, /pull\/7/);
+  assert.ok(!result.out.includes("pull/5"));
+});
+
 await test("a tracking config write that fails after the push says the commit is already pushed", (t) => {
   const repo = fixture(t);
   const base = runner(repo);

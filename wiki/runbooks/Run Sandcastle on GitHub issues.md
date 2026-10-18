@@ -93,8 +93,11 @@ you can leave. It runs on the host, from the feature branch checked out, and tak
 In order:
 
 1. Refuses, saying why and exiting 1, when the branch is `main`, HEAD is detached, the tree has
-   uncommitted changes, `gh repo view` fails (`gh` not logged in, or the repository is not visible) or
-   names a repository other than `Zimfra/software_testing`, the one the prompts read. All of
+   uncommitted changes, `gh repo view github.com/Zimfra/software_testing` fails (`gh` not logged
+   in, or the repository is not visible), or origin does not publish to that repository, the one
+   the prompts read. For the last check afk uses `npm run pr`'s own destination check: origin
+   must have exactly one fetch URL and one push URL (`git remote get-url --all`), both GitHub URLs
+   naming `github.com/Zimfra/software_testing`. An origin it cannot read is refused too. All of
    these are reported together. Nothing has run yet. A login that is the
    repository owner is refused by step 4, after the loop; the work then stays merged on the
    branch.
@@ -179,8 +182,8 @@ the branch contains `origin/main` when step 4 runs, or `npm run pr`'s tool refus
 Verified 2026-10-13 by `scripts/sandcastle/afk.test.ts` against real temporary git repositories
 with the loop, `pr-ready`, `gh` and `npm` replaced by scripted runners: the order of the steps,
 which branches are selected (merged by this run, not on `origin/main`, correctly named, with a
-commit of their own, or named when unrecognised), each refusal including an unresolvable or
-different repository, both exit codes of the landing step and their wording, a URL taken from
+commit of their own, or named when unrecognised), each refusal including a repository gh cannot
+see and (since 2026-10-18) an origin that is unreadable, not a GitHub URL, or publishes to another repository or host, both exit codes of the landing step and their wording, a URL taken from
 `gh` and not from the tool's text, a failing or timed-out comment, a branch switch, a moved HEAD, a dirty
 or half-merged tree after the loop, earlier work pushed and unpushed, an empty earlier branch, and that none of the wrapper's own
 calls pushes, merges, closes, bypasses a hook or names `.env` (the landing tool is scripted, so

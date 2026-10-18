@@ -105,7 +105,7 @@ const sameName = (a: string, b: string): boolean => a.toLowerCase() === b.toLowe
  * insteadOf rewriting), which must also be where main was fetched from. Every gh call names it, so
  * GH_REPO, GH_HOST and gh's own choice among remotes cannot send the handoff anywhere else.
  */
-function destination(run: Run): Repository | { refusal: string } {
+export function destination(run: Run): Repository | { refusal: string } {
   // git push origin pushes to every push URL (every URL when no pushurl is set), so all are read.
   const urls = (push: string[]): string[] => must(run, "git", ["remote", "get-url", "--all", ...push, "origin"]).split("\n").filter((url) => url !== "");
   const fetchUrls = urls([]);

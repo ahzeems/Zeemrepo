@@ -43,8 +43,8 @@ requests on GitHub (owner decision, 2026-10-09).
    without pushing. If it refuses or fails after saying the commit is already pushed, fix the
    cause and rerun it (a stray pull request from the branch is the owner's to close): the
    push repeats as a no-op and an open pull request is reused, not duplicated. A refusal for a
-   stale head right after a push to an open pull request means GitHub had not caught up yet
-   (observed once on 2026-10-18; see [[Merge gate contract]]); rerun. Never force-push to recover.
+   stale head right after a push to an open pull request can mean GitHub had not caught up yet
+   (seen on both live reuses on 2026-10-18; see [[Merge gate contract]]); rerun. Never force-push to recover.
 6. Wait for both required checks. `check` runs the change's own `npm run check`. `guards`
    runs main's copy of the repository guards on `pull_request_target`, so the pull request
    can neither edit that workflow nor run its own code in it (it does read the PR's `config/`;

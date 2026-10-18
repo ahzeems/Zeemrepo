@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
 import { lstatSync, readFileSync, readdirSync, readlinkSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
-import { exactOpenPullRequest, slug, spawnRunner, type Repository, type Run } from "../git/pr-ready.ts";
+import { destination, exactOpenPullRequest, slug, spawnRunner, type Repository, type Run } from "../git/pr-ready.ts";
 import { MAIN_REFSPEC } from "../lib/git.ts";
 import { CHANGELOG_FRAGMENT_PATTERN } from "../lib/paths.ts";
 import { branchWork, type BranchWork } from "./already-done.ts";
@@ -46,6 +46,23 @@ function git(run: Run, args: readonly string[]): string {
   const result = run("git", args);
   if (result.status !== 0) throw new Error(`git ${args.join(" ")} failed (exit ${String(result.status)})`);
   return result.stdout;
+}
+
+// npm run pr publishes to origin's one destination (its own check, which a git failure throws
+// from). afk refuses before the paid loop unless that destination is the repository it serves.
+function originRefusal(run: Run): string | undefined {
+  const published = readDestination(run);
+  if ("refusal" in published) return published.refusal;
+  if (slug(published).toLowerCase() === REPO_SCOPE.toLowerCase()) return undefined;
+  return `origin publishes to ${slug(published)}, but the Sandcastle prompts read and comment on issues of ${REPO_SCOPE}, so npm run pr would open the pull request in another repository. Point origin at ${REPO_SCOPE}, then rerun.`;
+}
+
+function readDestination(run: Run): Repository | { refusal: string } {
+  try {
+    return destination(run);
+  } catch {
+    return { refusal: "origin's URLs cannot be read (git remote get-url failed). Check the origin remote, then rerun." };
+  }
 }
 
 // A gh call that times out throws (spawnRunner); it means "cannot resolve", not a crash.
@@ -113,9 +130,9 @@ function readiness(run: Run, env: NodeJS.ProcessEnv, cwd: string | undefined): {
   if (git(run, ["status", "--porcelain"]).trim() !== "") refused.push("The tree has uncommitted changes. Commit or stash them first.");
   // One cheap call before the loop spends minutes: it fails when gh is not logged in or cannot
   // see the repository. The owner-login refusal stays with pr-ready.ts, after the loop.
-  const repo = resolveRepo(run);
-  if (repo === "") refused.push("gh cannot resolve this repository. Run gh auth login (as the machine account), then rerun.");
-  else if (repo !== PROMPT_REPO) refused.push(`gh resolves ${repo}, but the Sandcastle prompts read and comment on issues of ${PROMPT_REPO}.`);
+  if (resolveRepo(run) === "") refused.push("gh cannot resolve this repository. Run gh auth login (as the machine account), then rerun.");
+  const origin = originRefusal(run);
+  if (origin !== undefined) refused.push(origin);
   // A branch that already carries code would be refused after a paid loop; say so before it runs.
   if (!landCode(env) && fetched && branch !== "" && branch !== "main") {
     const code = guardedChanges(run);

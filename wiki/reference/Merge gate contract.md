@@ -99,11 +99,12 @@ config-protection read from the plugin's `scripts/hooks/config-protection.js`, v
   difference; it never retargets, closes or duplicates a pull request. A failed `gh` call or an
   answer that is not JSON, not a list or missing one of those fields is an error. GitHub can
   still report the previous head just after a push to a branch with an open pull request
-  (observed once, on 2026-10-18, when this check was first used to update a pull request; how
-  long the lag lasts was not measured, and less than a minute later the head was current). That
-  refuses as a stale head; rerun.
-  `npm run sandcastle:afk` comments on issues only with the pull request this same lookup finds,
-  scoped to `github.com/Zimfra/software_testing`, open and exactly the landed commit into main.
+  (observed on 2026-10-18 on both live reuses of this check, pull request 38 at 83e1551 and at
+  5ac895f; how long the lag lasts was not measured, and shortly afterwards the head was current).
+  That refuses as a stale head; rerun. A bounded retry is tracked in the S06 ticket.
+  `npm run sandcastle:afk` refuses before its loop unless origin's destination, read by the same
+  check, is `github.com/Zimfra/software_testing`. It comments on issues only with the pull request
+  this same lookup finds there: open, and exactly the landed commit into main.
   After the push, every refusal or error, including a failed write of the branch's tracking
   config, says the commit is already pushed to the branch. That
   is the recovery boundary: nothing was merged or retargeted, and a rerun pushes the same commit

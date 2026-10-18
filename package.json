@@ -26,7 +26,8 @@
     "worktree:guard": "node scripts/git/worktree-guard.ts",
     "hooks:install": "git config --local core.hooksPath .githooks",
     "sandcastle": "node .sandcastle/main.ts",
-    "sandcastle:afk": "node scripts/sandcastle/afk.ts"
+    "sandcastle:afk": "node scripts/sandcastle/afk.ts",
+    "sandbox:smoke": "node scripts/sandcastle/containment-smoke.ts"
   },
   "devDependencies": {
     "@ai-hero/sandcastle": "^0.12.0",

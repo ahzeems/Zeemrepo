@@ -52,6 +52,17 @@ committing or opening a pull request.
    | `npm run changelog:guard` | The branch adds a dated changelog fragment and changes no fragment already on main. |
    | `npm run memory:guard` | The branch updates a work record with evidence, and an operating document when workflow-critical files change. |
 
+   `npm run sandbox:smoke` is not part of `npm run check`: it needs Docker, so the required CI
+   `check` job runs it after `npm run check`. It builds `.sandcastle/Dockerfile`, copies the
+   tracked files into a container with no mounts, runs `lint`, `typecheck`, `test` and
+   `evals:test` there, and drives the real Sandcastle SDK cleanup with a fake agent that plants a
+   `core.fsmonitor` command. It passes only when that command fired inside the container and
+   nothing changed on the host. Without Docker it exits 1 as blocked, which is not a pass. It
+   also refuses a checkout with uncommitted changes, because it builds the image from the working
+   tree but copies `HEAD` into the container. It judges each container's own settings through
+   `docker inspect`; it cannot see a Docker daemon configured with weaker defaults, such as an
+   unconfined default seccomp profile. Read its result on the pull request with `gh pr checks <n>`.
+
 4. Confirm each checker still fails when it should. `wiki:lint`, `skills:lint` and
    `governance:check` each run in their tests against a valid and a broken fixture under
    `scripts/fixtures/valid/` and `scripts/fixtures/broken/`. A new checker gets the same pair;

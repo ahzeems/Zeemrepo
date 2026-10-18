@@ -17,7 +17,7 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Check out the change
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -43,3 +43,8 @@ jobs:
           else
             npm run check
           fi
+
+      # The real containment control (S12): builds .sandcastle/Dockerfile and runs a fake agent
+      # in a container without mounts, using the runner's Docker. No model calls or credentials.
+      - name: Prove the sandbox boundary
+        run: npm run sandbox:smoke

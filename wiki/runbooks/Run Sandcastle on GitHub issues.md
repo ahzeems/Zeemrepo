@@ -188,8 +188,16 @@ Sandcastle loop, a real push, and GitHub's review request reaching the owner.
 
 ## Known notes
 
-- The Dockerfile base is `node:22-bookworm` while `.nvmrc` says 24, so the sandbox may not run
-  the full `npm run check`. Reported from the 2026-10-12 run; not re-run here.
+- The Dockerfile base is `node:24-trixie`, pinned by digest to match `.nvmrc`, with `python3`
+  for `evals:test` (bookworm's Python 3.11.2 lacks the tarfile filters `evals:test` uses) and Claude Code pinned to 2.1.289 (S12, 2026-10-18). `npm run sandbox:smoke`
+  builds it and runs the repository's `lint`, `typecheck`, `test` and `evals:test` inside it; the
+  required CI `check` job runs that on every pull request.
+- This loop still runs its git cleanup on the host. `npm run sandbox:smoke` shows that a
+  `core.fsmonitor` command an agent plants runs during the SDK's `close()` (finding A01): inside
+  the smoke test's container that is the intended control, but in this loop it would run on your
+  machine. The isolated workflow that moves the coordinator into the container is the audit
+  remediation's later work (S13 to S18); until it lands, treat an unattended run as executing
+  agent-controlled git configuration on the host.
 - `.sandcastle/main.ts` names the model `claude-opus-4-8`. Check that id is current before a
   long run; not verified here.
 - `.sandcastle/main.ts` is type-checked by `npm run typecheck` but not linted: the `files` globs

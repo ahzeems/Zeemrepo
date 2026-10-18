@@ -46,7 +46,8 @@ ECC says so under "Overrides of ECC".
 
 - Node from `.nvmrc`; `npm ci`, then `npm run hooks:install` once per checkout.
 - `npm run check` runs everything CI runs: lint, typecheck, tests with coverage, `evals:test`, `wiki:lint`, `skills:lint`,
-  `governance:check`, `rules:check`, `wiki:compliance`, `changelog:guard`, `memory:guard`.
+  `governance:check`, `rules:check`, `wiki:compliance`, `changelog:guard`, `memory:guard`. The one exception is
+  `npm run sandbox:smoke`, the real container control, which needs Docker and runs in the required CI `check` job.
 - Scripts are TypeScript run directly by Node, under `scripts/<area>/`, each with a sibling `*.test.ts`. The one
   exception is the compliance harness in `evals/compliance/` (Python, because ECC's skill-comply is), tested by `evals:test`.
 - The wiki starts at `wiki/Home.md`. Load the `wiki-memory` skill before writing under `wiki/`.

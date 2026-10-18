@@ -1,0 +1,4 @@
+# The image copies nothing from its build context, so send only the Dockerfile:
+# .sandcastle/.env holds tokens and must never reach the Docker daemon.
+*
+!Dockerfile

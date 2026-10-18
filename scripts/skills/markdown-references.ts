@@ -1,10 +1,9 @@
-import MarkdownIt from "markdown-it";
 import type { Token } from "markdown-it";
 import { parseFrontmatter } from "../lib/frontmatter.ts";
+import { markdownTokens } from "../lib/markdown.ts";
 
 type References = { links: string[]; images: string[]; headings: Set<string> };
 
-const parser = new MarkdownIt({ html: true, linkify: false, typographer: false });
 const EXTERNAL = /^[a-z][a-z0-9+.-]*:/i;
 
 function inlineText(tokens: readonly Token[]): string {
@@ -40,7 +39,7 @@ function collectHeadings(tokens: readonly Token[], refs: References): void {
 /** Relative link and image targets, and heading anchors, excluding frontmatter, comments and code. */
 export function markdownReferences(source: string): References {
   const frontmatter = parseFrontmatter(source);
-  const tokens = parser.parse(frontmatter.kind === "ok" ? frontmatter.body : source, {});
+  const tokens = markdownTokens(frontmatter.kind === "ok" ? frontmatter.body : source);
   const refs: References = { links: [], images: [], headings: new Set() };
   collectTargets(tokens, refs);
   collectHeadings(tokens, refs);

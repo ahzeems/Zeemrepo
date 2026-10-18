@@ -185,6 +185,23 @@ for (const missing of jobSpecExtraSections) {
     assert.match(errors(jobSpecGraph("Plan", "required", sections)), new RegExp(`missing job-spec section "## ${missing}"`));
   });
 }
+await test("job spec: required headings hidden in a fence, a comment or at the wrong level are refused", () => {
+  const records = jobSpecGraph("Plan", "required", [...buildSections, ...jobSpecExtraSections]);
+  const job = find(records, "Job");
+  const visible = job.body;
+  job.body = `<!--\n${visible}\n-->`;
+  const hiddenInComment = errors(records);
+  job.body = `\`\`\`markdown\n${visible}\n\`\`\``;
+  const hiddenInFence = errors(records);
+  job.body = visible.replaceAll("## ", "### ");
+  const wrongLevel = errors(records);
+  for (const result of [hiddenInComment, hiddenInFence, wrongLevel]) {
+    for (const section of buildSections) assert.match(result, new RegExp(`missing section "## ${section}"`));
+    for (const section of jobSpecExtraSections) assert.match(result, new RegExp(`missing job-spec section "## ${section}"`));
+  }
+  job.body = `\`\`\`markdown\n## Example\n\`\`\`\n\n${visible}`;
+  assert.equal(errors(records), "");
+});
 await test(" a ticket of an unflagged plan still needs only the four build sections", () => {
   assert.equal(errors(jobSpecGraph("Plan", undefined, buildSections)), "");
   assert.match(errors(jobSpecGraph("Plan", undefined, buildSections.slice(1))), /missing section "## Goal"/);

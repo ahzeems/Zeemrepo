@@ -112,6 +112,22 @@ await test("rejects a lesson missing its sections, naming each one", (context) =
   ]);
 });
 
+await test("headings hidden in a comment, a fence or at the wrong level are not sections", (context) => {
+  const root = fixture(context);
+  mkdirSync(join(root, "wiki/lessons"));
+  rmSync(join(root, "wiki/reference/Example note.md"));
+  const hidden = "<!--\n## What happened\n-->\n\n```markdown\n## Fix\n```\n\n### How to apply\n";
+  writeFileSync(join(root, "wiki/lessons/Example note.md"), validNote.replace("type: reference", "type: lesson").replace("Recorded facts.", hidden));
+  assert.deepEqual(validateWiki(root, { identity }).errors, [
+    'wiki/lessons/Example note.md: missing section "## What happened"',
+    'wiki/lessons/Example note.md: missing section "## Fix"',
+    'wiki/lessons/Example note.md: missing section "## How to apply"',
+  ]);
+  const visible = hidden.replace("<!--\n## What happened\n-->", "## What happened").replace("### How to apply", "## How to apply") + "\n## Fix\n";
+  writeFileSync(join(root, "wiki/lessons/Example note.md"), validNote.replace("type: reference", "type: lesson").replace("Recorded facts.", visible));
+  assert.deepEqual(validateWiki(root, { identity }).errors, []);
+});
+
 await test("rejects misnamed decisions and sessions", (context) => {
   const root = fixture(context);
   for (const [folder, type, title, error] of [["decisions", "decision", "Use Node", /ADR-NNNN/], ["sessions", "session", "Setup", /YYYY-MM-DD/]] as const) {

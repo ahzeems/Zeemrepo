@@ -52,6 +52,8 @@ YAML caution: a `title` or `summary` that contains a colon followed by a space, 
 | `decision` | `decisions/` | Why is it this way? | Append-only, supersede to change | Context, Decision, Consequences |
 | `reference` | `reference/` | What are the facts? | Updated in place | free form, prefer tables |
 
+A required section is a visible level-2 heading at the top level of the body whose text is exactly the section name. `wiki:lint` reads the body as CommonMark, so any ATX form counts (`## Fix`, `## Fix ##`, extra spaces or a tab after `##`, up to three spaces of indent), and so does `Fix` underlined with `---`. A heading inside an HTML comment, an HTML block such as `<div>` with no blank line before the heading, a fenced or indented code block, a blockquote or a list does not count, and neither does `### Fix`, `# Fix`, `## **Fix**` or `## Fix later`. The same rule applies to work-note sections, including job-spec sections.
+
 The types follow the Diataxis split: runbooks are how-to guides, reference notes are reference, sessions and decisions are explanation. Decisions follow the ADR format.
 
 ## Work notes

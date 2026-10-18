@@ -2,6 +2,8 @@
 // between marker comments, so the writer's document and the linter's list cannot drift.
 // Author identifiers are open to every provider and validated by shape, not an allowlist.
 
+import { markdownTokens } from "../lib/markdown.ts";
+
 export type TypeSpec = { folder: string; sections: readonly string[] };
 
 export const MEMORY_TYPES: ReadonlyMap<string, TypeSpec> = new Map([
@@ -22,8 +24,14 @@ export function allowedList(schema: string, marker: string): ReadonlySet<string>
   return new Set([...block.matchAll(/^\s*-\s+`([^`]+)`\s*$/gm)].flatMap((match) => match[1] === undefined ? [] : [match[1]]));
 }
 
+// A section is a visible level-2 heading at the top level of the body (not in a quote or list)
+// whose source text is exactly the name. Comments, fences and indented code hide headings, so
+// they cannot satisfy a requirement; `## **Fix**` is a different heading from `## Fix`.
 export function missingSections(body: string, sections: readonly string[]): string[] {
-  return sections.filter((section) => !new RegExp(`^## ${escapeRegExp(section)}\\s*$`, "m").test(body));
+  const tokens = markdownTokens(body);
+  const headings = new Set(tokens.flatMap((token, index) =>
+    token.type === "heading_open" && token.tag === "h2" && token.level === 0 ? [tokens[index + 1]?.content ?? ""] : []));
+  return sections.filter((section) => !headings.has(section));
 }
 
 export function escapeRegExp(text: string): string {

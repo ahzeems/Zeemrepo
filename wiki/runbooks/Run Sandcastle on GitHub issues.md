@@ -80,10 +80,11 @@ Use it for small, well-specified issues. Rules the agents follow are in `CLAUDE.
   keeps merging with the owner.
   Create it signed in as the machine account, with the organisation as **Resource owner**, and
   check it with the steps under "Token setup" below before the first run.
-- On a new token, run the check from "Token setup" (step 5) before the first loop, including its
-  throwaway comment. The command only reads, so a token that reads issues but cannot write them
-  passes it and answers 403 only when an agent tries to comment, after the agents have already
-  done their work.
+- On a new token, run the read check from "Token setup" (step 5) and, with the owner's approval
+  of the comment, its write check (step 6) before the first loop. The read check shows only
+  which account the token belongs to, so a token that reads issues but cannot write them passes
+  it and answers 403 only when an agent tries to comment, after the agents have already done
+  their work.
 - The sandbox image built once, and again after any `.sandcastle/Dockerfile` change:
   `npx sandcastle docker build-image`. It passes your user and group ids so the image user
   `agent` matches your host user (README, "sandcastle docker build-image").
@@ -433,35 +434,108 @@ publication (S16) are separate later steps. Tests:
 
 ## Token setup
 
-Captured 2026-10-15 on the first token swap. GitHub's token screens and organisation policy can
-change, so re-check against the token page itself.
+The steps were captured on the first token swap, 2026-10-15. Each claim about GitHub's behaviour
+was re-read on 2026-10-18 against the GitHub pages listed under "Sources" at the end of this
+section; a claim marked "observed" comes only from that swap. GitHub's token screens and
+organisation policy can change: before a new swap, re-read those pages and the token page itself.
+
+Three checks answer three different questions, and none stands in for another:
+
+- **Identity.** `gh api user --jq .login` prints the account the token authenticates as. A token
+  belongs to the user who generated it and acts with that user's access, narrowed by its own
+  permissions (sources 1 and 5). It says who, not what the token may do.
+- **Expiry.** The `GitHub-Authentication-Token-Expiration` response header carries the token's
+  expiry date (source 6). It is metadata for knowing when to replace the token. Two different
+  tokens can have the same expiry date, so an equal date does not show that the old token is
+  still in the file, and a different date is not required of a new token.
+- **Write permission.** Only a real write proves it. A comment needs Issues write (source 3), and
+  a token still pending the organisation's approval can read only public resources (source 1);
+  the identity read tests neither. Observed 2026-10-15: a token whose read check printed the
+  machine account's login still answered 403 on every comment.
 
 1. Sign in to GitHub as the machine account (the page header shows the username) and open
-   `Settings > Developer settings > Fine-grained tokens`. A token generated while signed in as
-   the owner is the owner's token, whatever its name says.
-2. **Resource owner** must be the organisation. The dropdown lists only the account itself until
-   the machine account has accepted its organisation invitation; `gh api
-   orgs/<org>/memberships/<machine-account>` must say `active`, not `pending`. With the account
-   as owner, "Only select repositories" is not offered and Issues stays read-only.
+   `Settings > Developer settings > Personal access tokens > Fine-grained tokens` (source 1). A
+   token generated while signed in as the owner is the owner's token, whatever its name says.
+2. **Resource owner** must be the organisation, because a token can reach only resources owned
+   by its resource owner (source 1). Observed 2026-10-15: while `gh api
+   orgs/<org>/memberships/<machine-account>` said `pending`, the dropdown listed only the account
+   itself, and the organisation appeared once the invitation was accepted and it said `active`.
+   With the account itself as resource owner, "Only select repositories" did not offer this
+   repository and Issues stayed read-only (observed); GitHub lists contributing to a repository
+   where the user is an outside or repository collaborator as a fine-grained token gap (source 1).
 3. Choose this repository only, **Issues** read and write, **Metadata** read, no other
-   permission, and an expiry within the organisation's limit (a longer one is refused).
-4. The organisation may hold a new token as pending. Until the owner approves it, the token reads
-   public data and every write answers 403, so a public repository hides the problem: the
-   planner and agents can still read issues.
-5. Put the value in `GH_TOKEN` in `.sandcastle/.env`, then check from the same image without
-   printing the token:
+   permission. Creating an issue comment is listed under the Issues write permission (source 3).
+   Pick an expiry within the organisation's maximum lifetime: the default maximum for
+   fine-grained tokens is 366 days, an organisation owner can set another, and a token over the
+   limit is blocked from the organisation's resources (source 4). Observed 2026-10-15: the first
+   token, with a lifetime over 366 days, was refused by the organisation.
+4. If the organisation requires approval, the new token stays `pending` and can read only public
+   resources until an organisation owner approves it (sources 1 and 7). This repository is
+   public, so a pending token still reads issues. Observed 2026-10-15: every comment answered 403
+   until the owner approved the token.
+5. Put the value in `GH_TOKEN` in `.sandcastle/.env`, then run the read checks from the same image
+   the loop uses, without printing the token:
 
    ```
    docker run --rm --env-file .sandcastle/.env --entrypoint bash <image> -c \
-     'gh api user --jq .login; gh api -i repos/<org>/<repo>/issues/<n> | grep -i expiration'
+     'set -eu; gh api user --jq .login; gh api -i user | grep -i "^github-authentication-token-expiration" || echo "no expiry header"'
    ```
 
-   The login must be the machine account and the expiry date must differ from the old token's.
-   Post one comment on a throwaway issue and read its author before a real run.
-6. An unchanged expiry date after you "updated the token" means the file still holds the old
-   string. Editing a token's permissions does not change the string, and a token whose resource
-   owner was the account itself cannot be edited into an organisation token: create a new one.
-7. Revoke the replaced tokens afterwards, including any created under the wrong account.
+   The first line must be the machine account's login. Another login means the file holds a
+   token of that account. A non-zero exit with a 401 means GitHub refused the credentials
+   (source 9); an expired or revoked token can no longer authenticate (source 8). After several
+   requests with invalid credentials in a short period, GitHub answers 403 for that user for a
+   while instead, even with valid credentials (source 9), so do not retry in a loop. The expiry line is for your records; do not compare it with the old
+   token's. These reads establish identity only.
+6. Before the first real run on a new token, check write permission with one comment on a
+   throwaway issue. This posts a visible comment and notifies the issue's subscribers, so the
+   owner names the issue and approves the comment before it is posted:
+
+   ```
+   docker run --rm --env-file .sandcastle/.env --entrypoint bash <image> -c \
+     'gh api repos/<org>/<repo>/issues/<n>/comments -f body="token write check" --jq .user.login'
+   ```
+
+   `gh api` sends a POST when fields are given (`gh api --help`). It must print the machine
+   account's login, which is the comment's author. A 403 with "Resource not accessible by
+   personal access token" means the token lacks a permission the endpoint needs (source 2). A
+   403 can also mean the token is still pending approval: observed 2026-10-15, an organisation
+   token answered 403 on comments until the owner approved it. Observed 2026-10-15: after approval, the comment on the trial issue was
+   authored by the machine account. Neither the read checks nor any mocked test shows write
+   permission; this comment does.
+7. Create a new token instead of editing an old one. Observed 2026-10-15: editing a token's
+   permissions left its string and expiry unchanged. The GitHub pages read on 2026-10-18 do not
+   say whether a token's resource owner can be changed after creation, so whether an account-owned
+   token could become an organisation token is unknown.
+8. Revoke the replaced tokens afterwards, including any created under the wrong account. A
+   revoked token can no longer authenticate (source 8), so rerunning step 5 after the revocation
+   answers 401 if `.sandcastle/.env` still holds a replaced string (source 9). Repeated failures
+   may answer 403 instead of 401 (source 9).
+
+Sources, each read 2026-10-18:
+
+1. GitHub Docs, "Managing your personal access tokens",
+   <https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens>.
+2. GitHub Docs, "Troubleshooting the REST API", section "Resource not accessible",
+   <https://docs.github.com/en/rest/using-the-rest-api/troubleshooting-the-rest-api>.
+3. GitHub Docs, "Permissions required for fine-grained personal access tokens", "Repository
+   permissions for Issues",
+   <https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens>.
+4. GitHub Docs, "Setting a personal access token policy for your organization", "Enforcing a
+   maximum lifetime policy",
+   <https://docs.github.com/en/organizations/managing-programmatic-access-to-your-organization/setting-a-personal-access-token-policy-for-your-organization>.
+5. GitHub Docs, "REST API endpoints for users", "Get the authenticated user",
+   <https://docs.github.com/en/rest/users/users>.
+6. GitHub Changelog, "Expiration options for personal access tokens", 2021-07-26,
+   <https://github.blog/changelog/2021-07-26-expiration-options-for-personal-access-tokens/>. The
+   docs pages above do not describe this header; this announcement is the only GitHub source
+   found for it, so treat the header as possibly absent.
+7. GitHub Docs, "Managing requests for personal access tokens in your organization",
+   <https://docs.github.com/en/organizations/managing-programmatic-access-to-your-organization/managing-requests-for-personal-access-tokens-in-your-organization>.
+8. GitHub Docs, "Token expiration and revocation",
+   <https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/token-expiration-and-revocation>.
+9. GitHub Docs, "Authenticating to the REST API", section "Failed login limit",
+   <https://docs.github.com/en/rest/authentication/authenticating-to-the-rest-api>.
 
 ## Troubleshooting
 
@@ -469,6 +543,8 @@ Reported by the owner from earlier runs and not reproduced while writing this pa
 
 - The agent refuses its credential: an OAuth token from `claude setup-token` must start with
   `sk-ant-oat`.
-- `gh` answers 403: the token is still pending approval by the organisation, or it lacks the
-  Issues permission on this repository. The response header `X-Accepted-Github-Permissions` names
-  what the endpoint needs (`issues=write` for a comment). See "Token setup".
+- `gh` answers 403 with "Resource not accessible by personal access token": the token is still
+  pending approval by the organisation, or it lacks the permission the endpoint needs. The
+  `X-Accepted-GitHub-Permissions` response header lists the permission sets the endpoint accepts
+  (source 2 under "Token setup"); Issues write is one of them for a comment (source 3). See
+  "Token setup".

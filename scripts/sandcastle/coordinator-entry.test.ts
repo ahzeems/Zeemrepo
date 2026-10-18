@@ -3,6 +3,7 @@ import { test, type TestContext } from "node:test";
 import { issueBranch, mergeInto } from "../test-support/afk-harness.ts";
 import { journal, script, type AgentCall, type Event, type Scenario } from "../test-support/coordinator-fake-sdk.ts";
 import { FAKE_SDK, redirectSandcastle } from "../test-support/coordinator-hooks.ts";
+import { commitOn, mergeListed, tip, verdict } from "../test-support/coordinator-repo.ts";
 import { createRepo, type RepoFixture } from "../test-support/repo-fixture.ts";
 import { planSchema } from "./plan-schema.ts";
 
@@ -55,8 +56,15 @@ async function runEntry(t: TestContext, repo: RepoFixture, scenario: Scenario): 
 }
 
 const issue = (id: number, title: string): { id: string; title: string; branch: string } => ({ id: String(id), title, branch: `sandcastle/issue-${id}` });
-const commitsFor = (table: Record<string, string[]>) => (call: AgentCall): { sha: string }[] =>
-  (table[`${call.name} ${call.branch ?? ""}`.trim()] ?? []).map((sha) => ({ sha }));
+// The implementer commits on the branches in `producing`, the reviewer passes the tip, the merger
+// merges what it is handed.
+const crew = (repo: RepoFixture, producing: readonly string[]) => (call: AgentCall): { commits?: { sha: string }[]; stdout?: string } => {
+  const branch = call.branch ?? "";
+  if (call.name === "implementer") return { commits: producing.includes(branch) ? [{ sha: commitOn(repo, branch) }] : [] };
+  if (call.name === "reviewer") return { stdout: verdict(tip(repo, branch)) };
+  mergeListed(repo, call.promptArgs?.BRANCHES);
+  return {};
+};
 const calls = (events: readonly Event[]): string[] => events.map((event) => [event.call, event.name, event.branch].filter((part) => part !== undefined).join(" "));
 const forBranch = (events: readonly Event[], branch: string): string[] => calls(events.filter((event) => event.branch === branch));
 const optionsOf = (call: string): unknown[] => journal.filter((event) => calls([event])[0] === call).map((event) => event.options);
@@ -100,9 +108,10 @@ await test("an empty plan ends the run after one planner call", async (t) => {
 });
 
 await test("a round plans, implements, reviews only work with commits, then merges", async (t) => {
-  const result = await runEntry(t, repoOn(t), {
+  const repo = repoOn(t);
+  const result = await runEntry(t, repo, {
     plans: [{ issues: [issue(1, "First"), issue(2, "Second")] }, { issues: [] }],
-    agent: commitsFor({ "implementer sandcastle/issue-1": ["a1"], "reviewer sandcastle/issue-1": ["r1"] }),
+    agent: crew(repo, ["sandcastle/issue-1"]),
   });
   assert.equal(result.error, undefined);
   assert.equal(result.status, 0);
@@ -114,49 +123,59 @@ await test("a round plans, implements, reviews only work with commits, then merg
   assert.equal(order.at(-1), "run planner");
   assert.deepEqual(optionsOf("createSandbox sandcastle/issue-1"), [{ branch: "sandcastle/issue-1", sandbox: SANDBOX, hooks: HOOKS, copyToWorktree: ["node_modules"] }]);
   assert.deepEqual(optionsOf("sandbox.run implementer sandcastle/issue-1"), [{ name: "implementer", maxIterations: 100, agent: AGENT, promptFile: "./.sandcastle/implement-prompt.md", promptArgs: { TASK_ID: "1", ISSUE_TITLE: "First", BRANCH: "sandcastle/issue-1" } }]);
-  assert.deepEqual(optionsOf("sandbox.run reviewer sandcastle/issue-1"), [{ name: "reviewer", maxIterations: 1, agent: AGENT, promptFile: "./.sandcastle/review-prompt.md", promptArgs: { BRANCH: "sandcastle/issue-1" } }]);
+  assert.deepEqual(optionsOf("sandbox.run reviewer sandcastle/issue-1"), [{ name: "reviewer", maxIterations: 1, agent: AGENT, promptFile: "./.sandcastle/review-prompt.md", promptArgs: { BRANCH: "sandcastle/issue-1", CANDIDATE: tip(repo, "sandcastle/issue-1") } }]);
   assert.deepEqual(optionsOf("run merger"), [{ hooks: HOOKS, sandbox: SANDBOX, name: "merger", maxIterations: 1, agent: AGENT, promptFile: "./.sandcastle/merge-prompt.md", promptArgs: { BRANCHES: "- sandcastle/issue-1", ISSUES: "- 1: First" } }]);
   assert.deepEqual(result.out, [
     "\n=== Iteration 1/10 ===\n", "Planning complete. 2 issue(s) to work in parallel:", "  1: First → sandcastle/issue-1", "  2: Second → sandcastle/issue-2",
-    "\nExecution complete. 1 branch(es) with commits:", "  sandcastle/issue-1", "\nBranches merged.",
+    "\nExecution complete. 1 reviewed branch(es) to merge:", "  sandcastle/issue-1", "\nMerger finished.",
     "\n=== Iteration 2/10 ===\n", "No unblocked issues to work on. Exiting.", "\nAll done.",
   ]);
 });
 
-await test("a failed implementer is reported, its sandbox closed, and the other branch merged", async (t) => {
-  const result = await runEntry(t, repoOn(t), {
+await test("a failed implementer is reported, its sandbox closed, the other branch merged, and the run exits 2", async (t) => {
+  const repo = repoOn(t);
+  const honest = crew(repo, ["sandcastle/issue-2"]);
+  const result = await runEntry(t, repo, {
     plans: [{ issues: [issue(1, "First"), issue(2, "Second")] }],
     agent: (call) => {
       if (call.branch === "sandcastle/issue-1") throw new Error("boom");
-      return call.name === "implementer" ? [{ sha: "b1" }] : [];
+      return honest(call);
     },
   });
   assert.equal(result.error, undefined);
-  assert.deepEqual(result.err, ["  ✗ 1 (sandcastle/issue-1) failed: Error: boom"]);
+  assert.equal(result.status, 2);
+  assert.deepEqual(result.err, [
+    "  ✗ 1 (sandcastle/issue-1) failed: Error: boom",
+    "\nRun incomplete: issue 1 is not integrated.",
+    "  1 (sandcastle/issue-1): failed in the implementer: Error: boom",
+  ]);
   assert.deepEqual(forBranch(journal, "sandcastle/issue-1"), ["createSandbox sandcastle/issue-1", "sandbox.run implementer sandcastle/issue-1", "close sandcastle/issue-1"]);
   assert.deepEqual(promptArgsOf("run merger"), [{ BRANCHES: "- sandcastle/issue-2", ISSUES: "- 2: Second" }]);
 });
 
-await test("a failed reviewer closes its sandbox and, with nothing else produced, the round merges nothing", async (t) => {
-  const result = await runEntry(t, repoOn(t), {
+await test("a failed reviewer closes its sandbox and, with nothing else reviewed, the round merges nothing", async (t) => {
+  const repo = repoOn(t);
+  const result = await runEntry(t, repo, {
     plans: [{ issues: [issue(5, "Fifth")] }],
     agent: (call) => {
       if (call.name === "reviewer") throw new Error("review crashed");
-      return [{ sha: "c5" }];
+      return [{ sha: commitOn(repo, "sandcastle/issue-5") }];
     },
   });
   assert.equal(result.error, undefined);
-  assert.deepEqual(result.err, ["  ✗ 5 (sandcastle/issue-5) failed: Error: review crashed"]);
+  assert.equal(result.status, 2);
+  assert.equal(result.err[0], "  ✗ 5 (sandcastle/issue-5) failed: Error: review crashed");
   assert.deepEqual(calls(journal), ["run planner", "createSandbox sandcastle/issue-5", "sandbox.run implementer sandcastle/issue-5", "sandbox.run reviewer sandcastle/issue-5", "close sandcastle/issue-5", "run planner"]);
-  assert.ok(result.out.includes("No commits produced. Nothing to merge."));
+  assert.ok(result.out.includes("No reviewed work to merge."));
 });
 
-await test("a branch left ahead by an earlier round is merged although the implementer adds nothing", async (t) => {
+await test("a branch left ahead by an earlier round is reviewed and merged although the implementer adds nothing", async (t) => {
   const repo = repoOn(t);
   issueBranch(repo, "sandcastle/issue-3");
-  const result = await runEntry(t, repo, { plans: [{ issues: [issue(3, "Third")] }] });
+  const result = await runEntry(t, repo, { plans: [{ issues: [issue(3, "Third")] }], agent: crew(repo, []) });
   assert.equal(result.error, undefined);
-  assert.deepEqual(forBranch(journal, "sandcastle/issue-3"), ["createSandbox sandcastle/issue-3", "sandbox.run implementer sandcastle/issue-3", "close sandcastle/issue-3"]);
+  assert.equal(result.status, 0);
+  assert.deepEqual(forBranch(journal, "sandcastle/issue-3"), ["createSandbox sandcastle/issue-3", "sandbox.run implementer sandcastle/issue-3", "sandbox.run reviewer sandcastle/issue-3", "close sandcastle/issue-3"]);
   assert.deepEqual(promptArgsOf("run merger"), [{ BRANCHES: "- sandcastle/issue-3", ISSUES: "- 3: Third" }]);
 });
 
@@ -169,32 +188,40 @@ await test("an issue whose work is already merged is skipped and not executed", 
   assert.deepEqual(result.out, ["\n=== Iteration 1/10 ===\n", "  skipped 4: sandcastle/issue-4 is already merged into the current branch", "No unblocked issues to work on. Exiting.", "\nAll done."]);
 });
 
-await test("rounds that produce nothing stop after ten iterations", async (t) => {
+await test("rounds that produce nothing stop after ten iterations as an incomplete run, exit 2", async (t) => {
   const plans = Array.from({ length: 11 }, () => ({ issues: [issue(6, "Sixth")] }));
   const result = await runEntry(t, repoOn(t), { plans });
   assert.equal(result.error, undefined);
+  assert.equal(result.status, 2);
   assert.equal(calls(journal).filter((call) => call === "run planner").length, 10);
-  assert.equal(result.out.filter((line) => line === "No commits produced. Nothing to merge.").length, 10);
-  assert.deepEqual(result.out.slice(-2), ["No commits produced. Nothing to merge.", "\nAll done."]);
+  assert.equal(result.out.filter((line) => line === "No reviewed work to merge.").length, 10);
+  assert.equal(result.out.includes("\nAll done."), false);
+  assert.deepEqual(result.err, ["\nRun incomplete: stopped after 10 rounds with work still planned."]);
   assert.equal(calls(journal).includes("run merger"), false);
 });
 
-await test("an invalid plan aborts the run before any sandbox", async (t) => {
+await test("an invalid plan fails the run before any sandbox, exit 2", async (t) => {
   const result = await runEntry(t, repoOn(t), { plans: [{ issues: [{ id: "x", title: "Bad", branch: "sandcastle/issue-x" }] }] });
-  assert.match(String(result.error), /fake StructuredOutputError: id must be an issue number/);
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 2);
+  assert.match(result.err.join("\n"), /Run failed: the planner failed: Error: fake StructuredOutputError: id must be an issue number/);
   assert.deepEqual(calls(journal), ["run planner"]);
   assert.equal(result.out.includes("\nAll done."), false);
 });
 
-await test("a failed merger aborts the run before another round", async (t) => {
-  const result = await runEntry(t, repoOn(t), {
+await test("a failed merger fails the run before another round, exit 2", async (t) => {
+  const repo = repoOn(t);
+  const honest = crew(repo, ["sandcastle/issue-7"]);
+  const result = await runEntry(t, repo, {
     plans: [{ issues: [issue(7, "Seventh")] }, { issues: [] }],
     agent: (call) => {
       if (call.name === "merger") throw new Error("merge failed");
-      return call.name === "implementer" ? [{ sha: "c7" }] : [];
+      return honest(call);
     },
   });
-  assert.match(String(result.error), /merge failed/);
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 2);
+  assert.match(result.err.join("\n"), /Run failed: the merger failed: Error: merge failed/);
   assert.deepEqual(calls(journal).slice(-1), ["run merger"]);
-  assert.equal(result.out.includes("\nBranches merged."), false);
+  assert.equal(result.out.includes("\nMerger finished."), false);
 });

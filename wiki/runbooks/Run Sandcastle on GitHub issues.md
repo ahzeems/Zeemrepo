@@ -29,12 +29,34 @@ SDK to the loop in `scripts/sandcastle/coordinator.ts`. The loop repeats three p
    `sandcastle/issue-<number>`. An issue whose branch is already merged into the branch you ran
    from is skipped and the log says so (`scripts/sandcastle/already-done.ts`).
 2. **Implement, then review.** For each planned issue, a sandbox on that branch runs the
-   implementer (up to 100 iterations); if it committed, a reviewer then runs once on the same
-   branch. Issues run in parallel.
-3. **Merge.** One agent merges every branch that produced commits, and every planned branch that
-   still holds commits the branch lacks (left over from an earlier round and not reviewed in this
-   one), into the branch you ran from,
-   runs `npm run typecheck` and `npm run test`, and comments on each issue.
+   implementer (up to 100 iterations). When the branch then holds commits the branch you ran
+   from lacks (this round's work or work left from an earlier round), its tip is the candidate
+   and a reviewer runs once on the same branch. The reviewer is read-only and must end with a
+   `<review>` verdict naming the candidate's full SHA. Only the last block counts; a trailing
+   unclosed block or a repeated key makes the verdict malformed. Issues run in parallel.
+3. **Merge.** One agent merges only the issues whose review passed for their exact candidate,
+   into the branch you ran from, runs `npm run typecheck` and `npm run test`, and comments on
+   each issue. The coordinator then checks that the branch holds each reviewed commit and that
+   no issue branch moved after its review.
+
+Each issue ends a round with one outcome (`scripts/sandcastle/run-result.ts`, S09):
+
+| Outcome | Meaning |
+|---|---|
+| `no-work` | The branch holds nothing the branch you ran from lacks; nothing to review. |
+| `failed` | The sandbox, implementer or reviewer threw; the phase and error are logged. |
+| `held` | The review failed, was missing or malformed, named another commit, or the reviewer changed the branch. The issue is not merged. A later round reviews the tip again with a fresh reviewer only if the planner plans the issue again. |
+| `eligible` | The review passed for the exact, unchanged candidate; the issue goes to the merger. An issue still `eligible` at the end of a run was never merged and counts as outstanding. |
+| `integrated` | The reviewed commit is in the branch you ran from and the issue branch still points at it. |
+| `not-integrated` | The review passed, but the merger did not merge that commit or the branch moved after review. |
+
+The run is `complete` (exit 0, `All done.`) only when the planner returns no issue and no issue's
+latest outcome is `failed`, `held`, `eligible` or `not-integrated`. Otherwise it ends `incomplete` (exit 2)
+and names each such issue, or after round 10 with work still planned. A planner or merger that
+throws ends the run `failed` (exit 2) instead of crashing. On `main` or a detached HEAD it is
+refused (exit 1). These outcomes are claims of the loop, not verification: a passing verdict is
+the reviewer agent's word, and the merger may commit a fix after a merge that nobody reviews.
+Trusted verifier receipts and retry state are later audit work (S15, S17).
 
 What it does not do: it never pushes or opens a pull request, and its prompts tell it not to
 close issues. It does post a comment on each issue it merged, which notifies that issue's
@@ -73,8 +95,9 @@ Use it for small, well-specified issues. Rules the agents follow are in `CLAUDE.
 2. Commit or set aside your own changes first; the merge agent works in your working tree.
 3. Run `npm run sandcastle`. Logs go to `.sandcastle/logs/` and worktrees to
    `.sandcastle/worktrees/`; both are git-ignored.
-4. The loop stops when the planner returns no issue (`No unblocked issues to work on. Exiting.`)
-   or after round 10.
+4. The loop stops when the planner returns no issue (`No unblocked issues to work on. Exiting.`),
+   after round 10, or when the planner or merger fails. Anything but `All done.` and exit 0
+   means work is left: the last lines name each issue and its outcome.
 5. Review what landed with [[Verify a repository change]], read the implementer log too, then
    land it with [[Land a change]].
 
@@ -101,8 +124,10 @@ In order:
    these are reported together. Nothing has run yet. A login that is the
    repository owner is refused by step 4, after the loop; the work then stays merged on the
    branch.
-2. Runs `node .sandcastle/main.ts`. If that exits non-zero the wrapper stops with exit 2 and
-   nothing is pushed or commented. It also stops with exit 2 when HEAD is no longer on the
+2. Runs `node .sandcastle/main.ts`. If that exits 2 (an incomplete or failed run), the wrapper
+   says so and goes on to judge the branch itself in step 3, so reviewed work the loop merged can
+   still land, and the wrapper then exits 2 whatever lands. Any other non-zero exit stops the
+   wrapper with exit 2, and nothing is pushed or commented. It also stops with exit 2 when HEAD is no longer on the
    starting branch afterwards, or the tree is left with uncommitted changes or a merge in
    progress, because the merger is an agent with a shell on this checkout.
 3. Runs `git fetch origin main`, then lists the local branches named `sandcastle/issue-<N>` that
@@ -329,12 +354,12 @@ publication (S16) are separate later steps. Tests:
   recognised as worked: it stays pending and is planned again every round until `MAX_ITERATIONS`
   (10) stops the loop, each round costing an implementer run of up to 100 iterations and losing
   nothing, so do not rebase; the
-  prompts forbid rebasing, and a rebased branch ahead of HEAD is still passed to the merger. A branch that was created, reset, renamed or
+  prompts forbid rebasing, and a rebased branch ahead of HEAD is still reviewed and, if its review passes, merged. A branch that was created, reset, renamed or
   fast-forwarded and never committed to stays pending, as does one whose commits an agent reset
   away. Four limits follow: a pull request that the owner squash-merges leaves a branch that is
   never an ancestor, so delete that local branch or close the issue; a branch with no reflog
   (for example after its reflog expired) is "unrecognised", stays pending and is planned again,
-  and when it is ahead of HEAD it is still passed to the merger; a branch that holds only part
+  and when it is ahead of HEAD it is still reviewed and offered to the merger; a branch that holds only part
   of an issue's work, once merged, is dropped on the next round, so the implementer is told to
   say in the issue comment when a task is incomplete and the owner reads that comment before
   merging; and a reflog entry that names a pruned commit counts as not reachable.
@@ -344,7 +369,7 @@ publication (S16) are separate later steps. Tests:
   commit HEAD already holds creates a new commit with the same patch and counts as the branch's
   own work; a `git revert` that is the branch's only change counts, and once merged removes that
   commit from HEAD; and after the owner squash-merges a pull request the issue branch is
-  "ahead" of the integration branch forever, so it is passed to the merger each round until
+  "ahead" of the integration branch forever, so it is reviewed and offered to the merger each round until
   the issue is closed or the local branch deleted. Detecting "same patch as HEAD" needs a
   patch-id comparison, which is follow-up work.
 - Two conservative cases that lose nothing but replan: a branch whose only entry is a merge of
@@ -382,15 +407,19 @@ publication (S16) are separate later steps. Tests:
   undone, and the next round drops it as done; read the integration branch's checks before
   landing it.
 - A planned branch that still holds commits HEAD lacks (a reviewer that threw, an aborted merge,
-  a sandbox that died after the implementer committed) is passed to the merger in the next round
-  even when the implementer adds nothing, so it no longer stalls the loop. It is merged without
-  a review round and may be partial or broken, so read it before landing the integration branch.
+  a sandbox that died after the implementer committed) is reviewed again in the next round even
+  when the implementer adds nothing, and reaches the merger only when that review passes for its
+  tip (S09).
 - A branch whose commits an agent reset away (to its creation point or to any commit HEAD already
   contains), in any order with a rebase, has no reachable commit entry and stays pending. A
   branch reset only part of the way back keeps the commits that are still reachable from its tip
   and counts as worked. A branch ahead of HEAD with no reachable commit entry (a rebase, a tip
   written by `fetch` or `update-ref`, another branch merged onto an empty one) is passed to the
-  merger and never dropped.
+  reviewer and never dropped.
+- The merger is an agent with a shell: the prompt tells it to merge only the listed reviewed
+  branches, but nothing stops it from merging a held branch. The coordinator reports any listed
+  issue it did not merge, not a branch it merged unasked; the AFK wrapper classifies what was
+  merged from Git, not from the loop's claims.
 - The review prompt runs `git diff <current branch>...` in a shell, so run the loop from a
   branch whose name is plain (letters, digits, `-`, `/`).
 - The loop refuses to start on `main` or a detached HEAD, because the merger commits into the

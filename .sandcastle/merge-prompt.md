@@ -4,6 +4,8 @@ Merge the following branches into the current branch:
 
 {{BRANCHES}}
 
+Each branch passed review at its current tip. Merge only these branches, and do not add commits to them: the coordinator checks afterwards that this branch holds each reviewed commit and that no branch moved, and reports any other result as not integrated.
+
 For each branch:
 
 1. Run `git merge <branch> --no-edit`

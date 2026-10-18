@@ -66,6 +66,26 @@ await test("a failing Sandcastle loop stops the run with exit 2", (t) => {
   assert.ok(!calls.some((call) => call.includes("pr-ready") || call.startsWith("gh issue") || call.startsWith("gh pr")));
 });
 
+await test("an incomplete loop (exit 2) that merged nothing lands nothing and exits 2, never 0", (t) => {
+  const repo = fixture(t);
+  const { run, calls } = runner(repo, { loop: () => EXIT_ERROR });
+  const result = go(repo, run);
+  assert.equal(result.code, EXIT_ERROR);
+  assert.match(result.err, /reported incomplete or failed work/);
+  assert.ok(!calls.some((call) => call.includes("pr-ready") || call.startsWith("gh issue")));
+});
+
+await test("an incomplete loop (exit 2) still lands the issue it integrated, then exits 2", (t) => {
+  const repo = fixture(t);
+  issueBranch(repo, "sandcastle/issue-4");
+  const { run, calls } = runner(repo, { loop: () => { mergeInto(repo, "feat/afk-work", "sandcastle/issue-4"); return EXIT_ERROR; } });
+  const result = go(repo, run, [], { SANDCASTLE_AFK_LAND_CODE: "1" });
+  assert.equal(result.code, EXIT_ERROR);
+  assert.ok(calls.includes("node scripts/git/pr-ready.ts"), "the reviewed, integrated issue proceeds into a pull request");
+  assert.equal(comments(calls).length, 1);
+  assert.match(result.err, /reported incomplete or failed work/);
+});
+
 await test("a refusal from the landing tool is propagated and names the step, and nothing is commented", (t) => {
   const repo = fixture(t);
   issueBranch(repo, "sandcastle/issue-4");

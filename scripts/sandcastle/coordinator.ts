@@ -1,19 +1,23 @@
-import { aheadIssues, pendingIssues, type PlannedIssue } from "./already-done.ts";
+import { isAncestor, tryGit } from "../lib/git.ts";
+import { pendingIssues, type PlannedIssue } from "./already-done.ts";
 import { branchRefusal } from "./branch-guard.ts";
 import { planSchema, type Plan } from "./plan-schema.ts";
+import { describeOutcome, exitCode, finish, judgeReview, latest, outstanding, type IssueOutcome, type IssueResult, type Phase, type RunResult, type Stop } from "./run-result.ts";
 
-// The Sandcastle loop: plan, then per issue implement and review in one sandbox, then merge.
-// It repeats up to MAX_ITERATIONS times so issues unblocked by a merge are picked up next round.
+// The Sandcastle loop: plan, then per issue implement and review in one sandbox, then merge the
+// issues whose review passed for their exact candidate commit. It repeats up to MAX_ITERATIONS
+// times so issues unblocked by a merge are picked up next round. Each issue's outcome and the
+// run's status come from run-result.ts.
 // The SDK is passed in (`sandcastle`), so importing this module starts nothing; .sandcastle/main.ts
 // passes the real one.
 
-type Commits = { readonly commits: readonly { readonly sha: string }[] };
+type AgentResult = { readonly commits: readonly { readonly sha: string }[]; readonly stdout: string };
 type Hooks = { readonly sandbox: { readonly onSandboxReady: { readonly command: string }[] } };
 type AgentRun<Agent> = {
   name: string; maxIterations: number; agent: Agent; promptFile: string; promptArgs?: Record<string, string>;
 };
 type HostRun<Agent, Provider> = AgentRun<Agent> & { hooks: Hooks; sandbox: Provider };
-type SandboxHandle<Agent> = { run(options: AgentRun<Agent>): Promise<Commits>; close(): Promise<unknown> };
+type SandboxHandle<Agent> = { run(options: AgentRun<Agent>): Promise<AgentResult>; close(): Promise<unknown> };
 
 /** The part of @ai-hero/sandcastle (plus its docker provider) the coordinator calls. */
 export type Sandcastle<Agent, Provider, PlanOutput> = {
@@ -39,7 +43,10 @@ const MODEL = "claude-opus-4-8";
 const HOOKS: Hooks = { sandbox: { onSandboxReady: [{ command: "npm install" }] } };
 const COPY_TO_WORKTREE = ["node_modules"];
 
-async function plan<A, P, O>(deps: Coordinator<A, P, O>): Promise<PlannedIssue[]> {
+const tipOf = (branch: string, cwd: string): string | undefined =>
+  tryGit(["rev-parse", "--verify", "--quiet", `refs/heads/${branch}^{commit}`], { cwd }) ?? undefined;
+
+async function plan<A, P, O>(deps: Coordinator<A, P, O>): Promise<{ pending: PlannedIssue[]; merged: IssueResult[] }> {
   const { sandcastle } = deps;
   // Output.object rejects a missing tag, malformed JSON or a plan planSchema refuses, which
   // aborts the loop. Structured output requires maxIterations: 1.
@@ -53,57 +60,77 @@ async function plan<A, P, O>(deps: Coordinator<A, P, O>): Promise<PlannedIssue[]
     output: sandcastle.Output.object({ tag: "plan", schema: planSchema }),
   });
   // An issue whose branch is already merged into the current branch is not planned again.
-  const issues = pendingIssues(planned.output.issues, deps.cwd);
-  for (const issue of planned.output.issues) {
-    if (!issues.some((pending) => pending.id === issue.id)) {
-      deps.log(`  skipped ${issue.id}: ${issue.branch} is already merged into the current branch`);
-    }
-  }
-  return issues;
+  const pending = pendingIssues(planned.output.issues, deps.cwd);
+  const merged = planned.output.issues.filter((issue) => !pending.some((open) => open.id === issue.id));
+  for (const issue of merged) deps.log(`  skipped ${issue.id}: ${issue.branch} is already merged into the current branch`);
+  return { pending, merged: merged.map((issue) => ({ issue, outcome: { kind: "integrated", sha: tipOf(issue.branch, deps.cwd) ?? "" } })) };
 }
 
-// The implementer and reviewer share one sandbox per branch; the reviewer runs only when the
-// implementer committed. Each run returns only its own commits, so both are combined.
-async function execute<A, P, O>(deps: Coordinator<A, P, O>, issue: PlannedIssue): Promise<Commits> {
-  const { sandcastle } = deps;
-  const sandbox = await sandcastle.createSandbox({
-    branch: issue.branch, sandbox: sandcastle.docker(), hooks: HOOKS, copyToWorktree: COPY_TO_WORKTREE,
-  });
+async function attempt<T>(phase: Phase, step: () => Promise<T>): Promise<{ value: T } | { failed: IssueOutcome }> {
   try {
-    const implement = await sandbox.run({
-      name: "implementer",
-      maxIterations: 100,
-      agent: sandcastle.claudeCode(MODEL),
-      promptFile: "./.sandcastle/implement-prompt.md",
-      promptArgs: { TASK_ID: issue.id, ISSUE_TITLE: issue.title, BRANCH: issue.branch },
-    });
-    if (implement.commits.length === 0) return implement;
-    const review = await sandbox.run({
-      name: "reviewer",
-      maxIterations: 1,
-      agent: sandcastle.claudeCode(MODEL),
-      promptFile: "./.sandcastle/review-prompt.md",
-      promptArgs: { BRANCH: issue.branch },
-    });
-    return { ...review, commits: [...implement.commits, ...review.commits] };
+    return { value: await step() };
+  } catch (error) {
+    return { failed: { kind: "failed", phase, reason: String(error) } };
+  }
+}
+
+// The implementer and reviewer share one sandbox per branch. The candidate is the branch tip the
+// implementer leaves, including work an earlier round left unmerged; a branch with nothing HEAD
+// lacks is not reviewed. The reviewer is read-only: a review that moves the tip certifies nothing.
+async function execute<A, P, O>(deps: Coordinator<A, P, O>, issue: PlannedIssue): Promise<IssueOutcome> {
+  const { sandcastle } = deps;
+  const created = await attempt("sandbox", () => sandcastle.createSandbox({
+    branch: issue.branch, sandbox: sandcastle.docker(), hooks: HOOKS, copyToWorktree: COPY_TO_WORKTREE,
+  }));
+  if ("failed" in created) return created.failed;
+  const sandbox = created.value;
+  try {
+    return await implementAndReview(deps, issue, sandbox);
   } finally {
     await sandbox.close();
   }
 }
 
-// A rejected pipeline is logged and does not cancel the others. A branch that produced commits
-// is merged, and so is one that still holds commits HEAD lacks (a reviewer that threw, a merge
-// that was aborted) even when the implementer added nothing this round.
-function completed<A, P, O>(deps: Coordinator<A, P, O>, issues: readonly PlannedIssue[], settled: readonly PromiseSettledResult<Commits>[]): PlannedIssue[] {
-  const outcomes = issues.map((issue, index) => ({ issue, outcome: settled[index] }));
-  for (const { issue, outcome } of outcomes) {
-    if (outcome?.status === "rejected") deps.error(`  ✗ ${issue.id} (${issue.branch}) failed: ${String(outcome.reason)}`);
-  }
-  const produced = outcomes
-    .filter(({ outcome }) => outcome?.status === "fulfilled" && outcome.value.commits.length > 0)
-    .map(({ issue }) => issue);
-  const leftOver = aheadIssues(issues, deps.cwd).filter((issue) => !produced.some((done) => done.id === issue.id));
-  return [...produced, ...leftOver];
+async function implementAndReview<A, P, O>(deps: Coordinator<A, P, O>, issue: PlannedIssue, sandbox: SandboxHandle<A>): Promise<IssueOutcome> {
+  const { sandcastle, cwd } = deps;
+  const implemented = await attempt("implementer", () => sandbox.run({
+    name: "implementer",
+    maxIterations: 100,
+    agent: sandcastle.claudeCode(MODEL),
+    promptFile: "./.sandcastle/implement-prompt.md",
+    promptArgs: { TASK_ID: issue.id, ISSUE_TITLE: issue.title, BRANCH: issue.branch },
+  }));
+  if ("failed" in implemented) return implemented.failed;
+  const candidate = tipOf(issue.branch, cwd);
+  if (candidate === undefined || isAncestor(candidate, "HEAD", { cwd })) return { kind: "no-work" };
+  const reviewed = await attempt("reviewer", () => sandbox.run({
+    name: "reviewer",
+    maxIterations: 1,
+    agent: sandcastle.claudeCode(MODEL),
+    promptFile: "./.sandcastle/review-prompt.md",
+    promptArgs: { BRANCH: issue.branch, CANDIDATE: candidate },
+  }));
+  if ("failed" in reviewed) return reviewed.failed;
+  return judgeReview(candidate, { stdout: reviewed.value.stdout, commits: reviewed.value.commits.length, tipAfter: tipOf(issue.branch, cwd) });
+}
+
+function settle(settled: PromiseSettledResult<IssueOutcome> | undefined): IssueOutcome {
+  if (settled?.status === "fulfilled") return settled.value;
+  return { kind: "failed", phase: "sandbox", reason: String(settled?.reason) };
+}
+
+const line = (outcome: IssueOutcome): string => (outcome.kind === "failed" ? `failed: ${outcome.reason}` : describeOutcome(outcome));
+
+// A reviewed issue is integrated only when HEAD holds its reviewed commit and its branch still
+// points there: a branch that moved after review would have brought unreviewed commits with it.
+function integration(cwd: string, eligible: readonly IssueResult[]): IssueResult[] {
+  return eligible.map(({ issue, outcome }) => {
+    const sha = "sha" in outcome ? outcome.sha : "";
+    const notIntegrated = (reason: string): IssueResult => ({ issue, outcome: { kind: "not-integrated", sha, reason } });
+    if (tipOf(issue.branch, cwd) !== sha) return notIntegrated("the branch moved after its review, so its tip is unreviewed");
+    if (!isAncestor(sha, "HEAD", { cwd })) return notIntegrated("the merger did not merge the reviewed commit");
+    return { issue, outcome: { kind: "integrated", sha } };
+  });
 }
 
 async function merge<A, P, O>(deps: Coordinator<A, P, O>, issues: readonly PlannedIssue[]): Promise<void> {
@@ -120,44 +147,99 @@ async function merge<A, P, O>(deps: Coordinator<A, P, O>, issues: readonly Plann
       ISSUES: issues.map((issue) => `- ${issue.id}: ${issue.title}`).join("\n"),
     },
   });
-  deps.log("\nBranches merged.");
+  deps.log("\nMerger finished.");
 }
 
-async function round<A, P, O>(deps: Coordinator<A, P, O>): Promise<"stop" | "next"> {
-  const issues = await plan(deps);
-  if (issues.length === 0) {
-    deps.log("No unblocked issues to work on. Exiting.");
-    return "stop";
-  }
-  deps.log(`Planning complete. ${issues.length} issue(s) to work in parallel:`);
-  for (const issue of issues) deps.log(`  ${issue.id}: ${issue.title} → ${issue.branch}`);
+type Round = { results: IssueResult[]; stop?: Stop };
+
+async function executeAll<A, P, O>(deps: Coordinator<A, P, O>, issues: readonly PlannedIssue[]): Promise<IssueResult[]> {
   const settled = await Promise.allSettled(issues.map((issue) => execute(deps, issue)));
-  const merged = completed(deps, issues, settled);
-  deps.log(`\nExecution complete. ${merged.length} branch(es) with commits:`);
-  for (const issue of merged) deps.log(`  ${issue.branch}`);
-  if (merged.length === 0) {
-    deps.log("No commits produced. Nothing to merge.");
-    return "next";
+  const results = issues.map((issue, index) => ({ issue, outcome: settle(settled[index]) }));
+  for (const { issue, outcome } of outstanding(results)) {
+    if (outcome.kind !== "eligible") deps.error(`  ✗ ${issue.id} (${issue.branch}) ${line(outcome)}`);
   }
-  await merge(deps, merged);
-  return "next";
+  return results;
+}
+
+async function planned<A, P, O>(deps: Coordinator<A, P, O>): Promise<Awaited<ReturnType<typeof plan>> | Round> {
+  try {
+    return await plan(deps);
+  } catch (error) {
+    return { results: [], stop: { kind: "failed", reason: `the planner failed: ${String(error)}` } };
+  }
+}
+
+async function round<A, P, O>(deps: Coordinator<A, P, O>): Promise<Round> {
+  const queue = await planned(deps);
+  if ("results" in queue) return queue;
+  const { pending, merged } = queue;
+  if (pending.length === 0) {
+    deps.log("No unblocked issues to work on. Exiting.");
+    return { results: merged, stop: { kind: "drained" } };
+  }
+  deps.log(`Planning complete. ${pending.length} issue(s) to work in parallel:`);
+  for (const issue of pending) deps.log(`  ${issue.id}: ${issue.title} → ${issue.branch}`);
+  const executed = await executeAll(deps, pending);
+  const eligible = executed.filter(({ outcome }) => outcome.kind === "eligible");
+  deps.log(`\nExecution complete. ${eligible.length} reviewed branch(es) to merge:`);
+  for (const { issue } of eligible) deps.log(`  ${issue.branch}`);
+  if (eligible.length === 0) {
+    deps.log("No reviewed work to merge.");
+    return { results: [...merged, ...executed] };
+  }
+  let stop: Stop | undefined;
+  try {
+    await merge(deps, eligible.map(({ issue }) => issue));
+  } catch (error) {
+    stop = { kind: "failed", reason: `the merger failed: ${String(error)}` };
+  }
+  const integrated = integration(deps.cwd, eligible);
+  for (const { issue, outcome } of outstanding(integrated)) deps.error(`  ✗ ${issue.id} (${issue.branch}) ${line(outcome)}`);
+  return { results: latest([...merged, ...executed], integrated), ...(stop === undefined ? {} : { stop }) };
+}
+
+async function rounds<A, P, O>(deps: Coordinator<A, P, O>): Promise<RunResult> {
+  let issues: IssueResult[] = [];
+  for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
+    deps.log(`\n=== Iteration ${iteration}/${MAX_ITERATIONS} ===\n`);
+    let done: Round;
+    try {
+      done = await round(deps);
+    } catch (error) {
+      return finish(issues, { kind: "failed", reason: `round ${String(iteration)} failed: ${String(error)}` });
+    }
+    issues = latest(issues, done.results);
+    if (done.stop !== undefined) return finish(issues, done.stop);
+  }
+  return finish(issues, { kind: "exhausted", rounds: MAX_ITERATIONS });
+}
+
+function report<A, P, O>(deps: Coordinator<A, P, O>, result: RunResult): void {
+  if (result.status === "complete") {
+    deps.log("\nAll done.");
+    return;
+  }
+  deps.error(`\nRun ${result.status}: ${result.reason ?? ""}.`);
+  for (const { issue, outcome } of outstanding(result.issues)) deps.error(`  ${issue.id} (${issue.branch}): ${describeOutcome(outcome)}`);
 }
 
 /**
- * Runs the loop in `deps.cwd` and returns the exit status: 1 when the checkout is on main or a
- * detached HEAD (the merger commits into the checked-out branch), otherwise 0. An agent or
- * planner failure outside the per-issue pipelines rejects.
+ * Runs the loop in `deps.cwd` and returns what it established. Refused when the checkout is on
+ * main or a detached HEAD (the merger commits into the checked-out branch). An agent, planner or
+ * merger failure is recorded in the result, never thrown.
  */
-export async function coordinate<A, P, O>(deps: Coordinator<A, P, O>): Promise<number> {
+export async function runSandcastle<A, P, O>(deps: Coordinator<A, P, O>): Promise<RunResult> {
   const refusal = branchRefusal(deps.cwd);
   if (refusal !== undefined) {
     deps.error(refusal);
-    return 1;
+    return { status: "refused", reason: refusal, issues: [] };
   }
-  for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
-    deps.log(`\n=== Iteration ${iteration}/${MAX_ITERATIONS} ===\n`);
-    if (await round(deps) === "stop") break;
-  }
-  deps.log("\nAll done.");
-  return 0;
+  const result = await rounds(deps);
+  report(deps, result);
+  return result;
+}
+
+/** The loop's exit status: 0 complete, 1 refused before any agent ran, 2 incomplete or failed. */
+export async function coordinate<A, P, O>(deps: Coordinator<A, P, O>): Promise<number> {
+  return exitCode(await runSandcastle(deps));
 }

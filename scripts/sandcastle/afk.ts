@@ -39,8 +39,9 @@ Runs the Sandcastle loop on the current feature branch, then opens a pull reques
 branches it merged (npm run pr's tool) and comments on each issue. Never merges or closes anything.
 Exit: 0 done or nothing to land, 1 refused with nothing pushed (before the loop: a failed fetch,
 an unreadable hooks directory, code on the branch; after it: code that may not land unattended, or
-a refusal from the landing tool), 2 a step failed (including a fetch that failed after the loop,
-when issue branches may already be merged here).`;
+a refusal from the landing tool), 2 a step failed or work is incomplete (including a loop that
+reported incomplete work, after landing what it integrated, and a fetch that failed after the
+loop, when issue branches may already be merged here).`;
 
 function git(run: Run, args: readonly string[]): string {
   const result = run("git", args);
@@ -339,10 +340,15 @@ export function main(args: readonly string[], options: Options = {}): number {
   const configBefore = localConfig(run);
 
   output.write("afk: step 1 of 3, running the Sandcastle loop (node .sandcastle/main.ts).");
-  if (run("node", [".sandcastle/main.ts"], { inherit: true }).status !== 0) {
+  const loop = run("node", [".sandcastle/main.ts"], { inherit: true }).status;
+  // Exit 2 is the loop's incomplete or failed run (run-result.ts): reviewed issues it integrated
+  // may still proceed, judged below from the branch itself, and this run then exits 2 as well.
+  if (loop !== EXIT_OK && loop !== EXIT_ERROR) {
     output.warn("afk: the Sandcastle loop failed (output above). Nothing was pushed or commented, but the loop may already have merged issues into this branch.");
     return EXIT_ERROR;
   }
+  const loopIncomplete = loop === EXIT_ERROR;
+  if (loopIncomplete) output.warn("afk: the Sandcastle loop reported incomplete or failed work (exit 2, named above). What it merged is judged from the branch below; this run exits 2 whatever lands.");
   const tampered = loopAftermath(run, options.cwd, { branch, configBefore, hooksBefore });
   if (tampered !== undefined) {
     output.warn(`afk: ${tampered} Nothing was pushed or commented.`);
@@ -354,7 +360,7 @@ export function main(args: readonly string[], options: Options = {}): number {
   }
   const { issues, unannounced, earlier, earlierRefs, stranded, deleted } = classify(run, options.cwd, tipsBefore, mergedBefore);
   reportClassification(output, { issues, unannounced, earlier, earlierRefs, stranded, deleted });
-  const incomplete = unannounced.length > 0 || stranded.length > 0 || deleted.length > 0;
+  const incomplete = loopIncomplete || unannounced.length > 0 || stranded.length > 0 || deleted.length > 0;
   if (issues.length === 0) return nothingToAnnounce(run, output, { branch, headBefore, earlier, earlierRefs, incomplete });
 
   const refusal = landCode(env) ? undefined : refuseCode(run, output, { repo, branch, issues, incomplete });
@@ -411,7 +417,7 @@ function unfinishedTree(run: Run): string | undefined {
 function nothingToAnnounce(run: Run, output: Output, state: Quiet): number {
   const moved = git(run, ["rev-parse", "HEAD"]).trim() !== state.headBefore;
   if (state.incomplete || moved) {
-    output.warn("afk: nothing was announced, but HEAD moved during the loop or issue work was left unmerged or unrecognised (see above). Check the branch before landing it by hand.");
+    output.warn("afk: nothing was announced, but HEAD moved during the loop, or issue work was left incomplete, unmerged or unrecognised (see above). Check the branch before landing it by hand.");
     return EXIT_ERROR;
   }
   if (state.earlier.length > 0 && !isPushed(run, state.branch, state.earlierRefs)) {

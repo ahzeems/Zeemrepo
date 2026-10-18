@@ -296,6 +296,18 @@ await test("flags this machine's identity through the injected identity, not the
   assert.match(errors, /README\.md: line 1: possible this machine's username/);
 });
 
+await test("flags a path that climbs out of the role-name home under role-name logins", (context) => {
+  const roleHome = "/home/" + "agent";
+  for (const user of ["agent", "node"]) {
+    const root = fixture(context);
+    writeFileSync(join(root, "README.md"), `WORKDIR ${roleHome}/workspace\nls ${roleHome}/x/../y\n`);
+    assert.deepEqual(validateWiki(root, { identity: { host: "ci", user } }).errors, [], user);
+    writeFileSync(join(root, "README.md"), `WORKDIR ${roleHome}/workspace\nls ${roleHome}/../bob/notes\n`);
+    const errors = validateWiki(root, { identity: { host: "ci", user } }).errors;
+    assert.deepEqual(errors, ["README.md: line 2: possible home path with username (use ~ or /home/<user>)"], user);
+  }
+});
+
 await test("accepts native Obsidian block lists for tags and related links", (context) => {
   const note = validNote.replace("tags: [kind/convention]", "tags:\n  - kind/convention")
     .replace("related: []", 'related:\n  - "[[Example note]]"');

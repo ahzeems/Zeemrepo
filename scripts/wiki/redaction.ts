@@ -24,8 +24,8 @@ export function currentIdentity(readUser: () => { username: string } = userInfo)
 // CI runner, a service. A checkout validated by a user named `node` would otherwise fail every
 // note that mentions Node, and one validated by `agent`, the Sandcastle sandbox user, would fail
 // the `agent:` field of every note. Only the bare-word login check skips these names; a
-// home-directory path with a username is still flagged whatever the login is, except under the
-// home of the role name `agent` (see the home-path pattern), which identifies no person.
+// home-directory path with a username is still flagged whatever the login is, except a path
+// that stays under the home of the role name `agent` (see homePathCheck), which identifies no person.
 const SERVICE_ACCOUNTS = new Set([
   "node", "root", "ubuntu", "debian", "alpine", "admin", "administrator", "user", "users", "app",
   "web", "www-data", "nobody", "daemon", "deploy", "docker", "runner", "build", "builder", "ci",
@@ -64,6 +64,39 @@ const emailCheck: RedactionCheck = {
 
 const pattern = (name: string, re: RegExp): RedactionCheck => ({ name, test: (line) => re.test(line) });
 
+const HOME_WITH_NAME = /\/home\/(?!<user>|linuxbrew\b|agent(?![A-Za-z0-9_.-]))[A-Za-z0-9_.-]+/;
+const ROLE_HOME = "/home/agent";
+// What ends a path in prose, a shell line or a PATH list. Quotes and backslashes do not end
+// one: the shell joins a quoted `"../x"` onto the path before it, so they are dropped first.
+const SHELL_JOINERS = /["'\\]/g;
+const PATH_BREAK = /[\s:;,|&<>()[\]{}`]+/;
+
+const depthChange = (segment: string): number => (segment === ".." ? -1 : segment === "" || segment === "." ? 0 : 1);
+
+// True when a `..` climbs above the role-name home at any step, even if a later segment
+// re-enters it: going up to x and back into agent still names x. One pass from the right keeps,
+// for each position, the lowest depth a walk from there reaches, so the scan stays linear.
+function climbsOutOfRoleHome(path: string): boolean {
+  const segments = path.split("/");
+  let lowest = 0;
+  for (let index = segments.length; index >= 3; index -= 1) {
+    if (index < segments.length) lowest = Math.min(0, depthChange(segments[index] ?? "") + lowest);
+    if (lowest < 0 && segments[index - 1] === "agent" && segments[index - 2] === "home") return true;
+  }
+  return false;
+}
+
+// Every home path with a username is flagged whatever the login is, except a path that stays
+// under the home of the role name `agent`, the Sandcastle sandbox user, which identifies no person.
+const homePathCheck: RedactionCheck = {
+  name: "home path with username (use ~ or /home/<user>)",
+  test: (line) => {
+    const joined = line.replace(SHELL_JOINERS, "");
+    return HOME_WITH_NAME.test(joined) || (joined.includes(ROLE_HOME) &&
+      joined.split(PATH_BREAK).some((path) => path.includes(ROLE_HOME) && climbsOutOfRoleHome(path)));
+  },
+};
+
 const FIXED_CHECKS: readonly RedactionCheck[] = [
   emailCheck,
   pattern("GitHub token", /\b(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}|\bgithub_pat_[A-Za-z0-9_]{20,}/),
@@ -75,7 +108,7 @@ const FIXED_CHECKS: readonly RedactionCheck[] = [
   pattern("JWT", /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]*/),
   pattern("private key", /BEGIN [A-Z ]*PRIVATE KEY/),
   pattern("SSH public key", /\b(ssh-(ed25519|rsa|dss)|ecdsa-sha2-nistp\d+) AAAA[A-Za-z0-9+/]{20,}/),
-  pattern("home path with username (use ~ or /home/<user>)", /\/home\/(?!<user>|linuxbrew\b|agent(?![A-Za-z0-9_.-]))[A-Za-z0-9_.-]+/),
+  homePathCheck,
   pattern("macOS home path with username (use ~ or /Users/<user>)", /(?<![A-Za-z]:)(?<![\w/\\])\/Users\/(?!<user>|Shared\b)[A-Za-z0-9]/),
   pattern("Windows user path (use <windows-user>)", /(\/mnt\/c\/Users\/|[A-Z]:(\\+|\/)Users(\\+|\/))(?!<windows-user>)[A-Za-z0-9]/i),
 ];

@@ -40,7 +40,8 @@ const SHELL_PAYLOAD = /\b(?:bash|sh|zsh)\s+(?:-[a-z]+\s+)*-[a-z]*c(?:\s+--)?\s+(
 // as the shell joins it: "gh" is still gh and 'HEAD:main' still a refspec, while a quoted commit
 // message becomes one harmless word and its separators split nothing.
 // A here-string (<<<) is not a heredoc.
-const HEREDOC = /(?<!<)<<-?\s*(["']?)(\w+)\1[^\n]*\n[\s\S]*?\n\t*\2(?=\n|$)/g;
+const OPENER = /(?<!<)<<(?!<)-?[ \t]*(["']?)(\w+)\1/;
+const CLOSER = /^\t*(\w+)$/;
 // Two heredocs on one line are not parsed: their bodies are read as commands rather than risk
 // stripping a command as data.
 const TWO_HEREDOCS = /(?<!<)<<(?!<)[^\n]*(?<!<)<<(?!<)/;
@@ -49,7 +50,6 @@ const TWO_HEREDOCS = /(?<!<)<<(?!<)[^\n]*(?<!<)<<(?!<)/;
 // runs a shell is decided by programOf, which skips wrappers and NAME=value words; `sh -n` only
 // parses. Lines and pipelines are split, never matched with nested patterns, so a long command
 // costs linear time.
-const LINE_HEREDOC = /(^|\n)([^\n]*?)(?<!<)<<(?!<)-?\s*(["']?)(\w+)\3([^\n]*)\n([\s\S]*?)\n\t*\4(?=\n|$)/g;
 const SHELLS = new Set(["bash", "sh", "zsh", "dash", "ksh"]);
 const PIPE = /(?<!\|)\|(?!\|)/;
 const COMMAND_SEPARATOR = /[;&(]/;
@@ -66,11 +66,14 @@ const BACKTICKS = /`([^`]*)`/g;
 // command line of its own. Not when it cannot run: escaped (\$), single-quoted or in a heredoc.
 const SUBSTITUTION = /(?<!\\)\$\(([^()]*)\)/g;
 const SINGLE_QUOTED = /'[^']*'/g;
+// An unquoted heredoc expands $(...) and backticks in its body, inside quotes too. An odd run of
+// backslashes escapes them; an even run is escaped backslashes (\\$(x) still runs x).
+const BODY_SUBSTITUTION = /(?<=(?:^|[^\\])(?:\\\\)*)\$\(([^()]*)\)|(?<=(?:^|[^\\])(?:\\\\)*)`([^`]*)`/g;
 // Separators: &&, ||, ;, |, newline, brackets, and a lone & (background; not 2>&1 or &>).
 const SEPARATOR = /&&|\|\||[;|\n(){}]|(?<![&>])&(?![&>])/;
 // Words that run a later word as the command, with the options each takes a value for and how many
 // plain arguments come before the command (timeout's duration).
-const WRAPPERS = new Set(["sudo", "env", "command", "nohup", "exec", "time", "then", "do", "else", "!", "timeout", "nice", "xargs", "setsid", "stdbuf", "doas"]);
+const WRAPPERS = new Set(["sudo", "env", "command", "nohup", "exec", "time", "if", "elif", "while", "until", "then", "do", "else", "!", "timeout", "nice", "xargs", "setsid", "stdbuf", "doas"]);
 const WRAPPER_VALUE_FLAGS: Record<string, ReadonlySet<string>> = {
   sudo: new Set(["-u", "-g", "-h", "-p", "-C"]), doas: new Set(["-u", "-C"]), env: new Set(["-u", "-C"]), nice: new Set(["-n"]),
   timeout: new Set(["-s", "-k", "--signal", "--kill-after"]), xargs: new Set(["-I", "-n", "-L", "-P", "-d", "-E", "-s", "-a"]),
@@ -128,22 +131,81 @@ function shellInputOf(line: string): string[] {
   return fed.flatMap((source) => [source, ...[...source.matchAll(QUOTED)].map((quoted) => quoted[0].slice(1, -1))]);
 }
 
+type Heredoc = { line: number; close: number; quoted: boolean; before: string; after: string; body: readonly string[] };
+
+const firstAtOrAfter = (sorted: readonly number[], from: number): number | undefined => {
+  let low = 0;
+  let high = sorted.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if ((sorted[middle] ?? 0) < from) low = middle + 1;
+    else high = middle;
+  }
+  return sorted[low];
+};
+
+// The heredocs of a text, each closed by its delimiter on a later line. Delimiter lines are indexed
+// first, so an opener that is never closed costs a lookup, not a scan to the end: a long command
+// costs linear time. An unclosed opener is not a heredoc, so what follows it is read as commands.
+function heredocsIn(lines: readonly string[]): Heredoc[] {
+  const closers = new Map<string, number[]>();
+  lines.forEach((line, index) => {
+    const tag = CLOSER.exec(line)?.[1];
+    if (tag === undefined) return;
+    const indexes = closers.get(tag);
+    if (indexes === undefined) closers.set(tag, [index]);
+    else indexes.push(index);
+  });
+  const found: Heredoc[] = [];
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index] ?? "";
+    const opener = OPENER.exec(line);
+    const close = opener === null ? undefined : firstAtOrAfter(closers.get(opener[2] ?? "") ?? [], index + 1);
+    if (opener === null || close === undefined) continue;
+    const before = line.slice(0, opener.index);
+    found.push({ line: index, close, quoted: opener[1] !== "", before, after: line.slice(opener.index + opener[0].length), body: lines.slice(index + 1, close) });
+    index = close;
+  }
+  return found;
+}
+
+// Rewrites each heredoc, opener line to delimiter, with what replace returns; undefined keeps it.
+function replaceHeredocs(text: string, replace: (heredoc: Heredoc) => string | undefined): string {
+  const lines = text.split("\n");
+  const out: string[] = [];
+  let next = 0;
+  for (const heredoc of heredocsIn(lines)) {
+    const replacement = replace(heredoc);
+    if (replacement === undefined) continue;
+    for (let index = next; index < heredoc.line; index++) out.push(lines[index] ?? "");
+    out.push(replacement);
+    next = heredoc.close + 1;
+  }
+  for (let index = next; index < lines.length; index++) out.push(lines[index] ?? "");
+  return out.join("\n");
+}
+
 // Shell input becomes command lines of its own; other heredocs are left to be stripped as data. A
 // line ending in a pipe continues on the next, as in the shell.
 function liftShellInput(command: string): string {
-  const heredocs = command.replace(LINE_HEREDOC, (match, start: string, before: string, _quote, _tag, after: string, body: string) =>
-    runsShell(lastCommand(before)) || after.split(PIPE).slice(1).some(runsShell) ? `${start}${before} ${after}\n${body}\n` : match);
+  const heredocs = replaceHeredocs(command, ({ before, after, body }) =>
+    runsShell(lastCommand(before)) || after.split(PIPE).slice(1).some(runsShell) ? `${before} ${after}\n${body.join("\n")}` : undefined);
   const lines = heredocs.replace(/\|[ \t]*\n/g, "| ").split("\n").flatMap(shellInputOf);
   return [heredocs, ...lines].join("\n");
 }
 
+function heredocSubstitutions(text: string): string[] {
+  return heredocsIn(text.split("\n")).filter((heredoc) => !heredoc.quoted).flatMap((heredoc) =>
+    [...heredoc.body.join("\n").matchAll(BODY_SUBSTITUTION)].map((match) => match[1] ?? match[2] ?? ""));
+}
+
 function commandParts(command: string): string[][] {
   const joined = joinContinuations(command);
-  const dropData = (text: string): string => TWO_HEREDOCS.test(joined) ? text : text.replace(HEREDOC, " ");
+  const dropData = (text: string): string => TWO_HEREDOCS.test(joined) ? text : replaceHeredocs(text, ({ before }) => `${before} `);
   const lifted = liftShellInput(joined)
     .replace(SHELL_PAYLOAD, (_match, _q1, first: string | undefined, _q2, second: string | undefined) => `\n${first ?? second ?? ""}\n`);
   const runnable = dropData(lifted).replace(SINGLE_QUOTED, " ");
-  const substituted = [...runnable.matchAll(SUBSTITUTION)].map((match) => match[1] ?? "");
+  const substituted = [...[...runnable.matchAll(SUBSTITUTION)].map((match) => match[1] ?? ""), ...heredocSubstitutions(lifted)];
   const code = dropData([lifted, ...substituted].join("\n")).replace(BACKTICKS, (_match, inner: string) => `\n${inner}\n`)
     .replace(QUOTED, (quoted) => quoted.slice(1, -1).replace(NOT_WORD, "")).replace(ESCAPE, "");
   return code.split(SEPARATOR).map((part) => part.trim().split(/\s+/).filter(Boolean));
@@ -197,7 +259,9 @@ function pushDestination(refspec: string): string {
   return target.replace(/^refs\/heads\//, "");
 }
 
-// git push to main in the common refspec forms, or --all/--mirror, which push main too. Quoted or
+// git push to main in the common refspec forms, or --all/--mirror, which push main too. git reads
+// the first positional as the repository even with --repo, but the author may have meant it as a
+// refspec, so with --repo every positional counts as a destination. Quoted or
 // brace-expanded refspecs are not parsed; the pre-push hook and the ruleset still refuse them. A bare `git push` is
 // left to the pre-push branch guard, which knows the current branch.
 function isPushToMain(rest: readonly string[]): boolean {
@@ -206,13 +270,14 @@ function isPushToMain(rest: readonly string[]): boolean {
   if (rest[index] !== "push") return false;
   const positional: string[] = [];
   const args = rest.slice(index + 1);
+  const repoOption = args.some((word) => word === "--repo" || word.startsWith("--repo="));
   for (let at = 0; at < args.length; at++) {
     const word = args[at] ?? "";
     if (word === "--all" || word === "--mirror") return true;
     if (PUSH_FLAGS_WITH_VALUE.has(word)) at++;
     else if (!word.startsWith("-")) positional.push(word);
   }
-  return positional.slice(1).some((refspec) => pushDestination(refspec) === MAIN);
+  return positional.slice(repoOption ? 0 : 1).some((refspec) => pushDestination(refspec) === MAIN);
 }
 
 export function isPushingToMain(command: string): boolean {

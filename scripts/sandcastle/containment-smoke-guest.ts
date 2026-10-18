@@ -41,6 +41,15 @@ export function socketPaths(exists: (path: string) => boolean = existsSync): str
   return SOCKETS.filter((path) => exists(path));
 }
 
+/** `<ID> <VERSION_ID>` from an os-release file, such as "ubuntu 26.04"; a missing field reads "unknown". */
+export function osIdentity(osRelease: string): string {
+  const field = (name: string): string => {
+    const value = new RegExp(`^${name}=(.*)$`, "m").exec(osRelease)?.[1]?.trim().replace(/^(["'])(.*)\1$/, "$2");
+    return value === undefined || value === "" ? "unknown" : value;
+  };
+  return `${field("ID")} ${field("VERSION_ID")}`;
+}
+
 // Every sentinel appends its name to one log, so the order shows which fired during close().
 function plantingCommand(markers: string): string {
   const log = join(markers, "log");
@@ -97,10 +106,17 @@ function runChecks(checkout: string): { script: string; exit: number | null }[] 
   return CHECKS.map((script) => ({ script, exit: spawnSync("npm", ["run", "--silent", script], { cwd: checkout, stdio: "inherit" }).status }));
 }
 
+/** The operating system, read from `osReleasePath`, and the toolchain versions this guest reports. */
+export function toolchainIdentity(osReleasePath: string): { os: string; node: string; python: string; git: string; claude: string } {
+  return {
+    os: osIdentity(readFileSync(osReleasePath, "utf8")), node: process.version, python: version("python3", ["--version"]),
+    git: version("git", ["--version"]), claude: version("claude", ["--version"]),
+  };
+}
+
 async function report(checkout: string, markerDir: string): Promise<number> {
   const result = {
-    node: process.version, python: version("python3", ["--version"]), git: version("git", ["--version"]),
-    claude: version("claude", ["--version"]), sdk: installedSdkVersion(checkout), checks: runChecks(checkout),
+    ...toolchainIdentity("/etc/os-release"), sdk: installedSdkVersion(checkout), checks: runChecks(checkout),
     probe: await probeCleanup(join(checkout, "..", "probe"), markerDir),
     sockets: socketPaths(), mountPoints: mountPoints(readFileSync("/proc/self/mountinfo", "utf8")),
   };

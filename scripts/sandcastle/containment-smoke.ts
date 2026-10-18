@@ -26,6 +26,10 @@ and makes no model calls. Exit: 0 contained, 1 refused or blocked, 2 the tool fa
 const IMAGE = "zeemrepo-sandbox:containment-smoke";
 const RESULT_PATH = "/tmp/containment-result.json";
 const CHECKS = ["lint", "typecheck", "test", "evals:test"];
+// The owner's machine runs Ubuntu 26.04, and the sandbox matches it (OWNER DECISION, 2026-10-18).
+const GUEST_OS = "ubuntu 26.04";
+// evals:test uses tarfile's extraction filters, which Python 3.12 is the first minor to ship.
+const MIN_PYTHON_MINOR = 12;
 const ALLOWED_ENV = new Set(["CONTAINMENT_MARKERS"]);
 const CREDENTIAL = /TOKEN|KEY|SECRET|PASSWORD|CREDENTIAL|^GH_|^GITHUB_|ANTHROPIC|CLAUDE_CODE/i;
 // Docker itself mounts proc, sys, dev and these three files into every container.
@@ -128,7 +132,9 @@ export function resultRefusals(result: unknown, expected: Expected): string[] {
   const refusals: string[] = [];
   const node = String(result.node);
   if (node.match(/^v(\d+)\./)?.[1] !== expected.nodeMajor) refusals.push(`the guest runs Node ${node}, not ${expected.nodeMajor} from .nvmrc`);
-  if (!/^Python 3\./.test(String(result.python))) refusals.push(`the guest has no Python 3 (${String(result.python)})`);
+  if (result.os !== GUEST_OS) refusals.push(`the guest runs ${typeof result.os === "string" ? result.os : String(JSON.stringify(result.os))}, not ${GUEST_OS}`);
+  const pythonMinor = Number(/^Python 3\.(\d+)/.exec(String(result.python))?.[1]);
+  if (!(pythonMinor >= MIN_PYTHON_MINOR)) refusals.push(`the guest has no Python 3.${String(MIN_PYTHON_MINOR)} or later (${String(result.python)})`);
   if (result.sdk !== expected.sdk) refusals.push(`the guest has SDK ${String(result.sdk)}, not ${expected.sdk}`);
   const checks = Array.isArray(result.checks) ? result.checks.filter(isRecord) : [];
   for (const script of CHECKS) {
@@ -182,7 +188,7 @@ function exercise({ run, cwd, scratch, markerDir, expected, output }: Prepared, 
   const read = readResult(join(scratch, "result.json"));
   if ("refusal" in read) return [read.refusal];
   const { result } = read;
-  if (isRecord(result)) output.write(`containment-smoke: guest reports ${["node", "python", "git", "claude", "sdk"].map((key) => `${key} ${String(result[key])}`).join(", ")}`);
+  if (isRecord(result)) output.write(`containment-smoke: guest reports ${["os", "node", "python", "git", "claude", "sdk"].map((key) => `${key} ${String(result[key])}`).join(", ")}`);
   return [
     ...(start === 0 ? [] : [`the guest exited ${String(start)}`]),
     ...resultRefusals(result, expected),

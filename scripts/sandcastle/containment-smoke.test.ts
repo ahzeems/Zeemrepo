@@ -22,7 +22,7 @@ const CLEAN_INSPECT = [{
 
 function guestResult(markerDir: string): Record<string, unknown> {
   return {
-    node: "v24.11.0", python: "Python 3.11.2", git: "git version 2.39.5", claude: "2.1.289 (Claude Code)", sdk: SDK_VERSION,
+    os: "ubuntu 26.04", node: "v24.11.0", python: "Python 3.14.4", git: "git version 2.39.5", claude: "2.1.289 (Claude Code)", sdk: SDK_VERSION,
     checks: ["lint", "typecheck", "test", "evals:test"].map((script) => ({ script, exit: 0 })),
     probe: { commits: 1, duringClose: ["fsmonitor"], markerDir },
     sockets: [], mountPoints: ["/", "/proc", "/proc/sys", "/dev", "/dev/shm", "/sys", "/etc/hosts", "/etc/hostname", "/etc/resolv.conf"],
@@ -78,7 +78,7 @@ await test("a contained run builds the image, launches a clean container without
   const result = go(repo, run);
   assert.equal(result.code, EXIT_OK, result.err);
   assert.match(result.out, /contained/);
-  assert.match(result.out, /guest reports node v24\.11\.0, python Python 3\.11\.2, git git version 2\.39\.5, claude 2\.1\.289 \(Claude Code\), sdk /);
+  assert.match(result.out, /guest reports os ubuntu 26\.04, node v24\.11\.0, python Python 3\.14\.4, git git version 2\.39\.5, claude 2\.1\.289 \(Claude Code\), sdk /);
   const order = calls.map((call) => call.slice(0, 2).join(" "));
   for (const step of ["docker version", "docker build", "git archive", "docker create", "docker inspect", "docker cp", "docker start", "docker rm"]) {
     assert.ok(order.includes(step), step);
@@ -141,7 +141,12 @@ await test("a guest result that misses a control, or a trace on the host, is ref
     ["a sentinel that fired on the host", { duringStart: (m) => mkdirSync(m, { recursive: true }) }, /on the host/],
     ["unreadable guest output", { result: () => "not an object" }, /guest result/],
     ["evals:test missing", { result: (m) => ({ ...guestResult(m), checks: ["lint", "typecheck", "test"].map((script) => ({ script, exit: 0 })) }) }, /evals:test exited undefined/],
-    ["no Python", { result: (m) => ({ ...guestResult(m), python: "unavailable (python3)" }) }, /no Python 3/],
+    ["no Python", { result: (m) => ({ ...guestResult(m), python: "unavailable (python3)" }) }, /no Python 3\.12 or later/],
+    ["a Python older than 3.12", { result: (m) => ({ ...guestResult(m), python: "Python 3.11.2" }) }, /no Python 3\.12 or later \(Python 3\.11\.2\)/],
+    ["another operating system", { result: (m) => ({ ...guestResult(m), os: "debian 13" }) }, /the guest runs debian 13, not ubuntu 26\.04/],
+    ["another Ubuntu release", { result: (m) => ({ ...guestResult(m), os: "ubuntu 24.04" }) }, /the guest runs ubuntu 24\.04, not ubuntu 26\.04/],
+    ["no operating system reported", { result: (m) => ({ ...guestResult(m), os: undefined }) }, /the guest runs undefined, not ubuntu 26\.04/],
+    ["an operating system that is not a string", { result: (m) => ({ ...guestResult(m), os: ["ubuntu 26.04"] }) }, /not ubuntu 26\.04/],
     ["no commit collected", { result: (m) => ({ ...guestResult(m), probe: { commits: 0, duringClose: ["fsmonitor"], markerDir: m } }) }, /commit was not collected/],
     ["no mount points reported", { result: (m) => ({ ...guestResult(m), mountPoints: [] }) }, /no mount points/],
     ["no probe", { result: (m) => ({ ...guestResult(m), probe: undefined }) }, /has no probe/],
@@ -265,6 +270,12 @@ await test("inspection and results are judged as untrusted data", () => {
   assert.match(resultRefusals(null, { nodeMajor: "24", sdk: SDK_VERSION, markerDir: "/tmp/x" }).join(), /guest result/);
   assert.match(resultRefusals({ ...guestResult("/tmp/x"), sdk: "0.0.1" }, { nodeMajor: "24", sdk: SDK_VERSION, markerDir: "/tmp/x" }).join(), /SDK 0\.0\.1/);
   assert.match(resultRefusals(guestResult("/tmp/other"), { nodeMajor: "24", sdk: SDK_VERSION, markerDir: "/tmp/x" }).join(), /marker directory/);
+});
+
+await test("Python 3.12.0 is the oldest guest Python accepted", () => {
+  const expected = { nodeMajor: "24", sdk: SDK_VERSION, markerDir: "/tmp/x" };
+  assert.deepEqual(resultRefusals({ ...guestResult("/tmp/x"), python: "Python 3.12.0" }, expected), []);
+  assert.match(resultRefusals({ ...guestResult("/tmp/x"), python: "Python 3.11.14" }, expected).join(), /no Python 3\.12 or later \(Python 3\.11\.14\)/);
 });
 
 await test("arguments", (t) => {

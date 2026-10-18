@@ -4,7 +4,7 @@ title: Verify a repository change
 summary: Run npm run check and the hooks, review read-only with separate reviewer subagents, and record evidence before opening a pull request.
 tags: [area/git, area/agents, area/typescript, tool/ecc]
 created: 2026-09-20
-updated: 2026-10-17
+updated: 2026-10-18
 agent: claude-code
 status: active
 related: ["[[Land a change]]", "[[Change records]]", "[[ADR-0022 Independent review means a separate reviewer context]]"]
@@ -56,7 +56,8 @@ committing or opening a pull request.
    `check` job runs it after `npm run check`. It builds `.sandcastle/Dockerfile`, copies the
    tracked files into a container with no mounts, runs `lint`, `typecheck`, `test` and
    `evals:test` there, and drives the real Sandcastle SDK cleanup with a fake agent that plants a
-   `core.fsmonitor` command. It passes only when that command fired inside the container and
+   `core.fsmonitor` command. It passes only when the guest reports Ubuntu 26.04 and Python 3.12 or
+   later, that command fired inside the container and
    nothing changed on the host. Without Docker it exits 1 as blocked, which is not a pass. It
    also refuses a checkout with uncommitted changes, because it builds the image from the working
    tree but copies `HEAD` into the container. It judges each container's own settings through

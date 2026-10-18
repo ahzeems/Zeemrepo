@@ -290,10 +290,17 @@ publication (S16) are separate later steps. Tests:
 
 ## Known notes
 
-- The Dockerfile base is `node:24-trixie`, pinned by digest to match `.nvmrc`, with `python3`
-  for `evals:test` (bookworm's Python 3.11.2 lacks the tarfile filters `evals:test` uses) and Claude Code pinned to 2.1.289 (S12, 2026-10-18). `npm run sandbox:smoke`
-  builds it and runs the repository's `lint`, `typecheck`, `test` and `evals:test` inside it; the
-  required CI `check` job runs that on every pull request.
+- The Dockerfile base is `ubuntu:26.04`, the release the owner's machine runs, pinned by digest
+  (S12, captured 2026-10-18). Its apt packages come from the dated Ubuntu snapshot named in the
+  Dockerfile (`snapshot.ubuntu.com`), so a rebuild installs the same versions; Node is the exact
+  `.nvmrc`-matching release from nodejs.org, checked by SHA-256; Claude Code is pinned to 2.1.289.
+  The image is amd64 only. `python3` must be 3.12 or later because `evals:test` uses tarfile's
+  extraction filters. To update a pin, change it in the Dockerfile and re-read its source: the
+  Docker Hub index digest for `ubuntu:26.04`, a snapshot ID from `snapshot.ubuntu.com`, and the
+  checksum from the release's signed `SHASUMS256.txt.asc`. `npm run sandbox:smoke` builds the
+  image, refuses a guest that is not Ubuntu 26.04 or has an older Python, and runs the repository's
+  `lint`, `typecheck`, `test` and `evals:test` inside it; the required CI `check` job runs that on
+  every pull request.
 - This loop still runs its git cleanup on the host. `npm run sandbox:smoke` shows that a
   `core.fsmonitor` command an agent plants runs during the SDK's `close()` (finding A01): inside
   the smoke test's container that is the intended control, but in this loop it would run on your
@@ -386,8 +393,9 @@ publication (S16) are separate later steps. Tests:
 - The loop refuses to start on `main` or a detached HEAD, because the merger commits into the
   checked-out branch. `coordinate()` calls `branchRefusal` (`scripts/sandcastle/branch-guard.ts`)
   before any agent runs, and the coordinator tests cover that call through `main.ts`.
-- The sandbox image is on Node 22 while `.nvmrc` says 24, so a typecheck or test failure inside
-  the sandbox can be environmental. The merger is told not to comment when they fail.
+- The sandbox image runs the Node release `.nvmrc` names (S12), so a typecheck or test failure
+  inside the sandbox is no longer explained by a Node mismatch. The merger is still told not to
+  comment on an issue whose checks keep failing.
 - With `core.logAllRefUpdates=false` a branch has no reflog, so the guard keeps every issue
   pending and a rerun plans it again.
 

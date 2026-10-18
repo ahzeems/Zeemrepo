@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, type TestContext } from "node:test";
 import { isRecord } from "../lib/record.ts";
 import { cleanGitEnv } from "../test-support/repo-fixture.ts";
-import { mountPoints, socketPaths } from "./containment-smoke-guest.ts";
+import { mountPoints, osIdentity, socketPaths, toolchainIdentity } from "./containment-smoke-guest.ts";
 
 const GUEST = join(import.meta.dirname, "containment-smoke-guest.ts");
 
@@ -58,6 +58,29 @@ await test("mount points are read from mountinfo, octal escapes included", () =>
     "4 1 8:1 /srv/host/work /home/agent/with\\040space rw - ext4 /dev/sda1 rw",
   ].join("\n");
   assert.deepEqual(mountPoints(mountinfo), ["/", "/proc", "/etc/hosts", "/home/agent/with space"]);
+});
+
+await test("the operating system is its os-release ID and VERSION_ID, quoted or not", () => {
+  const ubuntu = ['PRETTY_NAME="Ubuntu 26.04.1 LTS"', 'NAME="Ubuntu"', 'VERSION_ID="26.04"', "VERSION_CODENAME=resolute", "ID=ubuntu", "ID_LIKE=debian"].join("\n");
+  assert.equal(osIdentity(ubuntu), "ubuntu 26.04");
+  assert.equal(osIdentity("ID=debian\nVERSION_ID='13'\n"), "debian 13");
+  assert.equal(osIdentity("NAME=Unknown\n"), "unknown unknown", "missing fields are reported, never guessed");
+  assert.equal(osIdentity('ID=\nVERSION_ID=""\n'), "unknown unknown", "empty fields are reported as unknown");
+});
+
+await test("the guest's report names the operating system its os-release file gives", (t) => {
+  const dir = scratch(t);
+  const ubuntu = join(dir, "ubuntu-os-release");
+  const debian = join(dir, "debian-os-release");
+  const blank = join(dir, "blank-os-release");
+  writeFileSync(ubuntu, 'ID=ubuntu\nVERSION_ID="26.04"\n');
+  writeFileSync(debian, 'ID=debian\nVERSION_ID="13"\n');
+  writeFileSync(blank, 'ID=""\nVERSION_ID=\n');
+  const identity = toolchainIdentity(ubuntu);
+  assert.equal(identity.os, "ubuntu 26.04");
+  assert.equal(identity.node, process.version);
+  assert.equal(toolchainIdentity(debian).os, "debian 13", "another os-release gives another report");
+  assert.equal(toolchainIdentity(blank).os, "unknown unknown");
 });
 
 await test("runtime-control sockets are looked for at every usual path", () => {

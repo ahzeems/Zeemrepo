@@ -11,7 +11,7 @@ export const MAX_DEPTH = 4;
 export default defineConfig(
   { ignores: ["node_modules/**", "scripts/fixtures/**", ".worktrees/**"] },
   {
-    files: ["scripts/**/*.ts", "eslint.config.ts"],
+    files: ["scripts/**/*.ts", ".sandcastle/*.ts", "eslint.config.ts"],
     extends: [js.configs.recommended, tseslint.configs.recommendedTypeChecked],
     languageOptions: {
       parserOptions: {

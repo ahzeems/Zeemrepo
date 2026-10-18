@@ -10,7 +10,7 @@
     "lint": "eslint --flag unstable_native_nodejs_ts_config --max-warnings 0 .",
     "typecheck": "tsc -p tsconfig.json",
     "ci": "npm run typecheck && npm test",
-    "test": "node --test --experimental-test-coverage --test-coverage-include=\"scripts/**/*.ts\" --test-coverage-exclude=\"scripts/**/*.test.ts\" --test-coverage-exclude=\"scripts/fixtures/**\" --test-coverage-lines=80 --test-coverage-functions=80 --test-coverage-branches=70 \"scripts/**/*.test.ts\"",
+    "test": "node --test --experimental-test-coverage --test-coverage-include=\"scripts/**/*.ts\" --test-coverage-include=\".sandcastle/*.ts\" --test-coverage-exclude=\"scripts/**/*.test.ts\" --test-coverage-exclude=\"scripts/fixtures/**\" --test-coverage-lines=80 --test-coverage-functions=80 --test-coverage-branches=70 \"scripts/**/*.test.ts\"",
     "check": "npm run check:base && npm run changelog:guard && npm run memory:guard",
     "check:base": "npm run lint && npm run typecheck && npm test && npm run evals:test && npm run wiki:lint && npm run skills:lint && npm run governance:check && npm run rules:check && npm run wiki:compliance",
     "wiki:lint": "node scripts/wiki/wiki-lint.ts",

@@ -22,7 +22,7 @@
   },
   "include": [
     "scripts/**/*.ts",
-    ".sandcastle/main.ts",
+    ".sandcastle/*.ts",
     "eslint.config.ts"
   ]
 }

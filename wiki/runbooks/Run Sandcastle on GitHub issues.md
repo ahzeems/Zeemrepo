@@ -4,7 +4,7 @@ title: Run Sandcastle on GitHub issues
 summary: Run npm run sandcastle so Docker-sandboxed Claude agents plan, implement, review and merge issues labelled Sandcastle onto your branch, without pushing or closing anything.
 tags: [area/agents, area/github, tool/claude-code, kind/setup]
 created: 2026-10-13
-updated: 2026-10-17
+updated: 2026-10-18
 agent: claude-code
 status: draft
 related: ["[[Land a change]]", "[[Verify a repository change]]", "[[Sandcastle runs under the repository rules]]"]
@@ -20,8 +20,9 @@ and `.sandcastle/main.ts`. Re-check with `npm ls @ai-hero/sandcastle` and that R
 ## When to use
 
 Sandcastle is a library that runs Claude Code agents inside Docker containers and returns their
-commits on git branches. `npm run sandcastle` runs `.sandcastle/main.ts`, which repeats three
-phases, at most 10 rounds:
+commits on git branches. `npm run sandcastle` runs `.sandcastle/main.ts`, which hands the real
+SDK to the loop in `scripts/sandcastle/coordinator.ts`. The loop repeats three phases, at most
+10 rounds:
 
 1. **Plan.** One agent reads the open issues of `Zimfra/software_testing` that carry the
    `Sandcastle` label and picks the ones no other open issue blocks. Each gets the branch name
@@ -198,11 +199,16 @@ Sandcastle loop, a real push, and GitHub's review request reaching the owner.
   machine. The isolated workflow that moves the coordinator into the container is the audit
   remediation's later work (S13 to S18); until it lands, treat an unattended run as executing
   agent-controlled git configuration on the host.
-- `.sandcastle/main.ts` names the model `claude-opus-4-8`. Check that id is current before a
+- `scripts/sandcastle/coordinator.ts` names the model `claude-opus-4-8`. Check that id is current before a
   long run; not verified here.
-- `.sandcastle/main.ts` is type-checked by `npm run typecheck` but not linted: the `files` globs
-  in `eslint.config.ts` cover only `scripts/**/*.ts` and `eslint.config.ts` itself, and the
-  file keeps the upstream template's style.
+- The loop is tested without a model (S08, 2026-10-18). `scripts/sandcastle/coordinator-entry.test.ts`
+  imports the real `.sandcastle/main.ts` with `@ai-hero/sandcastle` resolved to a fake SDK, in
+  disposable Git repositories, and checks the order and options of the planner, sandbox,
+  implementer, reviewer, close and merger calls and the log lines. `.sandcastle/*.ts` is linted,
+  type-checked and counted in `npm test` coverage. The tests do not cover the real SDK (its
+  worktrees, commit collection and `Output.object` parsing), Docker, the models, what the prompts
+  make an agent do, or GitHub. The verify-work feature map's "Sandcastle coordinator" entry says
+  how to rerun them.
 - The already-done guard drops an issue only when its `sandcastle/issue-<number>` branch is
   merged into the current branch and its reflog holds a commit, amend or revert entry whose
   commit is still reachable from the tip and changes content relative to its own parent (an
@@ -276,9 +282,9 @@ Sandcastle loop, a real push, and GitHub's review request reaching the owner.
   merger and never dropped.
 - The review prompt runs `git diff <current branch>...` in a shell, so run the loop from a
   branch whose name is plain (letters, digits, `-`, `/`).
-- `main.ts` refuses to start on `main` or a detached HEAD, because the merger commits into the
-  checked-out branch. The refusal is `branchRefusal` in `scripts/sandcastle/branch-guard.ts`,
-  which is tested; the call in `main.ts` is not, because that file is a top-level loop.
+- The loop refuses to start on `main` or a detached HEAD, because the merger commits into the
+  checked-out branch. `coordinate()` calls `branchRefusal` (`scripts/sandcastle/branch-guard.ts`)
+  before any agent runs, and the coordinator tests cover that call through `main.ts`.
 - The sandbox image is on Node 22 while `.nvmrc` says 24, so a typecheck or test failure inside
   the sandbox can be environmental. The merger is told not to comment when they fail.
 - With `core.logAllRefUpdates=false` a branch has no reflog, so the guard keeps every issue

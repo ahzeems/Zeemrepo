@@ -1,0 +1,1 @@
+- The Sandcastle loop moves from `.sandcastle/main.ts` into `scripts/sandcastle/coordinator.ts`, which takes the SDK as an argument and starts nothing on import; tests run the real entry point against a fake SDK and disposable Git repositories, and `.sandcastle/*.ts` is now linted and counted in coverage. Prompts, models, limits and phase order are unchanged (S08).

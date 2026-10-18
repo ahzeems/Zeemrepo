@@ -9,6 +9,14 @@ export type Violation = { sha: string; subject: string; kind: "mixed" | "subject
 
 const WIKI_SUBJECT = /^docs\(wiki\)!?: \S/;
 
+// A merge is judged only on what its author changed by hand: --remerge-diff compares the
+// merge with git's own automatic merge of its parents, so a clean merge of main lists
+// nothing, while conflict resolutions and changes slipped in during a merge are listed.
+// (--cc is not enough: it lists files whose hunks came from both sides even when git merged
+// them cleanly.) Requires git 2.36 or later; an older git fails the check as an error (exit 2).
+// The conflict style is pinned so a user's diff3 setting cannot add base lines to "the sides".
+export const REMERGE = ["-c", "merge.conflictStyle=merge", "show", "--remerge-diff"];
+
 // One classification for history and the staged index, so the two checks cannot disagree.
 // Case-insensitive, because macOS and Windows checkouts resolve Wiki/ to wiki/; the bare
 // path covers a wiki symlink or submodule entry.

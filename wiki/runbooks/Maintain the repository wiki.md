@@ -4,7 +4,7 @@ title: Maintain the repository wiki
 summary: Keep wiki explanations, work records, the Memory index and the changelog current in the same branch as the change, and commit wiki files alone.
 tags: [area/wiki, area/docs, area/git, kind/convention]
 created: 2026-09-21
-updated: 2026-10-17
+updated: 2026-10-18
 agent: claude-code
 status: active
 related: ["[[Land a change]]", "[[Change records]]", "[[Walkthroughs should not duplicate skill rules]]"]
@@ -73,6 +73,11 @@ records hold scope and evidence. Sessions and superseded decisions are history.
    outside it and keep only lines from the two sides, so a line written during the merge, an unrelated edit, a deleted
    file or a mode change is still refused. Commit such a change afterwards, on its own. Octopus
    merges are refused: git cannot remerge them, so they cannot be judged.
+   The same command compares each note at the branch's base with HEAD: `created` and `agent` never
+   change, `updated` moves forward when a note is edited after the day it names, and a decision or
+   session is not edited, renamed or deleted after its `created` day; only its supersession fields,
+   `related` and `tags` may then change. The
+   rules and their limits are in the note schema (`.claude/skills/wiki-memory/references/note-schema.md`).
 
 8. **Land through a pull request.** Follow [[Land a change]]: `npm run pr`, the `check` and
    `guards` status checks, and the owner's merge on GitHub. Fixing a missed update later is an
@@ -84,7 +89,8 @@ records hold scope and evidence. Sessions and superseded decisions are history.
 |---|---|---|
 | Was the change recorded? | `npm run changelog:guard` and `npm run memory:guard` pass | Presence is not accuracy |
 | Do notes validate? | `npm run wiki:lint` passes | Schema and known patterns, not meaning |
-| Are commits split correctly? | `npm run wiki:compliance` passes | Judges paths and subjects only |
+| Are commits split correctly? | `npm run wiki:compliance` passes | Judges paths and subjects |
+| Is history intact? | `npm run wiki:compliance` passes; exit 2 means the history could not be read | Needs full history; commit dates are self-reported, and a `--root` lint run has no history |
 | Is every memory note indexed? | `npm run wiki:lint` reports no unindexed note | An index line can still be stale |
 | Are explanations and work state true? | A separate reviewer compares changed behaviour with the notes | Human or model judgment, with stated evidence |
 | Did it land? | `gh pr view <N> --json state,mergedBy` shows `MERGED`; `npm run audit` passes | Says nothing about any reader's copy |

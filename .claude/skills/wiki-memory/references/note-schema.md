@@ -40,6 +40,14 @@ related: ["[[Root shell hides user-installed tools]]"]
 | `evidence` | required when done; optional while open | A list of labelled results, checked whenever present. Each item starts with `VERIFIED:`, `INFERRED:`, `UNKNOWN:` or `OWNER DECISION:`. Done work needs at least one `VERIFIED:` or `OWNER DECISION:` item. |
 | `job_specs` | plans only, optional | `required`. Every build ticket of the plan must then carry the job-spec sections listed in the ticket row below. `wiki:lint` refuses the field on any other note, and any other value. |
 
+`npm run wiki:compliance` enforces `created`, `updated` and `agent` against Git history. It compares each note at
+the branch's base with HEAD and dates an edit by the latest author or committer date of the branch commits that
+touch it and their branch ancestors, since a commit cannot be older than its parents (a merge counts only when its
+remerge-diff writes lines of its own). It refuses a changed or removed `created` or `agent`, and an `updated` that
+moves backwards, names a day after the edit, or stays put when the note is edited after the day it names. Commit
+dates are set by whoever commits, so a single backdated commit with no later parent can still pass. A note added on the branch is judged by later branches once it is on main. `node scripts/wiki/wiki-lint.ts --root <dir>` reads one
+tree and has no history, so it cannot check these rules.
+
 YAML caution: a `title` or `summary` that contains a colon followed by a space, or a space followed by `#`, must be wrapped in double quotes. Rewording is usually simpler.
 
 ## Note types
@@ -51,6 +59,14 @@ YAML caution: a `title` or `summary` that contains a colon followed by a space, 
 | `lesson` | `lessons/` | What trap exists and how do I avoid it? | Updated in place | What happened, Fix, How to apply |
 | `decision` | `decisions/` | Why is it this way? | Append-only, supersede to change | Context, Decision, Consequences |
 | `reference` | `reference/` | What are the facts? | Updated in place | free form, prefer tables |
+
+Append-only notes are guarded by `npm run wiki:compliance`. After a decision or session's `created` day (a note in
+`decisions/` or `sessions/`, or of either type outside `templates/`), its body may not change, it may not be renamed
+or deleted, and its frontmatter may change only to supersede, relink or retag it: `status` becomes `superseded`,
+`superseded_by` is set, `related` and `tags` change, and `updated` moves forward (the owner allowed `related` and
+`tags` on 2026-10-18). Changing anything else, such as `title` or `summary`, needs a new note.
+A shallow clone or an unreadable earlier note is an error (exit 2), not a pass. Deleting an ordinary note is not
+judged by this check.
 
 A required section is a visible level-2 heading at the top level of the body whose text is exactly the section name. `wiki:lint` reads the body as CommonMark, so any ATX form counts (`## Fix`, `## Fix ##`, extra spaces or a tab after `##`, up to three spaces of indent), and so does `Fix` underlined with `---`. A heading inside an HTML comment, an HTML block such as `<div>` with no blank line before the heading, a fenced or indented code block, a blockquote or a list does not count, and neither does `### Fix`, `# Fix`, `## **Fix**` or `## Fix later`. The same rule applies to work-note sections, including job-spec sections.
 

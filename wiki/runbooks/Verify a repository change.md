@@ -48,7 +48,7 @@ committing or opening a pull request.
    | `npm run skills:lint` | Skill structure and provenance; see [[Skill standards]]. |
    | `npm run governance:check` | No text, code or config file asserts a replaced rule. |
    | `npm run rules:check` | The vendored ECC rules match `config/ecc-rules.json` and the plugin pin. |
-   | `npm run wiki:compliance` | No commit mixes `wiki/` with other files; wiki-only commits start `docs(wiki): `. |
+   | `npm run wiki:compliance` | No commit mixes `wiki/` with other files; wiki-only commits start `docs(wiki): `. No note changes `created` or `agent` or leaves `updated` behind, and no decision or session is edited, renamed or deleted after its day beyond supersession, `related` and `tags`. A shallow clone exits 2. |
    | `npm run changelog:guard` | The branch adds a dated changelog fragment and changes no fragment already on main. |
    | `npm run memory:guard` | The branch updates a work record with evidence, and an operating document when workflow-critical files change. |
 

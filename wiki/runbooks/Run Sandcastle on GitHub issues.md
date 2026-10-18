@@ -187,6 +187,107 @@ calls pushes, merges, closes, bypasses a hook or names `.env` (the landing tool 
 its push is not exercised). Not exercised: the real `gh`, Docker, the
 Sandcastle loop, a real push, and GitHub's review request reaching the owner.
 
+## Candidate artifacts and quarantine
+
+The isolated workflow (audit remediation S13 to S18) returns each candidate as data, not as a
+branch in your checkout. `scripts/sandcastle/quarantine.ts` (S13, 2026-10-18) is the receiving
+side. Nothing calls it yet: `npm run sandcastle` and `npm run sandcastle:afk` still run the loop
+on the host until S14 produces artifacts and S18 switches the public commands over.
+
+An artifact is a directory holding exactly these files, each a regular, non-executable file:
+
+| File | Limit | Content |
+|---|---|---|
+| `candidate.json` | 64 KiB | The version 1 manifest below. |
+| `candidate.bundle` | 64 MiB | A v2 or v3 (SHA-1) Git bundle that carries one ref, the candidate branch. |
+| `recovery.data` | 1 MiB | Optional. Opaque unfinished-work data, kept and never applied. |
+
+```json
+{
+  "version": 1,
+  "repository": "Zimfra/software_testing",
+  "task": "issue-42",
+  "base": "<40-hex base commit>",
+  "candidate": { "ref": "refs/heads/sandcastle/issue-42", "sha": "<40-hex candidate commit>" },
+  "bundle": { "sha256": "<64-hex>", "bytes": 1234, "prerequisites": ["<40-hex base commit>"] },
+  "recovery": { "sha256": "<64-hex>", "bytes": 56 },
+  "claims": { "implement": "succeeded", "review": "succeeded" }
+}
+```
+
+An empty `prerequisites` list is a full bundle; a non-empty one is incremental, and each
+prerequisite must already be in the base's history (at most 16). `claims` may name only the
+builder phases `plan`, `implement`, `review` and `merge`, each `succeeded`, `failed`,
+`interrupted` or `skipped`.
+
+Run it with identities the trusted side already knows, never ones read from the artifact:
+
+```sh
+node scripts/sandcastle/quarantine.ts --artifacts <artifact-dir> --source <trusted-repo> \
+  --repository Zimfra/software_testing --task issue-42 --base <base-sha> \
+  --ref refs/heads/sandcastle/issue-42 [--quarantine-root <dir>]
+```
+
+It exits 0 when the candidate is accepted, 1 when it is refused (each reason printed) and 2
+when it was called wrongly or Git could not run. It refuses when:
+
+- the manifest has another version, repository, task, base or ref, an unknown key (a `command`,
+  a file path, a `verified` flag), a claim for a phase the builder does not own, or a malformed SHA;
+- a file is missing, unreadable, over its limit, a symlink, a FIFO or other non-regular file,
+  executable, or does not match its size and SHA-256, or the directory holds any other entry
+  (`.git`, `hooks`, `config`);
+- the bundle header carries another or an extra ref, a SHA other than the advertised one, other
+  prerequisites, a header longer than 64 KiB, or a capability other than `@object-format=sha1`
+  in a v3 bundle;
+- the trusted source lacks the base, a prerequisite is outside the base's history, Git's own
+  bundle and object checks fail (a corrupt pack, a tree with a `.git` entry, a delta that would
+  inflate past the memory limit below), a Git command runs past its time limit, the candidate
+  ref names a tag or another non-commit object, or the imported commit equals the base or does
+  not descend from it.
+
+A link, FIFO or device at one of the three names is refused from `lstat` alone, before anything
+opens it; the open that follows uses `O_NOFOLLOW` and `O_NONBLOCK` and checks the open file again,
+for an entry swapped in between.
+
+Text from the artifact (manifest values and keys, header lines, Git's error line) is printed
+with control characters, Unicode format characters (bidi overrides and isolates, zero-width
+marks, U+FEFF) and the line and paragraph separators escaped as `\uXXXX`, so a refusal cannot send
+terminal escape sequences or display reordered text.
+
+Memory is bounded per object, not per bundle. The 64 MiB bundle cap counts compressed bytes, and
+a few hundred bytes of deltas can expand to gigabytes. Quarantine Git therefore runs with
+`GIT_ALLOC_LIMIT=64m` and `pack.threads=1`: any single allocation over 64 MiB fails. Expect a candidate
+that holds a genuine file over 64 MiB to be refused as well; that case was not tested. On 2026-10-18 a 262-byte bundle that expands to 192 MiB grew
+`git index-pack` to 197 MiB before Git refused it as a bad object; with the limit it was refused
+at once with `attempting to allocate ... over limit`, and the largest process during the run was
+the 85 MiB Node CLI (measured with `/usr/bin/time -v`, git 2.53).
+
+CPU time is bounded per Git command, not per object. Many deltas, each under the memory limit,
+still take time: on 2026-10-18 a bundle of 60 deltas of up to 48 MiB each took 15 to 21
+seconds to import (two test runs) before Git refused it. Each quarantine Git command therefore has a 120-second deadline. Git runs in
+its own process group, and at the deadline the whole group is killed, including the `index-pack`
+child a fetch starts. A command that prints more than 16 MiB is stopped the same way. Either
+way the run is refused (exit 1) and its quarantine directory kept. Only
+`bundle verify` and the candidate fetch read the candidate's pack, so one candidate costs at most
+about four minutes of Git time on its pack. The object count in the pack is not limited separately.
+
+Each run creates a new `candidate-quarantine-*` directory under the quarantine root (the system
+temp directory by default) with copies of the files read and a bare `repo.git`. The base is
+fetched from `--source` into `refs/quarantine/base`, the candidate into
+`refs/quarantine/candidate`; no branch is created and no file is checked out. That Git runs with
+no system or global config, `core.hooksPath=/dev/null`, `core.fsmonitor=false` and fsck on
+fetch, so neither the guest's configuration nor yours runs. Tracked files such as `.githooks/`
+arrive as content only. An artifact refused after its files were read stays in its quarantine
+directory for diagnostics, and the refusal names that directory; one refused by the directory
+checks is never copied. Delete a quarantine directory yourself when you are done. Never import or run a rejected artifact to
+recover from a refusal.
+
+What acceptance does not certify: that the candidate's checks pass, that it was reviewed, or
+that it may be published. The builder's `claims` are reported as data with no authority, and
+`recovery.data` is never restored into your checkout. Verification receipts (S15) and trusted
+publication (S16) are separate later steps. Tests:
+`node --test scripts/sandcastle/artifact.test.ts scripts/sandcastle/quarantine.test.ts`.
+
 ## Known notes
 
 - The Dockerfile base is `node:24-trixie`, pinned by digest to match `.nvmrc`, with `python3`

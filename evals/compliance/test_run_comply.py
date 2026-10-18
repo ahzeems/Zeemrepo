@@ -540,7 +540,7 @@ class RepositorySnapshot(unittest.TestCase):
             (repo / "evals/compliance/reports").mkdir(parents=True)
             (repo / "evals/compliance/reports/old.md").write_text("an old score\n")
             (repo / "evals/compliance/specs").mkdir()
-            (repo / "evals/compliance/specs/x.yaml").write_text("steps: []\n")
+            (repo / "evals/compliance/specs/x.json").write_text('{"steps": []}\n')
             (repo / "evals/compliance/run_comply.py").write_text("# wrapper\n")
             git("add", "--all")
             git("commit", "--quiet", "-m", "base")

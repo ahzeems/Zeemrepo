@@ -12,9 +12,8 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
   parse;
 - runs each scenario's setup commands through a confined `sh -c` (so redirections and heredocs
   create files, and a `printf` format starting with `---` is text);
-- copies a snapshot of the committed repository into each scenario sandbox after that setup
-  (never `reports/` or `specs/`, so neither earlier scores nor the expected behaviours
-  leak in). The repository's tooling (`package.json`, `CLAUDE.md`, and the files of `.claude/`,
+- copies a snapshot of the committed repository into each scenario sandbox after that setup,
+  inside the boundary described under "Snapshot boundary" below. The repository's tooling (`package.json`, `CLAUDE.md`, and the files of `.claude/`,
   `.github/`, `.githooks/`, `scripts/` and `config/`) replaces a scenario's copy file by file, and
   other scenario files are kept. It links one read-only copy of `node_modules` and commits the tree
   as `main`, so `npm run check` passes there as it does here;
@@ -57,13 +56,7 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
   `specs/<report name>.scenarios.json` (generated on the first run, then reused; a generation that
   does not parse is never pinned), because ECC writes new ones every run and totals over different
   steps or tasks cannot be compared. The pinned files are reviewed like code and excluded from the
-  sandbox snapshot. Where the pins differ from what the generator wrote: branch-and-merge's spec
-  has no `report_ready_never_approved` (a claim in the final message, which tool-call grading
-  cannot see); wiki-memory's spec makes `index_memory_note` optional (only a new memory note needs
-  an index line) and has no `after_step` links the skill does not impose, which demoted a done step
-  whenever an unrelated one was missed; wiki-memory's scenario setups only create `scripts/text`
-  (the generated ones overwrote the real wiki with toy copies); and write-guard's supportive prompt
-  names `check:base`, as the skill's wiring step does. The CHANGELOG records when each changed;
+  sandbox snapshot; "Pinned changes" below lists where they differ from what the generator wrote;
 - gives a sandbox a local bare `origin` (inside `.git`) with `main` pushed, so `npm run pr` can fetch
   and push there (it still stops at `gh`, which is logged out);
 - shows the grader a split chain's output only on its last command, and a long Bash call as its start
@@ -79,6 +72,49 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
 refresh token), because claude needs it, but can only send it to the Anthropic API. It cannot see other credentials, this repository, other
 checkouts, the parent session's sockets or the real home directory, and nothing it writes outside
 its working directory survives the run. bubblewrap must be installed (`bwrap`).
+
+## Snapshot boundary
+
+`snapshot_boundary.py` decides what a scenario agent sees of this repository's evaluation history.
+The private corpus is `reports/` (earlier scores and the reviewer's reading of them) and `specs/`
+(the pinned steps and scenarios the grader applies). Both directories are left out, and
+`run_comply.py` reads them at the same commit only to find copies elsewhere. Every file in the
+archive is then read, not only its path:
+
+- **Rubric canaries.** Each `id` in a pinned spec's `steps` and in a scenarios list. A file under
+  `specs/` that is not JSON, or does not parse, stops the run, because its canaries would be unknown.
+- **Result lines.** A percentage on a line that also names an evaluation: compliance or comply, a
+  re-run, a pilot, a prompt kind (supportive, neutral, competing) or the grader.
+- **References** to the two private directories by their repository path, or to the summary report
+  by its file name, in prose only.
+- **Private regions**, in prose only: lines between a line holding only `<!-- snapshot:private -->`
+  and one holding only `<!-- /snapshot:private -->`.
+
+Prose is Markdown outside the tooling paths (for example `CHANGELOG.md`, `wiki/` and this README).
+The snapshot drops each leaking line or private region and keeps every other line, so files, wiki
+links and frontmatter stay and `npm run wiki:lint` passes on the result. Tooling and all other files
+(code, JSON, binaries) are copied byte for byte, because the checks and the skill provenance hashes
+depend on them; a canary, a result line or a private-region marker line there stops the run with
+every place listed (`run_comply: refused: ...`, exit 1). Links and paths that leave the sandbox are
+still skipped when the snapshot is seeded. `test_snapshot_boundary.py` plants each kind of leak in a
+temporary repository, reads the extracted archive, and checks the committed repository itself.
+
+**What stays visible.** The rules and skills under test, which define the expected behaviour in their
+own words; this README, `run_comply.py` and its tests, which `npm run check` needs and which describe
+how grading works (one label per tool call, the 500-character input cut, chain splitting); and plans,
+tickets and audit findings that describe planned changes to the evaluation without quoting a pinned
+id or a score. Detection is by pattern, line by line, so these are not found: a result restated
+without a percentage or an evaluation word; a rubric paraphrased without its ids; an id split across
+two lines, or written with other case or separators (`Example-Step` for a step `example_step`);
+an id used only as a file or directory name, since member names are not checked; and a marker line
+with other text on it, which is not a marker, so its region ships. The boundary changes what later runs
+see; it says nothing about how earlier results were affected by what their runs could see.
+
+**For later changes.** A new pinned spec or scenario file under `specs/` adds its ids as canaries
+with no code change. Code shipped in the snapshot (an evaluator outside `specs/`, a test) must not
+name a pinned id or hold a result line; read ids from the pinned spec at run time instead. New
+results belong in `reports/`; commentary on the pins in this README goes in a private region, as
+"Pinned changes" does.
 
 ## Setup (once)
 
@@ -106,6 +142,18 @@ outside `npm run lint`, `typecheck` and coverage; `evals:test` is their only che
 
 A full run uses model time; get the owner's approval for a batch before starting it. Scenario
 sandboxes live under `/tmp/skill-comply-sandbox/`.
+
+<!-- snapshot:private -->
+## Pinned changes
+
+Where the pins differ from what the generator wrote: branch-and-merge's spec has no
+`report_ready_never_approved` (a claim in the final message, which tool-call grading cannot see);
+wiki-memory's spec makes `index_memory_note` optional (only a new memory note needs an index line)
+and has no `after_step` links the skill does not impose, which demoted a done step whenever an
+unrelated one was missed; wiki-memory's scenario setups only create `scripts/text` (the generated
+ones overwrote the real wiki with toy copies); and write-guard's supportive prompt names
+`check:base`, as the skill's wiring step does. The CHANGELOG records when each changed.
+<!-- /snapshot:private -->
 
 ## Reading results
 

@@ -49,7 +49,7 @@ ready for the owner.
    | `npm run wiki:lint` | Note schema, links, tags, agents, evidence labels, and a redaction sweep over every tracked file. |
    | `npm run skills:lint` | Skill structure and provenance; see [[Skill standards]]. |
    | `npm run governance:check` | No text, code or config file asserts a replaced rule. |
-   | `npm run rules:check` | The vendored ECC rules match `config/ecc-rules.json` and the plugin pin. |
+   | `npm run rules:check` | The vendored ECC rules match `config/ecc-rules.json` and the plugin pin, and the sets that load match its `loaded` list ([[Context loading]]). |
    | `npm run wiki:compliance` | No commit mixes `wiki/` with other files; wiki-only commits start `docs(wiki): `. |
    | `npm run changelog:guard` | The branch has a dated `CHANGELOG.md` entry. |
    | `npm run memory:guard` | The branch updates a work record with evidence, and an operating document when workflow-critical files change. |

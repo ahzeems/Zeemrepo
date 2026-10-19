@@ -55,6 +55,7 @@ One line per memory note. Add new notes here; work notes need no entry.
 ## Reference
 
 - [[Change records]] - What every branch must record before it lands, which guard checks it, and how to satisfy each.
+- [[Context loading]] - Which instructions Claude Code loads, the 19 ECC rule sets excluded from loading and why, and how to measure what a session received.
 - [[Idea to execution]] - The path from an idea through a map, an owner-approved plan, build tickets and pull requests, with the skill and record at each step.
 - [[Merge gate contract]] - The merge gate is GitHub: the protect-main ruleset, the required check and guards workflows, the local backstops, and the read-only landing audit.
 - [[Skill standards]] - What npm run skills:lint enforces on .claude/skills (limits, user-only list, provenance hashes, citations, em dashes) and what stays convention.

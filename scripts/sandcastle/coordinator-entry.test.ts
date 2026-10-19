@@ -109,6 +109,7 @@ await test("an empty plan ends the run after one planner call", async (t) => {
 
 await test("a round plans, implements, reviews only work with commits, then merges", async (t) => {
   const repo = repoOn(t);
+  const base = repo.git(["rev-parse", "HEAD"]);
   const result = await runEntry(t, repo, {
     plans: [{ issues: [issue(1, "First"), issue(2, "Second")] }, { issues: [] }],
     agent: crew(repo, ["sandcastle/issue-1"]),
@@ -123,7 +124,7 @@ await test("a round plans, implements, reviews only work with commits, then merg
   assert.equal(order.at(-1), "run planner");
   assert.deepEqual(optionsOf("createSandbox sandcastle/issue-1"), [{ branch: "sandcastle/issue-1", sandbox: SANDBOX, hooks: HOOKS, copyToWorktree: ["node_modules"] }]);
   assert.deepEqual(optionsOf("sandbox.run implementer sandcastle/issue-1"), [{ name: "implementer", maxIterations: 100, agent: AGENT, promptFile: "./.sandcastle/implement-prompt.md", promptArgs: { TASK_ID: "1", ISSUE_TITLE: "First", BRANCH: "sandcastle/issue-1" } }]);
-  assert.deepEqual(optionsOf("sandbox.run reviewer sandcastle/issue-1"), [{ name: "reviewer", maxIterations: 1, agent: AGENT, promptFile: "./.sandcastle/review-prompt.md", promptArgs: { BRANCH: "sandcastle/issue-1", CANDIDATE: tip(repo, "sandcastle/issue-1") } }]);
+  assert.deepEqual(optionsOf("sandbox.run reviewer sandcastle/issue-1"), [{ name: "reviewer", maxIterations: 1, agent: AGENT, promptFile: "./.sandcastle/review-prompt.md", promptArgs: { BRANCH: "sandcastle/issue-1", BASE: base, CANDIDATE: tip(repo, "sandcastle/issue-1") } }]);
   assert.deepEqual(optionsOf("run merger"), [{ hooks: HOOKS, sandbox: SANDBOX, name: "merger", maxIterations: 1, agent: AGENT, promptFile: "./.sandcastle/merge-prompt.md", promptArgs: { BRANCHES: "- sandcastle/issue-1", ISSUES: "- 1: First" } }]);
   assert.deepEqual(result.out, [
     "\n=== Iteration 1/10 ===\n", "Planning complete. 2 issue(s) to work in parallel:", "  1: First → sandcastle/issue-1", "  2: Second → sandcastle/issue-2",

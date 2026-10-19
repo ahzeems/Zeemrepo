@@ -2,6 +2,7 @@ import { isAncestor, tryGit } from "../lib/git.ts";
 import { pendingIssues, type PlannedIssue } from "./already-done.ts";
 import { branchRefusal } from "./branch-guard.ts";
 import { planSchema, type Plan } from "./plan-schema.ts";
+import { reviewInputs } from "./review-input.ts";
 import { describeOutcome, exitCode, finish, judgeReview, latest, outstanding, type IssueOutcome, type IssueResult, type Phase, type RunResult, type Stop } from "./run-result.ts";
 
 // The Sandcastle loop: plan, then per issue implement and review in one sandbox, then merge the
@@ -102,13 +103,16 @@ async function implementAndReview<A, P, O>(deps: Coordinator<A, P, O>, issue: Pl
   }));
   if ("failed" in implemented) return implemented.failed;
   const candidate = tipOf(issue.branch, cwd);
-  if (candidate === undefined || isAncestor(candidate, "HEAD", { cwd })) return { kind: "no-work" };
+  if (candidate === undefined) return { kind: "no-work" };
+  const inputs = reviewInputs(cwd, issue.branch, candidate);
+  if ("refusal" in inputs) return { kind: "failed", phase: "reviewer", reason: inputs.refusal };
+  if (isAncestor(candidate, inputs.promptArgs.BASE, { cwd })) return { kind: "no-work" };
   const reviewed = await attempt("reviewer", () => sandbox.run({
     name: "reviewer",
     maxIterations: 1,
     agent: sandcastle.claudeCode(MODEL),
     promptFile: "./.sandcastle/review-prompt.md",
-    promptArgs: { BRANCH: issue.branch, CANDIDATE: candidate },
+    promptArgs: inputs.promptArgs,
   }));
   if ("failed" in reviewed) return reviewed.failed;
   return judgeReview(candidate, { stdout: reviewed.value.stdout, commits: reviewed.value.commits.length, tipAfter: tipOf(issue.branch, cwd) });

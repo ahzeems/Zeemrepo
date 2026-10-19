@@ -96,6 +96,7 @@ await test("coordinate reads the checkout it is given, not the process directory
 
 await test("a candidate reviewed at its own SHA is merged and the run completes with exit 0", async (t) => {
   const repo = repoOn(t, "feat/work");
+  const base = repo.git(["rev-parse", "HEAD"]);
   fake.script({ plans: [{ issues: [planned(1)] }, { issues: [] }], agent: crew(repo) });
   const { result, err } = await runIn(repo.dir);
   const sha = tip(repo, "sandcastle/issue-1");
@@ -104,7 +105,7 @@ await test("a candidate reviewed at its own SHA is merged and the run completes 
   assert.equal(exitCode(result), EXIT_OK);
   assert.ok(inHead(repo, sha));
   const review = named("reviewer")[0]?.options;
-  assert.deepEqual(typeof review === "object" && review !== null && "promptArgs" in review ? review.promptArgs : undefined, { BRANCH: "sandcastle/issue-1", CANDIDATE: sha });
+  assert.deepEqual(typeof review === "object" && review !== null && "promptArgs" in review ? review.promptArgs : undefined, { BRANCH: "sandcastle/issue-1", BASE: base, CANDIDATE: sha });
 });
 
 await test("every rejected sandbox creation ends incomplete after the round limit, exit 2, never All done", async (t) => {
@@ -152,6 +153,31 @@ for (const [name, reviewer, reason] of [
     assert.equal(inHead(repo, tip(repo, "sandcastle/issue-5")), false);
   });
 }
+
+await test("a checkout whose branch lost its commit fails the review phase with a named reason, and no reviewer runs", async (t) => {
+  const repo = repoOn(t, "feat/work");
+  const implementer: Role = (agentCall) => {
+    const sha = commitOn(repo, branchOf(agentCall));
+    repo.git(["update-ref", "-d", "refs/heads/feat/work"]);
+    return [{ sha }];
+  };
+  fake.script({ plans: [{ issues: [planned(7)] }], agent: crew(repo, { implementer }) });
+  const { result, err } = await runIn(repo.dir);
+  assert.deepEqual(result.issues[0]?.outcome, { kind: "failed", phase: "reviewer", reason: "the checked-out branch has no commit to review against" });
+  assert.equal(named("reviewer").length, 0);
+  assert.equal(named("merger").length, 0);
+  assert.ok(err.some((line) => line.startsWith("  ✗ 7 (sandcastle/issue-7) failed:")));
+  assert.equal(exitCode(result), EXIT_ERROR);
+});
+
+await test("a branch the implementer leaves at a commit HEAD already holds is no-work and is not reviewed", async (t) => {
+  const repo = repoOn(t, "feat/work");
+  const implementer: Role = (agentCall) => { repo.git(["branch", branchOf(agentCall), "HEAD"]); return []; };
+  fake.script({ plans: [{ issues: [planned(8)] }], agent: crew(repo, { implementer }) });
+  const { result } = await runIn(repo.dir);
+  assert.deepEqual(result.issues[0]?.outcome, { kind: "no-work" });
+  assert.equal(named("reviewer").length, 0);
+});
 
 await test("a stale verdict naming another commit holds the issue", async (t) => {
   const repo = repoOn(t, "feat/work");

@@ -6,11 +6,11 @@ Review the code changes on branch `{{BRANCH}}` at commit `{{CANDIDATE}}` and giv
 
 ## Branch diff
 
-!`git diff {{TARGET_BRANCH}}...{{BRANCH}}`
+!`git diff {{BASE}}...{{CANDIDATE}}`
 
 ## Commits on this branch
 
-!`git log {{TARGET_BRANCH}}..{{BRANCH}} --oneline`
+!`git log {{BASE}}..{{CANDIDATE}} --oneline`
 
 # REVIEW PROCESS
 

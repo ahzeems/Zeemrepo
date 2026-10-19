@@ -34,6 +34,14 @@ SDK to the loop in `scripts/sandcastle/coordinator.ts`. The loop repeats three p
    and a reviewer runs once on the same branch. The reviewer is read-only and must end with a
    `<review>` verdict naming the candidate's full SHA. Only the last block counts; a trailing
    unclosed block or a repeated key makes the verdict malformed. Issues run in parallel.
+   The reviewer's prompt shows `git diff <base>...<candidate>` and the matching `git log`, where
+   the base is the commit your branch's HEAD points at and both are full commit ids
+   (`scripts/sandcastle/review-input.ts`, S11). Sandcastle runs those prompt lines with `sh -c`,
+   so they carry no branch name. If HEAD has no commit, the issue fails in the reviewer phase
+   with that reason and no reviewer runs. Sandcastle also builds some of its own git commands
+   from branch names, and for the planner and merger that name is your branch's; whether shell
+   characters in it run there is not yet established. Until it is, keep your branch name free of
+   `$`, backticks, quotes, `;`, `|`, `&` and other shell characters.
 3. **Merge.** One agent merges only the issues whose review passed for their exact candidate,
    into the branch you ran from, runs `npm run typecheck` and `npm run test`, and comments on
    each issue. The coordinator then checks that the branch holds each reviewed commit and that

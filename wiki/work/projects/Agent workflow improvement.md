@@ -19,6 +19,7 @@ evidence:
   - "VERIFIED: git ls-remote resolves ECC tag v2.2.3 to commit c05b2d6614f62f6db0047669aa4eefb223d478f9, the commit of the local marketplace clone; its plugin.json, hooks/hooks.json and .mcp.json give 68 agents, 293 skills, 94 command shims, 24 hook commands on 7 events and a chrome-devtools MCP server."
   - "VERIFIED: on 2026-10-19 claude plugin list --json printed [] and no ecc agent or skill was offered in this session, while .claude/settings.json enables ecc@ecc: enabled is not loaded on this machine."
   - "VERIFIED: on a scratch copy, claude plugin disable ecc@ecc --scope project set the entry to false and rules:check exited 0; deleting the marketplace and enabledPlugins entries made rules:check refuse with the pin message."
+  - "VERIFIED: separate-context review of b4f0370: the read-only verifier reran every command on the admission page and npm run check (exit 0) and returned VERIFIED; the read-only finder reported one HIGH (the removal list missed live files; reproduced: npm test fails the pin test on a scratch copy without the marketplace entry) and three MEDIUM (permissions overstated for MCP calls, hooks_enabled does not stop hook commands, purpose and compatibility missing), all corrected on the page."
   - "VERIFIED: PR #27 (Phase 1) merged by the owner (gh pr view 27: mergedBy ahzeems, merge commit c5e9a0b); the check and guards workflows passed on it; npm run audit reports 26 commits on main, all landed by merged pull request."
   - "OWNER DECISION: for Phase 2, \"Exclude all non-TS/Python\" ECC rule sets from loading, verified by \"One claude -p run\" (2026-10-19)."
   - "VERIFIED: before Phase 2, reading scripts/changes/repo-memory-validation.ts in a session on 2026-10-19 injected the ArkTS, React Native, TypeScript and Vue rules, and reading test files injected angular/testing.md; their globs (**/*.ts, **/*.test.ts) match 80 tracked .ts files."
@@ -68,7 +69,7 @@ without an approval quoted in the revision record.
 | R5 | Test-first behaviour fixes; verification checks the outcome; review in a separate context on a pinned commit | `evidence-and-review.md` review rules; verifier and verify-work vocabularies disagreed; Verify runbook ordered review before commit | partial | two confirmed defects | `verifier.md` uses `verify-work` step 5's verdicts; Verify runbook commits (step 5) before review (step 6); Land a change step 6 names the review | review only: `skills:lint` does not read `.claude/agents/`, and no governance claim covers the old wording |
 | R6 | Agents tell success, refusal, failure, blocked work and unknown state apart, and keep recovery state | CLI exit codes 0/1/2 (`scripts/lib/cli.ts`), verify-work verdicts, work statuses; no rule for a builder's handoff | partial | optimisation candidate | One bullet in `evidence-and-review.md` Claims, including the state left by work that stops early; no new mechanism | review |
 | R7 | Know what loads and what telemetry exists before claiming reductions | Always loaded: `CLAUDE.md`, 7 zeem and 10 ECC common rules, 38,947 bytes by `wc -c` (bytes, not tokens); 111 language rules are `paths:`-scoped; no usage telemetry in the repository | unknown | unknown | Deferred to Phase 2 | n/a |
-| R8 | Admission records source revision, purpose, dependencies, compatibility, activation, permissions, status, disabling and removal | `import-baseline.json`: source (free text), hashes, approved revisions; ECC plugin pinned by git ref only; repository skills have no entry | partial | unknown | Deferred to Phase 3 | n/a |
+| R8 | Admission records source revision, purpose, dependencies, compatibility, activation, permissions, status, disabling and removal | `import-baseline.json`: source (free text), hashes, approved revisions; ECC plugin pinned by git ref only; repository skills have no entry | partial | unknown | Phase 3: [[Integration admission]] records the ECC plugin (imported skills keep `import-baseline.json`) | review; commands on the page |
 | R9 | Compare checked outcomes with failures, retries, review effort and cost, kept apart | `evals/compliance/` reports compliance only; model and revision only in prose; no task success, retry, duration or cost fields | partial | unknown | Deferred to Phase 4 | n/a |
 
 ### Observations recorded, not fixed in Phase 1
@@ -121,10 +122,10 @@ Excluded from this change: skill descriptions (native discovery stays), the zeem
 | Requirement (R8) | Before | Change |
 |---|---|---|
 | Exact upstream and revision | ECC pinned by tag only; the commit was not recorded | [[Integration admission]] records tag `v2.2.3` = `c05b2d6` and how to re-resolve it |
-| Purpose, contents, dependencies | Not recorded for the plugin; ADR-0024 says only that it is enabled | Agents, skills, hooks, MCP server and the repository's own dependencies on it listed |
+| Purpose, contents, dependencies, compatibility | Not recorded for the plugin; ADR-0024 says only that it is enabled | Purpose here, agents, skills, hooks, MCP server, declared requirements (Node `>=18`, no Claude Code version) and the repository's own dependencies on it listed |
 | Permissions | Not recorded | Hooks and MCP server run with the user's permissions; deny rules and the merge hook still apply |
 | Registered, evaluated, enabled, loaded | One `enabledPlugins` flag; the plugin was enabled but not loaded on the machine checked | The four words defined and recorded separately |
-| Disable and remove | Not defined | Disable checked on a scratch copy; removal shown to need its own branch |
+| Disable and remove | Not defined | Disable checked on a scratch copy; removal shown to fail `rules:check` and `npm test` on a scratch copy and to need its own branch; install and marketplace removal cited, not run |
 
 Not in this change: installing ECC (it turns on 24 hooks and an MCP server), changing the import
 baseline's schema, and a config file or guard for admission status (the owner chose a wiki page).

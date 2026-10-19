@@ -32,12 +32,14 @@ Captured 2026-10-19 on one machine with Claude Code 2.1.303. To re-check, run th
 
 | Field | Value | Source |
 |---|---|---|
+| Purpose here | The engineering rules vendored under `.claude/rules/ecc/`, the TDD and review workflow the zeem rules build on, its review agents, and the `skill-comply` engine of the compliance evals | `CLAUDE.md`; `.claude/rules/zeem/` "Overrides of ECC" |
 | Upstream | `https://github.com/affaan-m/ECC`, MIT licence | `.claude/settings.json`; the plugin's `.claude-plugin/plugin.json` |
 | Revision | Tag `v2.2.3`, an annotated tag that resolves to commit `c05b2d6614f62f6db0047669aa4eefb223d478f9` | `git ls-remote https://github.com/affaan-m/ECC.git 'refs/tags/v2.2.3^{}'` |
 | Pin limit | A marketplace source takes only a branch or tag `ref`, so upstream could move the tag; an update checks the commit again ([[ADR-0024 Claude Code is the only harness]]). A `sha` field exists for plugin sources, not for marketplaces (code.claude.com/docs/en/plugins/marketplace-reference) | Docs, read 2026-10-19 |
-| Adds | 68 agents, 293 skills, 94 command shims; 24 hook commands on 7 events (SessionStart, PreToolUse, PostToolUse, PostToolUseFailure, PreCompact, Stop, SessionEnd), each a `node -e` command; an MCP server `chrome-devtools` started with `npx -y chrome-devtools-mcp@1.10.1` from the plugin's root `.mcp.json`, which Claude Code loads alongside `plugin.json`'s empty `mcpServers` | Counted in the marketplace clone at that commit |
+| Adds | 68 agents, 293 skills, 94 command shims; 24 hook commands on 7 events (SessionStart, PreToolUse, PostToolUse, PostToolUseFailure, PreCompact, Stop, SessionEnd), each a `node -e` command; an MCP server `chrome-devtools` started with `npx -y chrome-devtools-mcp@1.10.1` from the plugin's root `.mcp.json` | Counted in the marketplace clone at that commit; Claude Code loads a plugin's root `.mcp.json` together with `plugin.json`'s `mcpServers` (code.claude.com/docs/en/plugins/manifest-reference, read 2026-10-19) |
+| Compatibility | The plugin declares no Claude Code version; its `package.json` requires Node `>=18`. Observed only with Claude Code 2.1.303 and Node 24 | `plugin.json`, `package.json` in the clone |
 | Options | `hooks_enabled` (default true) and `hook_profile` (default `standard`), stored per user under `pluginConfigs`, which the settings reference lists for user or managed scope only | `plugin.json` `userConfig`; code.claude.com/docs/en/plugins/manifest-reference |
-| Permissions | Hook commands and MCP servers run with the user's full permissions, outside the sandbox. The project's deny rules and the merge-blocking PreToolUse hook still apply to tool calls the plugin's agents and MCP tools make | code.claude.com/docs/en/plugins/security, read 2026-10-19 |
+| Permissions | Hook commands and MCP servers run with the user's full permissions, outside the sandbox. Permission rules apply to the plugin's tool calls, but every deny rule in `.claude/settings.json` is a `Bash(...)` pattern and the merge-blocking hook matches only `Bash`: they cover Bash calls from any agent, and nothing here covers an MCP tool call (such as `mcp__chrome-devtools__*`) or the plugin's own hook commands | code.claude.com/docs/en/plugins/security, read 2026-10-19; `.claude/settings.json` |
 | Also used by | `.claude/rules/ecc/` vendors its rules (held to the pin by `rules:check`); `evals/compliance/run_comply.py` runs `skill-comply` from the cached copy under the user's plugin cache | `config/ecc-rules.json`; `run_comply.py` line 45 |
 
 **Status, 2026-10-19:**
@@ -54,8 +56,10 @@ So on that machine the ECC review agents the [[Verify a repository change]] runb
 available, and reviews used the repository's `finder` and `verifier`.
 
 **Install** (each machine, the owner's decision, because it turns on the hooks and the MCP server):
-`claude plugin install ecc@ecc --scope project`. Before that, the owner can set `hooks_enabled` to
-false in `/plugin` to keep the agents and skills without the hooks.
+`claude plugin install ecc@ecc --scope project` (code.claude.com/docs/en/plugins/install, read
+2026-10-19; not run here). Setting `hooks_enabled` to false does not stop the hook commands: Claude
+Code still launches all 24, and ECC's own scripts read the option (`scripts/lib/hook-flags.js`) after
+their bootstrap has run. Turning the hooks off completely means not installing or disabling the plugin.
 
 **Disable:** `claude plugin disable ecc@ecc --scope project` sets `ecc@ecc` to `false` in
 `.claude/settings.json` and leaves the marketplace pin, so `rules:check` still passes. Checked on a
@@ -63,10 +67,14 @@ scratch copy on 2026-10-19: the command reported success, the setting flipped (t
 reorders the file's keys), and `rules:check` exited 0. A disable lands like any other change, by
 pull request.
 
-**Remove:** not a settings-only change. Deleting the marketplace and `enabledPlugins` entries makes
-`rules:check` refuse ("pins ECC (none) but config/ecc-rules.json records v2.2.3"; checked on a scratch
-copy, 2026-10-19). A removal also has to retire `.claude/rules/ecc/`, `config/ecc-rules.json` and
-`rules:check`, the ECC overrides in `.claude/rules/zeem/`, the ECC mentions in `CLAUDE.md`, `README.md`,
-the Verify runbook, the `branch-review` and `write-skill` skills, and the compliance harness's
-`skill-comply` dependency. On each machine, `claude plugin marketplace remove ecc` then uninstalls the
-plugin. That is a branch of its own, on an owner decision.
+**Remove:** not a settings-only change, and not specified in full here. On a scratch copy
+(2026-10-19), deleting the marketplace and `enabledPlugins` entries made `rules:check` refuse ("pins
+ECC (none) but config/ecc-rules.json records v2.2.3") and `npm test` fail ("pins ECC to a release" in
+`scripts/git/hooks.test.ts`). The guard, its test, `package.json`'s `rules:check`, the `guards` workflow
+(which runs main's copy, so a removal lands in two steps), `config/ecc-rules.json`,
+`config/governance-alignment.json`, the `claudeMdExcludes` list and `.claude/rules/ecc/` all go with it,
+and 38 live files outside history mention ECC. List them with
+`git grep -il ecc -- . ':!CHANGELOG.md' ':!docs' ':!wiki/decisions' ':!wiki/work' ':!.claude/rules/ecc'`
+when planning it. On each machine, `claude plugin marketplace remove ecc` uninstalls the plugin and
+removes its `enabledPlugins` entries (code.claude.com/docs/en/plugins/cli-reference, read 2026-10-19;
+not run here). A removal is a branch of its own, on an owner decision.

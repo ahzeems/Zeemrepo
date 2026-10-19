@@ -9,7 +9,7 @@ agent: opencode
 status: done
 owner: agent
 priority: P1
-next_action: None once the owner merges PR 59. S18 wires recoverIssue and recoverRun into the public Sandcastle commands.
+next_action: None. It landed as PR 59 (8a00e16). S18 wires recoverIssue and recoverRun into the public Sandcastle commands; the Discovered work, the untested default store label and the notification questions continue as idea notes that link this ticket.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: build
@@ -30,6 +30,8 @@ evidence:
   - "VERIFIED: the mutation run was repeated at 6133518 with 26 mutants (the 20 above plus: notification attempt not recorded first, state store named as the receipt store, unnotified issue called not integrated, stale temporaries kept, stale temporary links removed, other issues' temporaries removed); all 26 failed a test."
   - "INFERRED: the hidden marker on the existing issue-comment channel is reconciliation, not a new notification channel or policy, so no owner decision was sought; the owner can overrule this in review."
   - "UNKNOWN: real gh output for gh api --paginate --jq with tojson was not observed; notifications.ts assumes one JSON object per line, as the fake prints. No real recovery run and no S12 real-container control ran: artifact and runtime behaviour did not change."
+  - "VERIFIED: on 2026-10-19 gh pr view 59 reported MERGED by the code owner's account as 8a00e16, and git merge-tree --write-tree 8a00e16^ f55d95e gave 8a00e16's own tree, so main received exactly the reviewed head f55d95e (checked by Claude Code, Opus 5.5)."
+  - "INFERRED: per the final report of an independent verifier (a Claude Code verifier subagent on Opus 5.5, claude-opus-5-5, in a separate context), relayed by the coordinator on 2026-10-19 and not reproduced here, f55d95e rated PASS."
 ---
 
 ## Goal

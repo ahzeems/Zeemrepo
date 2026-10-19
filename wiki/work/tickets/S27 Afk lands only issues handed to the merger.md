@@ -9,7 +9,7 @@ agent: claude-code
 status: done
 owner: agent
 priority: P2
-next_action: None once the owner merges PR 57; the head after the review fixes needs a new independent review.
+next_action: None. It landed as PR 57 (d7890ee). The reviewed-SHA and deleted-branch gaps, the symlink case and the review LOWs continue as idea notes that link this ticket.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: build
@@ -38,6 +38,8 @@ evidence:
   - "VERIFIED: second review fixes test first. Red at 90e0fc0: afk.test.ts failed 2 of 83 (code on the branch beside a record: the refusal deleted the record; the parent test counts too). Fix at 3a70ea8: readiness checks the record path with lstat and a write check on its directory, and afk deletes it only after every pre-loop check passed. A case for a record in a directory afk may not write was added at 1da9ee0, after the fix, to kill the permission-check mutant. Green at 1da9ee0: afk.test.ts 84 of 84."
   - "VERIFIED: mutant script rerun at 1da9ee0, 15 mutants, each restored, 14 killed: record deleted during readiness (2 failures), unremovable record not refused (3), a directory counted as removable (2), directory permission not checked (2), stale record not removed (2), and the ten earlier ones as before. The equivalent typeof-object mutant still survives."
   - "INFERRED: the record is written by the host coordinator after the merger returns, so a merger that plants a record is overwritten; a merger that replaces the record path with a symlink is not handled. The tests use scripted loops and the fake SDK; no real merger or Docker run was made."
+  - "VERIFIED: on 2026-10-19 gh pr view 57 reported MERGED by the code owner's account as d7890ee, and git merge-tree --write-tree d7890ee^ 48b9490 gave d7890ee's own tree, so main received exactly the reviewed head 48b9490 (checked by Claude Code, Opus 5.5)."
+  - "INFERRED: per the final report of an independent verifier (a Claude Code verifier subagent on Opus 5.5, claude-opus-5-5, in a separate context), relayed by the coordinator on 2026-10-19 and not reproduced here, 48b9490 rated PASS."
 ---
 
 ## Goal

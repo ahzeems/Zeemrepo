@@ -6,16 +6,17 @@ tags: [area/agents, area/typescript]
 created: 2026-10-19
 updated: 2026-10-19
 agent: claude-code
-status: backlog
+status: done
 owner: human
 priority: P3
-next_action: Close when S27's PR lands if it changes afk.ts 344 and 351; otherwise fix the wording in a small branch.
+next_action: None. S27 changed the wording in PR 57 (d7890ee); afk's exit-2 comment, warning and usage text now name blocked runs.
 related: ["[[Improvement loop turns every finding into tracked work]]", "[[S10 Blocked-queue planning contract]]", "[[S27 Afk lands only issues handed to the merger]]"]
 evidence:
   - "INFERRED: the S10 ticket's Discovered work (PR 54) records the wording gap and says S27 may take it, and its relayed review raised afk.ts exit-2 wording as a LOW (2026-10-19)."
   - "VERIFIED: on main at 4c56101, scripts/sandcastle/afk.ts line 344 (a comment) and line 351 (the warning) describe exit 2 as an incomplete or failed run (checked by Claude Code, Opus 5.5)."
   - "INFERRED: relayed coordinator message (2026-10-19): the S27 builder was told to update afk.ts lines 344 and 351 to mention blocked runs; the S27 ticket on main does not list this."
   - "UNKNOWN: whether the S27 branch in progress changes these lines; this note was written without reading it."
+  - "VERIFIED: on main at 8a00e16, scripts/sandcastle/afk.ts line 351 (the comment, formerly 344) reads \"Exit 2 is the loop's blocked, incomplete or failed run\", line 359 (the warning, formerly 351) reads \"the Sandcastle loop reported incomplete or failed work, or blocked issues (exit 2, named above)\", and the usage text at lines 45 and 46 says exit 2 includes a loop that reported blocked or incomplete work. git log -S finds the warning first in d7890ee, the merge of S27's PR 57 (checked by Claude Code, Opus 5.5)."
 ---
 
 ## Problem
@@ -31,4 +32,4 @@ The afk warning for exit 2 covers blocked issues as well as incomplete or failed
 
 ## Next step
 
-Check whether S27 changed the lines; if not, fix the wording in a small branch.
+None. S27 changed the lines in PR 57 (d7890ee), so this item is closed.

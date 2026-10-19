@@ -9,7 +9,7 @@ agent: opencode
 status: done
 owner: agent
 priority: P2
-next_action: The owner reviews the inventory baseline listed below in the S21 pull request; merging it lands the baseline. Then the coordinator turns Discovered work into idea notes.
+next_action: None. It landed as PR 58 (0358628), which also landed the inventory baseline. The Zimi-origin skills and approval reuse continue as idea notes that link this ticket.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: build
@@ -25,6 +25,9 @@ evidence:
   - "VERIFIED: npm run check passed inside npm run pr at d702935 (evals 108 tests OK, every guard green); the first npm run pr attempt refused because another session moved a shared ref, the second pushed and opened PR 58, whose body lists the inventory below for the owner's review."
   - "VERIFIED: 12 planted mutants of scripts/skills/provenance.ts (hash compare, added and missing file checks, safe paths, inventory history, chain continuity, UTF-8 strictness, link refusal, inventory approval, later basis, required inventory, latest record) each failed the skill tests; 12 of 12 killed."
   - "UNKNOWN: whether grill-plan, unslop, verify-work, wiki-memory and write-guard count as imported; they came from Zimi but have no baseline entry, so S21 leaves them unhashed (see Discovered work)."
+  - "VERIFIED: on 2026-10-19 gh pr view 58 reported MERGED by the code owner's account as 0358628, and git merge-tree --write-tree 0358628^ 412a60e gave 0358628's own tree, so main received exactly the reviewed head 412a60e (checked by Claude Code, Opus 5.5)."
+  - "INFERRED: per the final report of an independent verifier (a Claude Code verifier subagent on Opus 5.5, claude-opus-5-5, in a separate context), relayed by the coordinator on 2026-10-19 and not reproduced here, 412a60e rated PASS with no findings."
+  - "VERIFIED: the owner's merge of PR 58 satisfies the fifth acceptance criterion. On 2026-10-19 gh pr view 58 reported it merged by the code owner's account, and the PR body lists the inventory baseline; under the owner-authority rule a list an agent drafts is approved only when the owner merges the PR that adds it (checked by Claude Code, Opus 5.5)."
 ---
 
 ## Goal
@@ -49,7 +52,7 @@ Detect unauthorized changes, additions and deletions across the complete importe
 - [x] Changed, added or deleted imported instructions without an approved revision refuse.
 - [x] Unsafe paths, symlinks, missing/unreadable files and malformed inventory cannot become a pass.
 - [x] Existing landed provenance stays append-only; an authorized later revision remains possible.
-- [ ] The owner reviews the baseline inventory and the required actual approval evidence is recorded before landing it. The owner's words are recorded above; the review of the list itself happens only when the owner reads and merges the PR.
+- [x] The owner reviews the baseline inventory and the required actual approval evidence is recorded before landing it. The owner's words are recorded above; the owner merged PR 58, which lists the inventory, on 2026-10-19 (ticked by a later records PR).
 
 ## Out of scope
 

@@ -9,7 +9,7 @@ agent: opencode
 status: in-progress
 owner: human
 priority: P1
-next_action: S14, S17, S21 and the follow-up S27 are in progress on their own branches (checked 2026-10-19); review and land them, at most two heavy jobs at a time. S18 waits on S14 and S17.
+next_action: S18, the last slice, has every dependency landed and waits on the owner's decision on how a scoped model credential reaches the isolated guest. S14's review follow-ups are in review on fix/s14-guard-followups; run at most two heavy jobs at a time.
 idea: "[[Execute the repository audit remediation]]"
 evidence:
   - "OWNER DECISION: on 2026-10-16 the owner requested committed planning, a pull request and execution by another LLM in a separate terminal session."
@@ -27,6 +27,11 @@ evidence:
   - "OWNER DECISION: on 2026-10-19 the owner wrote \"S21 baseline approved, go ahead\" (relayed by the coordinator)."
   - "INFERRED: the S21 PR will list the concrete inventory for the owner to review before merging, per S21's acceptance criterion \"The owner reviews the baseline inventory and the required actual approval evidence is recorded before landing it\" and the coordinator's brief of 2026-10-19."
   - "VERIFIED: at about 10:22 UTC on 2026-10-19 local branches feat/s14-isolated-coordinator, feat/s17-durable-recovery, fix/s21-skill-provenance and fix/s27-afk-handed-issues existed in their own worktrees, with no remote branch and no open PR for any of them; S18 depends on S14 and S17 (and the landed S15 and S16) (checked by Claude Code, Opus 5.5)."
+  - "VERIFIED: on 2026-10-19 gh pr view showed PRs 57, 58 and 59 merged by the code owner's account, and for each git merge-tree --write-tree <merge>^ <head> gave the merge commit's own tree, so main received exactly the reviewed head: S27 (PR 57, d7890ee, head 48b9490), S21 (PR 58, 0358628, head 412a60e) and S17 (PR 59, 8a00e16, head f55d95e). Twenty-four of the plan's 26 slices have landed, plus the follow-up S27; S14 and S18 remain (checked by Claude Code, Opus 5.5)."
+  - "VERIFIED: on 2026-10-19 the records PR 56 showed MERGED by the code owner's account as 8622967 (checked by Claude Code, Opus 5.5)."
+  - "VERIFIED: at about 12:45 UTC on 2026-10-19 PR 60 (feat/s14-isolated-coordinator, head 7b0df89) was open, so S14 is in review; S18 depends on S14, S15, S16 and S17, of which only S14 has not landed. This supersedes the 10:22 UTC in-progress line above for S17, S21 and S27 (checked by Claude Code, Opus 5.5)."
+  - "VERIFIED: on 2026-10-19 gh pr view 60 reported MERGED by the code owner's account at 12:55:07 UTC as 2a69b17, and git merge-tree --write-tree 2a69b17^ 7b0df89 gave 2a69b17's own tree, so main received exactly the reviewed head 7b0df89. Twenty-five of the plan's 26 slices have landed, plus the follow-up S27; S18 remains, and all its dependencies (S14, S15, S16, S17) have landed. This supersedes the 12:45 UTC line above for S14 (checked by Claude Code, Opus 5.5)."
+  - "INFERRED: per the final report of an independent verifier (a Claude Code verifier subagent on Opus 5.5, claude-opus-5-5, in a separate context), relayed by the coordinator on 2026-10-19 and not reproduced here, 7b0df89 (S14, PR 60) rated PASS with three LOWs, N1 to N3; the S14 builder's follow-ups are on branch fix/s14-guard-followups."
 ---
 
 ## Outcome

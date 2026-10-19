@@ -9,7 +9,7 @@ agent: claude-code
 status: in-progress
 owner: human
 priority: P2
-next_action: Owner reviews the Phase 1 pull request; later phases wait for its merge.
+next_action: Owner reviews the Phase 2 pull request; later phases wait for its merge.
 project: "[[Agent workflow improvement]]"
 related: []
 ---
@@ -31,4 +31,4 @@ assessment, and only confirmed, bounded changes land, one owner-merged pull requ
 
 ## Next step
 
-Phase 1 is on `improve/phase-1-agent-foundation`. Phase 2 starts from main after the owner merges it.
+Phase 1 landed in PR #27. Phase 2 is on `improve/phase-2-context-discipline`; Phase 3 starts from main after the owner merges it.

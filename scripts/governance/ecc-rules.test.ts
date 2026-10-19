@@ -107,3 +107,75 @@ await test("a manifest with no files or a non-string hash is malformed, and --wr
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+function settings(root: string, claudeMdExcludes: readonly string[]): void {
+  put(root, ".claude/settings.json", JSON.stringify({ extraKnownMarketplaces: { ecc: { source: { source: "git", ref: "v2.2.3" } } }, claudeMdExcludes }));
+}
+
+await test("--write records which rule sets load: every vendored set the settings do not exclude", () => {
+  const root = repository();
+  try {
+    put(root, ".claude/rules/ecc/arkts/coding-style.md", "# ArkTS\n");
+    settings(root, ["**/.claude/rules/ecc/arkts/**"]);
+    assert.equal(main(["--write"], { cwd: root, output: quiet() }), EXIT_OK);
+    const manifest: unknown = JSON.parse(readFileSync(join(root, MANIFEST_PATH), "utf8"));
+    assert.ok(isRecord(manifest));
+    assert.deepEqual(manifest.loaded, ["common", "typescript"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+await test("a rule set that loads without being recorded, or is recorded but excluded, is refused by name", () => {
+  const root = repository();
+  try {
+    put(root, ".claude/rules/ecc/arkts/coding-style.md", "# ArkTS\n");
+    settings(root, ["**/.claude/rules/ecc/arkts/**"]);
+    main(["--write"], { cwd: root, output: quiet() });
+    settings(root, ["**/.claude/rules/ecc/arkts/*"]);
+    assert.match(eccRulesErrors(root).join("\n"), /ecc\/arkts\/ loads.*not list it/, "a pattern that does not exclude the whole set leaves it loading");
+    settings(root, ["**/.claude/rules/ecc/arkts/**", "**/.claude/rules/ecc/typescript/**"]);
+    assert.match(eccRulesErrors(root).join("\n"), /typescript as loaded.*excludes it/);
+    settings(root, ["**/.claude/rules/ecc/arkts/**", "**/.claude/rules/ecc/golang/**"]);
+    assert.match(eccRulesErrors(root).join("\n"), /excludes .*ecc\/golang\/, which is no vendored rule set/);
+    settings(root, ["**/.claude/rules/ecc/arkts/**"]);
+    assert.deepEqual(eccRulesErrors(root), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+await test("a manifest whose loaded list is missing, malformed or names an absent set is refused", () => {
+  const root = repository();
+  try {
+    const files = { "LICENSE": "x", "common/testing.md": "x", "typescript/testing.md": "x" };
+    put(root, MANIFEST_PATH, JSON.stringify({ pluginRef: "v2.2.3", files }));
+    assert.match(eccRulesErrors(root).join("\n"), /malformed/);
+    put(root, MANIFEST_PATH, JSON.stringify({ pluginRef: "v2.2.3", loaded: [1], files }));
+    assert.match(eccRulesErrors(root).join("\n"), /malformed/);
+    main(["--write"], { cwd: root, output: quiet() });
+    const manifest: unknown = JSON.parse(readFileSync(join(root, MANIFEST_PATH), "utf8"));
+    assert.ok(isRecord(manifest));
+    put(root, MANIFEST_PATH, JSON.stringify({ ...manifest, loaded: ["common", "typescript", "rust"] }));
+    assert.match(eccRulesErrors(root).join("\n"), /rust as loaded, which is no vendored rule set/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+await test("an exclusion that is not one whole ECC rule set is refused, so it cannot hide rules that must load", () => {
+  const root = repository();
+  try {
+    put(root, ".claude/rules/ecc/arkts/coding-style.md", "# ArkTS\n");
+    settings(root, ["**/.claude/rules/ecc/arkts/**"]);
+    main(["--write"], { cwd: root, output: quiet() });
+    for (const pattern of ["**/.claude/rules/**", "**/.claude/rules/ecc/**", "**/.claude/rules/ecc/common/*.md", "**/CLAUDE.md"]) {
+      settings(root, ["**/.claude/rules/ecc/arkts/**", pattern]);
+      assert.match(eccRulesErrors(root).join("\n"), /claudeMdExcludes entry .* is not one whole ECC rule set/, pattern);
+    }
+    put(root, ".claude/settings.json", JSON.stringify({ extraKnownMarketplaces: { ecc: { source: { ref: "v2.2.3" } } }, claudeMdExcludes: ["**/.claude/rules/ecc/arkts/**", 7] }));
+    assert.match(eccRulesErrors(root).join("\n"), /claudeMdExcludes entry 7 is not one whole ECC rule set/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

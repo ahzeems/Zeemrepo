@@ -1,7 +1,7 @@
 ---
 type: project
 title: Agent workflow improvement
-summary: Requirement-to-evidence assessment of the agent workflow (R1 to R9) and its five owner-gated phases; Phase 1 fixes task entry, review order and verdict wording.
+summary: Requirement-to-evidence assessment of the agent workflow (R1 to R9) and its five owner-gated phases; Phase 1 landed in PR 27, Phase 2 stops irrelevant ECC rules loading.
 tags: [area/agents, area/planning]
 created: 2026-10-19
 updated: 2026-10-19
@@ -9,11 +9,19 @@ agent: claude-code
 status: in-progress
 owner: human
 priority: P2
-next_action: Owner reviews and merges the Phase 1 pull request; Phase 2 (context discipline) branches from main only after that merge.
+next_action: Owner reviews and merges the Phase 2 pull request; Phase 3 (integration admission) branches from main only after that merge.
 idea: "[[Improve the agent workflow]]"
 evidence:
   - "OWNER DECISION: the owner's brief (2026-10-19) says \"Begin Phase 1 only\" and \"Stop at Phase 1 owner-review handoff. Do not begin Phase 2 before the owner merges Phase 1.\""
   - "OWNER DECISION: \"go ahead and fix it, then open the PR\" (2026-10-19), after the verifier's finding."
+  - "VERIFIED: PR #27 (Phase 1) merged by the owner (gh pr view 27: mergedBy ahzeems, merge commit c5e9a0b); the check and guards workflows passed on it; npm run audit reports 26 commits on main, all landed by merged pull request."
+  - "OWNER DECISION: for Phase 2, \"Exclude all non-TS/Python\" ECC rule sets from loading, verified by \"One claude -p run\" (2026-10-19)."
+  - "VERIFIED: before Phase 2, reading scripts/changes/repo-memory-validation.ts in a session on 2026-10-19 injected the ArkTS, React Native, TypeScript and Vue rules, and reading test files injected angular/testing.md; their globs (**/*.ts, **/*.test.ts) match 80 tracked .ts files."
+  - "VERIFIED: rules:check refused the real repository when the arkts exclusion was removed from .claude/settings.json (exit 1, naming ecc/arkts/), and passes with it (exit 0); the three new ecc-rules tests failed before the change and pass after it."
+  - "VERIFIED: one claude -p run (Claude Code 2.1.303, Haiku, 2 turns, session 2ec31e9c) read scripts/lib/cli.ts with the exclusions in place; its transcript holds the TypeScript and zeem rule headings and none of the ArkTS, React Native, Vue or Angular headings; it reported total_cost_usd 0.0069 as a list-price estimate."
+  - "VERIFIED: separate-context review of e2500db: the read-only verifier reran npm run check (exit 0), showed the three new tests fail on the base implementation, and refused a planted missing exclusion on a scratch copy; it returned NOT_VERIFIED on one byte figure that was 2 too high (wc -c gives 46,814), corrected here. The read-only finder reported no CRITICAL or HIGH and one MEDIUM: an over-broad claudeMdExcludes entry such as **/.claude/rules/** passed rules:check; a test reproducing it failed, and rules:check now refuses any entry that is not one whole ECC set."
+  - "VERIFIED: a second verifier pass at 7574359 reran npm run check (exit 0, 584 tests), showed the over-broad-exclusion test fail on e2500db's code and pass at head, and saw rules:check refuse a planted **/.claude/rules/** entry on a scratch copy (exit 1); its one not_met was this line quoting the old byte figure, reworded in the commit after it, which changes only this record."
+  - "UNKNOWN: tokens saved per session; the excluded rule text that matched tracked files is 46,814 bytes, and no per-file token count is available."
   - "VERIFIED: baseline is main at f0f82cdfaf974867615cbbae52d3ec5c6160e8b0 (git rev-parse HEAD and origin/main, 2026-10-19), clean tree, one worktree, no other branches and no open pull requests (gh pr list)."
   - "VERIFIED: grep -rli sandcastle over the tree (excluding node_modules and .git) returns nothing, so the earlier plan's Sandcastle files are absent and were not recreated."
   - "VERIFIED: before this branch, verifier.md returned PASS or FAIL with per-criterion VERIFIED/INFERRED/UNKNOWN labels while verify-work, which says it can run as the verifier agent, defined VERIFIED/NOT_VERIFIED/INCONCLUSIVE and met/not_met/needs_human."
@@ -86,7 +94,31 @@ Each needs the owner (imported skill or guard behaviour) or more evidence first.
   that gap with a final verifier pass that confirms the last delta is record-only. No rule says
   that is enough.
 
+### Phase 2: context discipline (main at c5e9a0b)
+
+| Question | Finding | Change |
+|---|---|---|
+| What loads at launch? | `CLAUDE.md`, 7 zeem and 10 ECC common rules (no `paths:`) | None |
+| What loads on reading a file? | Any rule whose `paths:` glob matches. ArkTS and React Native take `**/*.ts`, Vue hooks takes `**/*.ts`, Angular testing takes `**/*.test.ts`, so rules from 4 unrelated sets (46,814 bytes) loaded on ordinary reads | `claudeMdExcludes` for the 19 sets other than `common`, `typescript` and `python` |
+| Can that drift back? | A pin bump adding a set, or a wrong or over-broad pattern, would change what loads silently | `rules:check` holds the loaded sets to `config/ecc-rules.json` `loaded` and refuses any exclusion that is not one whole ECC set |
+| What telemetry exists? | None in the repository. Outside it: transcripts with per-message usage, `claude -p` JSON usage, optional OpenTelemetry | Recorded in [[Context loading]]; nothing configured |
+| Oversized output or truncated reviews | No repository-controlled case observed in Phase 2 | None |
+
+Not fixed in Phase 2: a rule file placed directly under `.claude/rules/ecc/` (as ECC's own
+`rules/README.md` would be) belongs to no set, so `rules:check` judges only its hash, and once
+`--write` records it, it would load at launch unnoticed.
+
+Excluded from this change: skill descriptions (native discovery stays), the zeem rules and
+`CLAUDE.md` (always needed), and the telemetry setup.
+
 ## Acceptance criteria
+
+Phase 2:
+
+- The ArkTS, React Native, Vue and Angular rules no longer load when a session reads a `.ts` file,
+  shown from a session transcript, and the TypeScript rules still do.
+- The vendored rule files are unchanged; `rules:check` refuses a set that loads without being recorded.
+- Measurements that were not made are labelled UNKNOWN; bytes are never reported as tokens.
 
 Phase 1:
 

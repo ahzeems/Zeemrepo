@@ -6,8 +6,12 @@ under 50 lines, files under 800, nesting at most 4; OWNER DECISION, 2026-10-09: 
 
 ## Before writing
 
+- State the outcome and the acceptance criteria as observable results, what is out of scope, and the open
+  questions. A question only the owner can answer is marked awaiting input (`owner-authority.md`). For a
+  small, settled change this is one line of the plan below.
 - Read the nearest existing module that does something similar, in full, and match its conventions.
-- Find the importers and callers of what you will change before editing it, not after.
+- Find the tests, importers and callers of what you will change before editing it, not after. Re-read a
+  file before relying on it when it changed since you read it or the read was truncated.
 - State the plan in three to six lines: what changes, which files, what could break. If it needs more, the
   task is too big; say so instead of building.
 - Challenge a brief that duplicates an existing capability or crosses an ownership boundary before the first

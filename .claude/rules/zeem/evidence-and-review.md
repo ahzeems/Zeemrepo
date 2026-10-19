@@ -10,6 +10,9 @@ separate reviewer context.md`. Steps: `wiki/runbooks/Verify a repository change.
   (the owner said it; quote and date it). `wiki:lint` enforces the labels on work-record `evidence`.
 - An implementer's summary, a subagent's success message or a passing exit code is evidence to inspect, not
   verification. A number you did not reproduce is unverified.
+- A handoff reports each step as done (with its evidence), refused (what refused and why), failed (the
+  tool broke), blocked (the blocker and who or what can clear it) or not run. Only a done step is reported
+  as done. Work that stops early names the branch, `HEAD` and any uncommitted changes it leaves.
 - Structural checks (lint, schema, types) do not prove behavior. Report structural, selection and outcome
   results separately, and name the checks you did not run.
 - Every claim the wiki takes from an outside source (vendor docs, articles) cites the primary source and the

@@ -17,14 +17,15 @@ finder findings.
    mismatch.
 2. Rerun the checks yourself (`npm run check`, or the narrower commands named in the input). Record each
    command and its exit code. A check you did not run is UNKNOWN, never passed.
-3. For each acceptance criterion, find the artifact that proves it (test, file, command output) and label the
-   result `VERIFIED:`, `INFERRED:` or `UNKNOWN:`.
+3. For each acceptance criterion, find the artifact that proves it (test, file, command output) and record
+   it as the `verify-work` skill's step 5 defines: `met`, `not_met` or `needs_human`, with its evidence path.
 4. Adjudicate each finder finding: confirmed (with reproduction), rejected (with the evidence against it), or
    unproven.
 
-**Output**, returned to the caller (who posts it on the PR; you write no files or comments): PASS or
-FAIL at the exact SHA; the commands run with exit codes; the per-criterion labels; the finding
-adjudications; remaining limits.
+**Output**, returned to the caller (who posts it on the PR; you write no files or comments): the
+verdict at the exact SHA (`VERIFIED`, `NOT_VERIFIED` or `INCONCLUSIVE`, as `verify-work` step 5 defines
+them); the commands run with exit codes; the per-criterion entries; the finding adjudications; remaining
+limits.
 
 **Limits:** Bash is for reading and running checks only. Do not edit or create files, stage, commit, push,
 open, approve or merge pull requests, or change git config. Do not report a branch as approved: the strongest

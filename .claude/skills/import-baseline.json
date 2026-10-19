@@ -87,12 +87,12 @@
           "reason": "Post-Phase 7 alignment: the PR is opened or updated with npm run pr (checks first) instead of a raw gh pr create, matching .claude/rules/zeem/branch-and-merge.md."
         },
         {
-          "sha256": "302a90be73ff1ad481a211e64160acb8248894d613127f11a74be732082064cd",
+          "sha256": "151594e1da04f06beaba37f25d0c8766aa50c2bf4abbe62f04cd5d4dce13ccfd",
           "approval": {
             "record": "wiki/decisions/ADR-0027 One integration branch per piece of work.md",
             "quote": "everything should be assigned to a singal branch which can be updated until the work is completed, only then a PR will be required"
           },
-          "reason": "Single integration branch: a piece of work uses one work/<topic> branch for all its phases and tickets, parallel agents merge local worktree branches into it, and the pull request opens once when the work is complete."
+          "reason": "Single integration branch: a piece of work uses one work/<topic> branch for all its phases and tickets, parallel agents merge local worktree branches into it, and the pull request opens once when the work is complete. A branch only you use may be rebased and pushed with --force-with-lease; the shared integration branch is not; formal PR reviews are never submitted."
         }
       ]
     },
@@ -133,6 +133,14 @@
             "quote": "Authorize, incl. 2-space indent (Recommended)"
           },
           "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
+        },
+        {
+          "sha256": "16e0f7ac27f45e8b05d5b9ba030d40086e2b7f1b4ef4786fc41a7b96acbe7842",
+          "approval": {
+            "record": "wiki/decisions/ADR-0026 ECC wins over the repository rules.md",
+            "quote": "Allow on non-main branches"
+          },
+          "reason": "ECC wins: a rebase in progress is allowed on a branch you alone use; the shared integration branch takes main by merging."
         }
       ]
     },

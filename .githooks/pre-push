@@ -1,5 +1,5 @@
 #!/bin/sh
-# Refuse pushes to main, rewrites and unlanded deletions, then run every check. git passes
+# Refuse pushes to main and unlanded deletions, then run every check. git passes
 # the ref updates on stdin, which branch-guard reads. npm run pr has just run the check for
 # the commit it pushes and says so in PR_READY_CHECKED, so it is not run twice.
 # From a linked worktree git exports GIT_DIR here, so a test that forgets to scrub it acts on

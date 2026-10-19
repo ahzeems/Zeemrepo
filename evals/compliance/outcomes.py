@@ -127,9 +127,9 @@ def jsonl_writer(path: Path) -> Callable[[dict[str, object]], None]:
     """Append records to `path`, one JSON object per line, readable only by the owner."""
     def write(record: dict[str, object]) -> None:
         path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        path.touch(mode=0o600)
         with path.open("a") as handle:
             handle.write(json.dumps(record) + "\n")
-        path.chmod(0o600)
 
     return write
 
@@ -149,15 +149,22 @@ def _tokens(session: dict[str, object]) -> str:
     return f"{tokens['input']}/{tokens.get('output')}/{cache}"
 
 
+def _cell(value: object) -> str:
+    return " ".join(str(value).split()).replace("|", "\\|")
+
+
 def _row(record: dict[str, object]) -> str:
     session = _mapping(record.get("session"))
-    outcome = record.get("outcome") if isinstance(record.get("outcome"), list) else []
-    assert isinstance(outcome, list)
-    run = "ok" if record.get("error") is None else f"error: {record['error']}"
+    raw_outcome = record.get("outcome")
+    outcome: list[object] = raw_outcome if isinstance(raw_outcome, list) else []
+    failed = record.get("error") is not None
+    run = f"error: {record['error']}" if failed else "ok"
+    # A failed attempt was never checked, which is not the same as a target with no checks.
+    scores = ["UNKNOWN", "UNKNOWN"] if failed else [_score(outcome, "correctness"), _score(outcome, "safety")]
     cost = session.get("cost_estimate_usd")
-    cells = [record.get("scenario"), record.get("attempt"), run, _score(outcome, "correctness"), _score(outcome, "safety"),
+    cells = [record.get("scenario"), record.get("attempt"), run, *scores,
              session.get("num_turns", "UNKNOWN"), record.get("elapsed_s"), _tokens(session), "UNKNOWN" if cost is None else cost]
-    return "| " + " | ".join(str(cell) for cell in cells) + " |"
+    return "| " + " | ".join(_cell(cell) for cell in cells) + " |"
 
 
 def table(records: Sequence[dict[str, object]]) -> str:

@@ -1,12 +1,14 @@
 """Tests for outcomes.py: outcome checks, run records and the results table, without calling claude."""
 
 import dataclasses
+import io
 import json
 import subprocess
 import tempfile
 import types
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import outcomes
 import run_comply
@@ -114,9 +116,52 @@ class Table(unittest.TestCase):
         ]
         table = outcomes.table(records)
         self.assertIn("| Scenario | Attempt | Run | Correctness | Safety | Turns | Wall s | Tokens in/out/cache | List-price estimate (USD) |", table)
-        self.assertIn("| s-neutral | 1 | error: claude exited 1 | none | none | UNKNOWN | 3.0 | UNKNOWN | UNKNOWN |", table)
+        self.assertIn("| s-neutral | 1 | error: claude exited 1 | UNKNOWN | UNKNOWN | UNKNOWN | 3.0 | UNKNOWN | UNKNOWN |", table,
+                      "a failed attempt's outcome is unknown, not 'no checks'")
         self.assertIn("| s-neutral | 2 | ok | 1/1 | 0/1 | 4 | 12.6 | 10/200/3500 | 0.0421 |", table)
         self.assertIn("not a charge", table)
+
+    def test_a_pipe_or_newline_in_an_error_stays_inside_its_cell(self) -> None:
+        records = [{"scenario": "s", "attempt": 1, "error": "a|b\nc", "elapsed_s": 1.0, "outcome": [], "session": {}}]
+        row = outcomes.table(records).splitlines()[2]
+        self.assertIn("error: a\\|b c", row)
+        self.assertEqual(row.count(" | "), 8, "nine cells, so the row still lines up")
+
+
+SPECS = Path(__file__).resolve().parent / "specs"
+
+
+def syntax_error(check: outcomes.Check) -> str | None:
+    """None when the check's command parses: node code with node --check, shell with sh -n."""
+    argv = list(check.argv)
+    with tempfile.TemporaryDirectory() as directory:
+        if argv[0] == "node":
+            code = argv[argv.index("-e") + 1]
+            suffix = ".mjs" if "--input-type=module" in argv else ".cjs"
+            path = Path(directory) / f"check{suffix}"
+            path.write_text(code)
+            done = subprocess.run(["node", "--check", str(path)], capture_output=True, text=True)
+        elif argv[0] == "sh":
+            done = subprocess.run(["sh", "-n", "-c", argv[argv.index("-c") + 1]], capture_output=True, text=True)
+        else:
+            return None
+    return None if done.returncode == 0 else done.stderr.strip()
+
+
+class PinnedOutcomeChecks(unittest.TestCase):
+    def test_every_pinned_outcome_check_loads_and_parses(self) -> None:
+        files = sorted(SPECS.glob("*.outcomes.json"))
+        self.assertTrue(files, "the targets pin outcome checks")
+        for path in files:
+            for check in outcomes.load_checks(path):
+                with self.subTest(file=path.name, check=check.name):
+                    if check.argv[0] == "sh":
+                        self.assertNotIn("node -e", check.argv[-1], "node code nested in sh cannot be syntax-checked")
+                    self.assertIsNone(syntax_error(check))
+
+    def test_the_syntax_check_catches_a_broken_command(self) -> None:
+        self.assertIsNotNone(syntax_error(outcomes.Check("x", "correctness", ("node", "-e", "process.exit((1)"), 0)))
+        self.assertIsNotNone(syntax_error(outcomes.Check("x", "correctness", ("sh", "-c", "if true; then"), 0)))
 
 
 class RunContext(unittest.TestCase):
@@ -167,6 +212,35 @@ class Wiring(unittest.TestCase):
         self.assertEqual([(s, b, st) for s, b, st, _ in observed], [("first", Path("/box"), STREAM), ("second", None, STREAM)])
         self.assertIsNone(observed[0][3])
         self.assertIsInstance(observed[1][3], RuntimeError)
+
+    def test_an_observer_that_fails_never_hides_the_scenario_error_or_aborts_a_finished_run(self) -> None:
+        @dataclasses.dataclass(frozen=True)
+        class FakeRun:
+            observations: tuple[object, ...]
+            sandbox_dir: Path
+
+        runner = types.SimpleNamespace(_parse_stream_json=lambda stdout: [])
+        results = iter([FakeRun((), Path("/box")), RuntimeError("the scenario failed")])
+
+        def run_scenario(scenario: object, model: str, timeout: int) -> object:
+            result = next(results)
+            if isinstance(result, BaseException):
+                raise result
+            return result
+
+        def broken_observer(*observed: object) -> None:
+            raise OSError("disk full")
+
+        runner.run_scenario = run_scenario
+        ecc_run = types.SimpleNamespace(generate_spec=lambda skill, model: None)
+        with tempfile.TemporaryDirectory() as directory:
+            run_comply.wire_grading(ecc_run, runner, lambda path: None, spec_path=Path(directory) / "s.json",
+                                    keep_stream=lambda stdout: None, observe=broken_observer)
+            with mock.patch("sys.stderr", new_callable=io.StringIO) as stderr:
+                self.assertEqual(ecc_run.run_scenario("first", model="sonnet").observations, (), "the finished run is still graded")
+                with self.assertRaisesRegex(RuntimeError, "the scenario failed"):
+                    ecc_run.run_scenario("second", model="sonnet")
+        self.assertIn("disk full", stderr.getvalue(), "the observer's failure is reported, not swallowed")
 
 
 if __name__ == "__main__":

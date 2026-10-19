@@ -129,7 +129,7 @@
     },
     {
       "id": "plan-approval-by-merge",
-      "pattern": "\\bapproved only when the owner merges\\b|\\bthe plan must have an owner-approved merge\\b",
+      "pattern": "\\bapproved (only )?when the owner merges\\b|\\bthe plan must have an owner-approved merge\\b",
       "supersededBy": "Owner decision 2026-10-19: a plan is approved by the owner's quoted words or a merged pull request (ADR-0027)"
     }
   ],

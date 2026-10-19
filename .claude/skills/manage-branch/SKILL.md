@@ -33,8 +33,9 @@ session's work. Run branch setup alone, not in parallel with a change.
 
 ## Keep it current
 
-When `main` moves under an active branch, merge it in (this repository merges; it does not rebase
-published history). If the merge stops on conflicts, load [resolve-conflicts](../resolve-conflicts/SKILL.md): it resolves each
+When `main` moves under the integration branch, merge it in: the integration branch is shared, so it
+is not rebased. A branch only you use may be rebased and pushed with `git push --force-with-lease`, as
+ECC's `git-workflow` skill does. If the merge stops on conflicts, load [resolve-conflicts](../resolve-conflicts/SKILL.md): it resolves each
 hunk from both sides' intent, not by taking whichever side is longer.
 
 Resolve, run `npm run check`, then commit the merge.
@@ -42,7 +43,7 @@ Resolve, run `npm run check`, then commit the merge.
 ## Commit and push
 
 Conventional commits (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`). Stage explicitly;
-`git add -A` from a dirty tree is how unrelated work joins a PR. Never commit or push to `main`, and never rewrite published history. Run `npm run check` on the exact tree you are pushing.
+`git add -A` from a dirty tree is how unrelated work joins a PR. Never commit or push to `main`, and never rewrite `main` or the shared integration branch. Run `npm run check` on the exact tree you are pushing.
 
 ## Open the pull request
 
@@ -80,4 +81,5 @@ Inspect the result with `git status --short`, `git branch -a`, and
 ## What this skill never does
 
 It never merges to `main`, by hand or on GitHub: merging is the owner's act. It never approves
-a pull request, never force-pushes, and never deletes a branch that has not landed.
+or reviews a pull request formally (findings go in comments), never force-pushes `main` or the shared
+integration branch, and never deletes a branch that has not landed.

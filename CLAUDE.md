@@ -30,8 +30,10 @@ Each rule has one home. Read the file before acting in its area.
 ECC is this repository's foundation. Where a `zeem` rule, a repository skill or a wiki page disagrees
 with an ECC rule or skill, ECC wins; fix the other text (OWNER DECISION, 2026-10-19: "ECC wins
 everywhere"). The `zeem` rules add what ECC does not cover, and nothing in the repository may block or
-restrict the ECC plugin. The one exception is merging and approving on GitHub, which stay the owner's
-alone (OWNER DECISION, 2026-10-19: "You merge it").
+restrict the ECC plugin. The one exception is GitHub reviews and merges: only the owner approves,
+requests changes or merges, and agents post review findings as pull request comments (OWNER DECISION,
+2026-10-19: "You merge it", "Comments only"), even where an ECC command such as `/pr` or
+`/ecc:code-review` would merge or submit a review.
 
 ## Working here
 

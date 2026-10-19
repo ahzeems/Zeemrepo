@@ -25,8 +25,9 @@ How work reaches `main`. Decisions: `wiki/decisions/ADR-0025 Agents use a machin
   integration branch locally; only the integration branch is pushed. Run `npm run worktree:guard`
   before removing a worktree.
 - Keep the integration branch current by merging `main` into it: it is shared, and ECC's
-  `git-workflow` skill never rebases a branch others have pushed or pulled. A local branch only you
-  use may be rebased onto the integration branch. Never rewrite `main`.
+  `git-workflow` skill never rebases branches pushed to a shared repository or that others have based
+  work on. A branch only you use may be rebased and pushed with `git push --force-with-lease`, as that
+  skill does (OWNER DECISION, 2026-10-19: "Allow on non-main branches"). Never rewrite `main`.
 - Stage files by name. Never `git add -A` or `git add .` from a tree you have not fully inspected.
 - Never discard, absorb or clean up another session's uncommitted work or worktree. Without asking, you may
   delete only your own branch once its PR is merged into `origin/main`, and remove your own clean worktree

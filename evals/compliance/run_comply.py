@@ -659,6 +659,13 @@ def wire_grading(ecc_run: object, runner: object, parse_spec: Callable[[Path], o
         succeeded.update(successful_calls(stdout))
         return parse_stream_json(stdout)
 
+    def observed(scenario: object, sandbox: Path | None, started: float, error: BaseException | None) -> None:
+        # A record that cannot be written must not hide the scenario's own error or lose a finished run.
+        try:
+            observe(scenario, sandbox, "".join(streams), time.monotonic() - started, error)
+        except Exception as failure:  # noqa: BLE001
+            print(f"run_comply: could not record the attempt: {failure!r}", file=sys.stderr)
+
     def run_and_split(scenario: object, model: str) -> object:
         succeeded.clear()
         streams.clear()
@@ -666,9 +673,9 @@ def wire_grading(ecc_run: object, runner: object, parse_spec: Callable[[Path], o
         try:
             run = run_scenario(scenario, model=model, timeout=SCENARIO_TIMEOUT)
         except Exception as error:
-            observe(scenario, None, "".join(streams), time.monotonic() - started, error)
+            observed(scenario, None, started, error)
             raise
-        observe(scenario, getattr(run, "sandbox_dir", None), "".join(streams), time.monotonic() - started, None)
+        observed(scenario, getattr(run, "sandbox_dir", None), started, None)
         split = split_observations(run.observations, succeeded)
         return dataclasses.replace(run, observations=tuple(fit_for_classifier(split)))
 

@@ -172,9 +172,13 @@ await test("Claude Code is denied merging and pushing main", () => {
   const deny = typeof settings === "object" && settings !== null && "permissions" in settings
     && typeof settings.permissions === "object" && settings.permissions !== null && "deny" in settings.permissions ? settings.permissions.deny : [];
   assert.ok(Array.isArray(deny));
-  for (const rule of ["Bash(gh pr merge:*)", "Bash(git push origin main)", "Bash(git push --force:*)", "Bash(gh api -X PUT repos/ahzeems/Zeemrepo/pulls/*/merge*)"]) {
+  for (const rule of ["Bash(gh pr merge:*)", "Bash(git push origin main)", "Bash(git push --force:*)", "Bash(gh api -X PUT repos/ahzeems/Zeemrepo/pulls/*/merge*)",
+    "Bash(gh pr review:*)"]) {
     assert.ok(deny.includes(rule), rule);
   }
+  // ECC's git-workflow skill pushes a rebased branch with --force-with-lease (OWNER DECISION, 2026-10-19:
+  // "Allow on non-main branches"); agents post review findings as comments, never a formal review.
+  assert.ok(!deny.includes("Bash(git push --force-with-lease:*)"), "a lease-protected push is not denied");
   // Claude Code reads a rule that mixes a * wildcard with the trailing :* prefix form as a literal
   // prefix, so it never matches.
   for (const rule of deny) assert.doesNotMatch(String(rule), /\*.*:\*\)$/, `${String(rule)} mixes * with :*`);

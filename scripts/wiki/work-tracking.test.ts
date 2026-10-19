@@ -220,7 +220,9 @@ await test("approval_ref is the pull request the owner merged or the owner's quo
     assert.equal(errors(records), "", approval);
   }
   const refused = ["owner said yes", "12", "https://github.com/ahzeems/Zeemrepo/issues/12", "#12 and more",
-    "OWNER DECISION: yes", 'OWNER DECISION: "yes"', 'OWNER DECISION: "" (2026-10-19)', 'OWNER DECISION: "yes" (19 Oct)'];
+    "OWNER DECISION: yes", 'OWNER DECISION: "yes"', 'OWNER DECISION: "" (2026-10-19)', 'OWNER DECISION: "yes" (19 Oct)',
+    'OWNER DECISION: " " (2026-10-19)', 'OWNER DECISION: "yes" (2026-13-45)', 'OWNER DECISION: "yes" (2026-02-30)',
+    'OWNER DECISION: "a\nb" (2026-10-19)', 'OWNER DECISION: "a "b" c" (2026-10-19)', 'owner decision: "yes" (2026-10-19)'];
   for (const approval of refused) {
     find(records, "Plan").data.approval_ref = approval;
     assert.match(errors(records), /approval_ref must be the merged pull request .* or the owner's quoted approval/, approval);

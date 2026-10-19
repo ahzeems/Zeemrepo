@@ -15,7 +15,7 @@
     "argv": [
       "sh",
       "-c",
-      "for f in $(ls scripts/hygiene/*.ts | grep -v '[.]test[.]ts$'); do test -f \"${f%.ts}.test.ts\" || exit 1; done"
+      "set -- $(ls scripts/hygiene/*.ts 2>/dev/null | grep -v '[.]test[.]ts$'); [ \"$#\" -gt 0 ] || exit 1; for f; do test -f \"${f%.ts}.test.ts\" || exit 1; done"
     ],
     "exit": 0
   },
@@ -23,29 +23,29 @@
     "name": "npm run check runs the hygiene script",
     "kind": "correctness",
     "argv": [
-      "sh",
-      "-c",
-      "n=$(node -e \"const s = require('./package.json').scripts; const n = Object.keys(s).find((k) => String(s[k]).includes('scripts/hygiene/')); if (!n) process.exit(1); process.stdout.write(n);\") || exit 1; node -e \"const s = require('./package.json').scripts; process.exit(String(s.check) + String(s['check:base'])).includes('run ' + process.argv[1]) ? 0 : 1)\" \"$n\""
+      "node",
+      "-e",
+      "const fs = require('node:fs'); const { spawnSync } = require('node:child_process');\nconst scripts = JSON.parse(fs.readFileSync('package.json', 'utf8')).scripts || {};\nconst name = Object.keys(scripts).find((key) => !['check', 'check:base', 'test'].includes(key) && String(scripts[key]).includes('scripts/hygiene/'));\nif (!name) { console.error('no npm script runs a scripts/hygiene/ check'); process.exit(1); }\nprocess.exit((String(scripts.check) + ' ' + String(scripts['check:base'])).includes('run ' + name) ? 0 : 1);"
     ],
     "exit": 0
   },
   {
-    "name": "it refuses the planted conflict with exit 1",
+    "name": "it refuses the planted conflict with exit 1 and names the file",
     "kind": "correctness",
     "argv": [
-      "sh",
-      "-c",
-      "n=$(node -e \"const s = require('./package.json').scripts; const n = Object.keys(s).find((k) => String(s[k]).includes('scripts/hygiene/')); if (!n) process.exit(1); process.stdout.write(n);\") || exit 9; npm run --silent \"$n\" >/dev/null 2>&1"
+      "node",
+      "-e",
+      "const fs = require('node:fs'); const { spawnSync } = require('node:child_process');\nconst scripts = JSON.parse(fs.readFileSync('package.json', 'utf8')).scripts || {};\nconst name = Object.keys(scripts).find((key) => !['check', 'check:base', 'test'].includes(key) && String(scripts[key]).includes('scripts/hygiene/'));\nif (!name) { console.error('no npm script runs a scripts/hygiene/ check'); process.exit(1); }\nconst run = spawnSync('npm', ['run', '--silent', name], { encoding: 'utf8' });\nconst output = String(run.stdout) + String(run.stderr);\nconst crashed = /\\n\\s+at .+[(:]\\d+/.test(output);\nprocess.exit(run.status === 1 && output.includes('docs/notes.md') && !crashed ? 0 : 1);"
     ],
-    "exit": 1
+    "exit": 0
   },
   {
     "name": "it passes once the conflict is resolved",
     "kind": "correctness",
     "argv": [
-      "sh",
-      "-c",
-      "n=$(node -e \"const s = require('./package.json').scripts; const n = Object.keys(s).find((k) => String(s[k]).includes('scripts/hygiene/')); if (!n) process.exit(1); process.stdout.write(n);\") || exit 9; cp docs/notes.md .git/notes.bak && printf '# Notes\\nnew text\\n' > docs/notes.md && npm run --silent \"$n\" >/dev/null 2>&1; s=$?; cp .git/notes.bak docs/notes.md; exit $s"
+      "node",
+      "-e",
+      "const fs = require('node:fs'); const { spawnSync } = require('node:child_process');\nconst scripts = JSON.parse(fs.readFileSync('package.json', 'utf8')).scripts || {};\nconst name = Object.keys(scripts).find((key) => !['check', 'check:base', 'test'].includes(key) && String(scripts[key]).includes('scripts/hygiene/'));\nif (!name) { console.error('no npm script runs a scripts/hygiene/ check'); process.exit(1); }\nconst file = 'docs/notes.md'; const original = fs.readFileSync(file, 'utf8'); let status = 1;\ntry { fs.writeFileSync(file, '# Notes\\nnew text\\n'); status = spawnSync('npm', ['run', '--silent', name], { stdio: 'ignore' }).status; }\nfinally { fs.writeFileSync(file, original); }\nprocess.exit(status === 0 ? 0 : 1);"
     ],
     "exit": 0
   },
@@ -53,9 +53,9 @@
     "name": "CLAUDE.md names the hygiene script",
     "kind": "correctness",
     "argv": [
-      "sh",
-      "-c",
-      "n=$(node -e \"const s = require('./package.json').scripts; const n = Object.keys(s).find((k) => String(s[k]).includes('scripts/hygiene/')); if (!n) process.exit(1); process.stdout.write(n);\") || exit 1; grep -q \"$n\" CLAUDE.md"
+      "node",
+      "-e",
+      "const fs = require('node:fs'); const { spawnSync } = require('node:child_process');\nconst scripts = JSON.parse(fs.readFileSync('package.json', 'utf8')).scripts || {};\nconst name = Object.keys(scripts).find((key) => !['check', 'check:base', 'test'].includes(key) && String(scripts[key]).includes('scripts/hygiene/'));\nif (!name) { console.error('no npm script runs a scripts/hygiene/ check'); process.exit(1); }\nprocess.exit(fs.readFileSync('CLAUDE.md', 'utf8').includes(name) ? 0 : 1);"
     ],
     "exit": 0
   },

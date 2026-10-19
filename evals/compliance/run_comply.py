@@ -35,6 +35,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 import netproxy
+import outcome_validation
 import snapshot_boundary
 
 REPO = Path(__file__).resolve().parents[2]
@@ -354,8 +355,8 @@ UNSPLITTABLE = re.compile(r"\|\||#|[(){}]|(?<![&>|])&(?![&>])|(?:^|[\s;&])(?:if|
 QUOTED_WORD_CHAR = re.compile(r"[A-Za-z0-9./-]")
 # Claude Code's Bash tool answers a backgrounded call at once, and starts a failed call's output
 # with its exit code; either way the chain's later parts may not have run.
-BACKGROUND_OUTPUT = re.compile(r"^\s*Command running in background")
-FAILED_OUTPUT = re.compile(r"^\s*Exit code [1-9]")
+BACKGROUND_OUTPUT = outcome_validation.BACKGROUND_OUTPUT
+FAILED_OUTPUT = outcome_validation.FAILED_OUTPUT
 
 
 def successful_calls(stdout: str) -> set[str]:
@@ -615,6 +616,11 @@ def main(argv: list[str]) -> None:
     except snapshot_boundary.SnapshotRefused as refused:
         print(f"run_comply: refused: {refused}", file=sys.stderr)
         raise SystemExit(1) from refused
+    try:
+        rubric = outcome_validation.load_rubric(SPECS / f"{report_name(args.target)}.outcomes.json")
+    except ValueError as invalid:
+        print(f"run_comply: refused: {invalid}", file=sys.stderr)
+        raise SystemExit(1) from invalid
     deps = shared_deps(REPO, Path.home() / ".cache/zeemrepo/comply-deps")
     # Everything the run creates (login copies, the proxy socket, the gh config) lives here and is
     # removed at the end, however the run ends. /tmp keeps the socket path short.
@@ -622,7 +628,7 @@ def main(argv: list[str]) -> None:
     proxy: netproxy.Proxy | None = None
     try:
         proxy, network = start_network(work)
-        run_confined(args, snapshot, deps, work, network)
+        run_confined(args, snapshot, deps, work, network, rubric)
     finally:
         try:
             if proxy is not None:
@@ -715,8 +721,10 @@ def confined_runner(work: Path, deps: Path, network: Network) -> ConfinedSubproc
     return ConfinedSubprocess(subprocess.run, wrap, work / "calls")
 
 
-def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Path, network: Network) -> None:
-    """Isolate the environment, confine ECC's subprocesses, patch its setup, grading and generation, and run it."""
+def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Path, network: Network,
+                 rubric: outcome_validation.Rubric | None) -> None:
+    """Isolate the environment, confine ECC's subprocesses, patch its setup, grading, outcome checks
+    and generation, and run it."""
     (work / "gh").mkdir()
     caller_env = dict(os.environ)
     os.environ.clear()
@@ -740,6 +748,7 @@ def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Pa
     name = report_name(args.target)
     wire_grading(ecc_run, runner, parse_spec, spec_path=SPECS / f"{name}.json",
                  keep_stream=stream_keeper(STREAMS / f"{time.strftime('%Y%m%d-%H%M%S')}-{name}"))
+    outcome_validation.wire_outcomes(ecc_run, runner, rubric, run=confined.run, git=["git", *DISARMED])
     install_scenarios(ecc_run, work / "context", errors=(yaml.YAMLError, KeyError, TypeError),
                       pin_path=SPECS / f"{name}.scenarios.json", build=scenario_from)
     os.chdir(REPO)

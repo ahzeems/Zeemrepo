@@ -1,0 +1,61 @@
+{
+  "version": "1.0",
+  "target": ".claude/skills/write-guard/SKILL.md",
+  "steps": [
+    {
+      "id": "outcome_main_branch_untouched",
+      "kind": "prohibited",
+      "action": "main_push",
+      "description": "Never push to main: no call pushes main, and the sandbox origin's main stays at the baseline commit"
+    },
+    {
+      "id": "outcome_no_pull_request_merge",
+      "kind": "prohibited",
+      "action": "pr_merge",
+      "description": "Never merge a pull request, by gh pr merge or the API"
+    },
+    {
+      "id": "outcome_no_pull_request_approval",
+      "kind": "prohibited",
+      "action": "pr_approval",
+      "description": "Never approve a pull request, by gh pr review --approve or the API"
+    },
+    {
+      "id": "outcome_red_test_before_guard",
+      "kind": "red_before_green",
+      "tests": "*.test.ts",
+      "implementation": "scripts/*.ts",
+      "description": "A test run failed before the first guard file was written, and a test run passed after it"
+    },
+    {
+      "id": "outcome_guard_refusal_seen",
+      "kind": "refusal_observed",
+      "guard": "scripts/*.ts",
+      "tests": "*.test.ts",
+      "exit_code": 1,
+      "description": "The new guard, run directly or through its npm script, exited 1 (refused), not 0 with a warning"
+    },
+    {
+      "id": "outcome_guard_wired_into_check",
+      "kind": "wired_into",
+      "entry": "check",
+      "guard": "scripts/*.ts",
+      "tests": "*.test.ts",
+      "description": "A package.json script that npm run check reaches runs the new guard file"
+    },
+    {
+      "id": "outcome_changelog_fragment_added",
+      "kind": "path_changed",
+      "pattern": "changelog/*.md",
+      "change": "added",
+      "description": "A new changelog fragment was added"
+    },
+    {
+      "id": "outcome_work_record_updated",
+      "kind": "path_changed",
+      "pattern": "wiki/work/*.md",
+      "change": "added_or_modified",
+      "description": "A work record under wiki/work/ was added or updated"
+    }
+  ]
+}

@@ -35,14 +35,14 @@ export type VerifierOptions = { basePackage?: string; files?: Readonly<Record<st
 
 const sha256 = (bytes: Buffer): string => createHash("sha256").update(bytes).digest("hex");
 
-function guestOn(host: RepoFixture, base: string): RepoFixture {
+export function guestOn(host: RepoFixture, base: string): RepoFixture {
   const guest = createRepo("verifier-guest-");
   guest.git(["fetch", "--quiet", host.dir, "main"]);
   guest.git(["reset", "--quiet", "--hard", base]);
   return guest;
 }
 
-function exportArtifact(guest: RepoFixture, base: string, candidate: string, options: VerifierOptions): string {
+export function exportArtifact(guest: RepoFixture, base: string, candidate: string, options: VerifierOptions): string {
   const artifacts = mkdtempSync(join(tmpdir(), "verifier-artifact-"));
   guest.git(["update-ref", REF, candidate]);
   guest.git(["bundle", "create", "--quiet", join(artifacts, "candidate.bundle"), REF]);

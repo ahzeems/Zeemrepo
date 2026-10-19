@@ -197,9 +197,13 @@ function openPullRequests(run: Run, intended: Intended): PullRequest[] {
   return listed.filter((pr) => !fromFork(pr, intended)).map(pullRequest);
 }
 
+/** A new pull request's title and body; without one, gh fills them from the checkout's commits. */
+export type Content = { title: string; body: string };
+
 /** Opens the pull request and reads back what GitHub made, under the URL gh create printed. */
-function createdPullRequest(run: Run, { repository, branch }: Intended): PullRequest {
-  const printed = must(run, "gh", ["pr", "create", "--repo", slug(repository), "--base", "main", "--head", branch, "--fill"]);
+function createdPullRequest(run: Run, { repository, branch }: Intended, content?: Content): PullRequest {
+  const text = content === undefined ? ["--fill"] : ["--title", content.title, "--body", content.body];
+  const printed = must(run, "gh", ["pr", "create", "--repo", slug(repository), "--base", "main", "--head", branch, ...text]);
   const number = /^https:\/\/\S+\/pull\/(\d+)$/.exec(printed)?.[1];
   if (number === undefined) throw new Error(`gh pr create did not print a pull request URL: ${printed}`);
   const viewed = must(run, "gh", ["pr", "view", number, "--repo", slug(repository), "--json", PR_FIELDS]);
@@ -219,8 +223,8 @@ export function exactOpenPullRequest(run: Run, intended: Intended): string | { r
 }
 
 /** The pull request for exactly what was pushed: the open one reused, or a new one; never another. */
-function handoff(run: Run, intended: Intended): string | { refusal: string } {
-  return exactOpenPullRequest(run, intended) ?? checked(createdPullRequest(run, intended), intended);
+export function handoff(run: Run, intended: Intended, content?: Content): string | { refusal: string } {
+  return exactOpenPullRequest(run, intended) ?? checked(createdPullRequest(run, intended, content), intended);
 }
 
 function checked(pr: PullRequest, intended: Intended): string | { refusal: string } {
@@ -239,8 +243,28 @@ const pushedNote = (head: string, branch: string): string =>
 function publish(run: Run, { branch, head, main: mainCommit }: { branch: string; head: string; main: string }): string | { refusal: string } {
   const repository = destination(run);
   if ("refusal" in repository) return repository;
+  const refusals = actorRefusals(run, repository, mainCommit);
+  if (refusals.length > 0) return { refusal: refusals.join("\npr-ready: ") };
+  // The checked commit is pushed by SHA, so a HEAD that moves after the check is never published
+  // under the checked commit's name. --set-upstream needs a branch name as the source, and
+  // --set-upstream-to needs a remote-tracking ref that a fetch refspec narrowed to main never
+  // creates, so tracking is written directly.
+  must(run, "git", ["push", "origin", `${head}:refs/heads/${branch}`], { env: { PR_READY_CHECKED: head } });
+  const handed = afterPush(head, branch, () => {
+    must(run, "git", ["config", `branch.${branch}.remote`, "origin"]);
+    must(run, "git", ["config", `branch.${branch}.merge`, `refs/heads/${branch}`]);
+    return handoff(run, { repository, branch, head });
+  });
+  return typeof handed === "string" ? handed : { refusal: `${handed.refusal}\npr-ready: ${pushedNote(head, branch)}` };
+}
+
+/**
+ * Why the gh login may not publish to the repository: not logged in, or logged in as the repository
+ * owner or a code owner named in `mainCommit`'s .github/CODEOWNERS. Empty when it may.
+ */
+export function actorRefusals(run: Run, repository: Repository, mainCommit: string): string[] {
   const auth = run("gh", ["auth", "status", "--hostname", repository.host]);
-  if (auth.status !== 0) return { refusal: `gh is not logged in to ${repository.host}. Run gh auth login, then rerun.` };
+  if (auth.status !== 0) return [`gh is not logged in to ${repository.host}. Run gh auth login, then rerun.`];
   // Agents act as the machine account, which cannot approve its own pull requests; under the
   // owner's login an agent could approve and merge, so that login is refused (ADR-0025).
   const user = must(run, "gh", ["api", "user", "--hostname", repository.host, "--jq", ".login"]);
@@ -255,18 +279,7 @@ function publish(run: Run, { branch, head, main: mainCommit }: { branch: string;
   if (codeOwners(run, mainCommit).includes(user.toLowerCase())) {
     refusals.push(`gh is logged in as a code owner (${user}) named in .github/CODEOWNERS. Agents push as the machine account: log gh in as it and remove the owner's login from this machine (wiki/reference/Merge gate contract.md).`);
   }
-  if (refusals.length > 0) return { refusal: refusals.join("\npr-ready: ") };
-  // The checked commit is pushed by SHA, so a HEAD that moves after the check is never published
-  // under the checked commit's name. --set-upstream needs a branch name as the source, and
-  // --set-upstream-to needs a remote-tracking ref that a fetch refspec narrowed to main never
-  // creates, so tracking is written directly.
-  must(run, "git", ["push", "origin", `${head}:refs/heads/${branch}`], { env: { PR_READY_CHECKED: head } });
-  const handed = afterPush(head, branch, () => {
-    must(run, "git", ["config", `branch.${branch}.remote`, "origin"]);
-    must(run, "git", ["config", `branch.${branch}.merge`, `refs/heads/${branch}`]);
-    return handoff(run, { repository, branch, head });
-  });
-  return typeof handed === "string" ? handed : { refusal: `${handed.refusal}\npr-ready: ${pushedNote(head, branch)}` };
+  return refusals;
 }
 
 function afterPush<T>(head: string, branch: string, step: () => T): T {

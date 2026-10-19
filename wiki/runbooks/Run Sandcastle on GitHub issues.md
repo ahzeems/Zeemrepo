@@ -4,7 +4,7 @@ title: Run Sandcastle on GitHub issues
 summary: Run npm run sandcastle so Docker-sandboxed Claude agents plan, implement, review and merge issues labelled Sandcastle onto your branch, without pushing or closing anything.
 tags: [area/agents, area/github, tool/claude-code, kind/setup]
 created: 2026-10-13
-updated: 2026-10-18
+updated: 2026-10-19
 agent: claude-code
 status: draft
 related: ["[[Land a change]]", "[[Verify a repository change]]", "[[Sandcastle runs under the repository rules]]"]
@@ -321,8 +321,8 @@ recover from a refusal.
 
 What acceptance does not certify: that the candidate's checks pass, that it was reviewed, or
 that it may be published. The builder's `claims` are reported as data with no authority, and
-`recovery.data` is never restored into your checkout. Verification receipts (S15, next section)
-and trusted publication (S16) are separate later steps. Tests:
+`recovery.data` is never restored into your checkout. Verification receipts (S15) and trusted
+publication (S16) are the next two sections. Tests:
 `node --test scripts/sandcastle/artifact.test.ts scripts/sandcastle/quarantine.test.ts`.
 
 ## Verification receipts
@@ -411,6 +411,52 @@ so the required CI `check` job drives the real Docker path with a fake reviewer:
 candidate must receive a receipt that validates from a temporary store, and a candidate that
 rewrites its test script to `exit 0` must still fail the base's test. Tests:
 `node --test scripts/sandcastle/verifier-driver.test.ts scripts/sandcastle/verification-receipt.test.ts scripts/sandcastle/container-runtime.test.ts scripts/sandcastle/verify-candidate.test.ts scripts/sandcastle/verifier-driver-smoke.test.ts`.
+
+## Trusted publication
+
+`scripts/sandcastle/isolated-publication.ts` (S16, 2026-10-18) hands one verified candidate to
+its pull request. It has no npm script yet; wiring it into the public commands is S18:
+
+```sh
+node scripts/sandcastle/isolated-publication.ts --artifacts <artifact-dir> --receipt <receipt-sha256> \
+  --repository <owner/name> --task <id> --run <id> --base <sha> --candidate <sha> --ref refs/heads/<branch>
+```
+
+Run it from a clean control checkout on main or a commit main holds: its own code is the
+publishing code, so uncommitted changes to tracked files refuse, and so does a `HEAD` that the
+freshly fetched origin/main does not contain (an unpushed local commit). In order, it:
+
+1. Refuses a ref the pre-push branch policy refuses (`refs/heads/main`) before anything else.
+2. Fetches origin's main with hooks off and validates the receipt from the host-only store for
+   exactly the repository, task, run, base, candidate SHA and check definitions given, plus the
+   branch ref. A receipt that lists changed check machinery refuses: it needs human review first.
+3. Imports the artifact again into a fresh quarantine. The imported SHA must be the receipt's
+   candidate and the manifest's SHA-256 the one the receipt bound (the manifest binds the bundle).
+4. Checks the destination with `npm run pr`'s own functions: origin must publish to the receipt's
+   repository, `gh` must not be logged in as the owner or a code owner, and the verified base must
+   be origin's main itself. A base main does not contain refuses (the pull request would carry base
+   commits nobody reviewed), and so does a main that moved on; rebuild and reverify on current main.
+5. Reads origin's tip of the branch and applies the pre-push hook's branch policy to the one
+   update, so an existing branch holding other work is never rewritten.
+6. Pushes the candidate SHA from the quarantine repository with `core.hooksPath=/dev/null`, no
+   `--force` and no `--no-verify`, then reuses or creates the pull request with an explicit title
+   and body and checks that it is exactly the candidate into main.
+
+The pre-push hook would run `npm run check` from the control checkout, which tests the control
+checkout's code and says nothing about the candidate, so publication runs the hook's branch policy
+itself and relies on the receipt for the candidate's checks. Its output and the pull request body
+say which is which. The only programs it starts are `git` and `gh` from the host's `PATH`; the
+candidate is never checked out, and tests plant hooks and scripts in the candidate, the control
+checkout and a configured hooks directory to show none of them runs.
+
+Recovery: a refusal before the push leaves origin unchanged. A failed push says it may or may not
+have reached origin; inspect the branch on origin before rerunning. After a successful push, every
+refusal or error says the SHA is already pushed; rerunning with the same receipt pushes it again (a
+no-op) and reuses the matching open pull request. Never force-push to recover.
+
+Limits: no live reviewer is authorised, so no real receipt exists yet and publication has run only
+against fake receipts, a faked `gh` and a local bare repository. Tests:
+`node --test scripts/sandcastle/isolated-publication.test.ts`.
 
 ## Known notes
 

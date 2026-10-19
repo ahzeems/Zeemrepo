@@ -113,6 +113,13 @@ config-protection read from the plugin's `scripts/hooks/config-protection.js`, v
   Tests fake `gh`, use `.invalid` hosts, and route origin's fetches and pushes to a local bare
   repository; their git runs with `protocol.allow=never` and only the file transport allowed,
   so no URL can reach a network. The mismatch cases have not been tried against live GitHub.
+- `scripts/sandcastle/isolated-publication.ts` (S16) publishes a Sandcastle candidate that a
+  verification receipt binds, not the checked-out branch. It reuses `npm run pr`'s destination,
+  owner and code-owner login and pull request identity checks and the pre-push hook's branch
+  policy, pushes the candidate SHA from a quarantine repository with hooks disabled and never
+  forces. The receipt, not a control-checkout `npm run check`, is its evidence for the
+  candidate; the pull request's required `check` and `guards` stay the merge gate. Steps and
+  recovery: [[Run Sandcastle on GitHub issues]]. `npm run pr` itself is unchanged.
 - `npm run audit` (`scripts/git/landing-audit.ts`) fetches origin's main itself through the same
   explicit refspec and reads its config and history from the commit that fetch captured, so a
   stale or narrowed local ref cannot hide a direct push; it writes only that ref and `FETCH_HEAD`.

@@ -48,5 +48,7 @@ under 50 lines, files under 800, nesting at most 4; OWNER DECISION, 2026-10-09: 
 
 ECC wins where this file and ECC disagree (`CLAUDE.md`): its research step before any implementation,
 its planning workflow, its input validation and error handling, and its size limits apply as written.
-`eslint.config.ts` still skips blank lines and comments when it measures a function and lifts the
-function limit for test files; aligning it with ECC's line count is open work.
+`eslint.config.ts` skips blank lines and comments when it measures a function and lifts the function
+limit for test files, which counts less than ECC does. It stays that way: ECC's own config-protection
+hook refuses edits to the file, and the owner kept the config (OWNER DECISION, 2026-10-19: "Keep the
+current config"). Under ECC's count, no source function and two test functions exceed 50 lines.

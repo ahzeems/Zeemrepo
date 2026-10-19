@@ -1,11 +1,13 @@
 """Tests for outcomes.py: outcome checks, run records and the results table, without calling claude."""
 
+import ast
 import dataclasses
 import inspect
 import io
 import json
 import subprocess
 import tempfile
+import textwrap
 import types
 import unittest
 from pathlib import Path
@@ -197,6 +199,10 @@ class PinnedOutcomeChecks(unittest.TestCase):
         for broken in (stub, no_lowercase):
             self.assertEqual(self.behaviour_results(spec, "slug", broken)["slugify behaves as asked"], "failed")
         self.assertEqual(self.behaviour_results(spec, "slug", correct, with_test=False)["slugify has a sibling test"], "failed")
+        # One mutant per pinned case, each wrong on that case alone, so a check that drops any case fails here.
+        for case in ["  Hello, World! 2026 ", "", "!!!", "A--B__c", "-x-"]:
+            mutant = correct.replace("{\n", f"{{\n  if (input === {json.dumps(case)}) return 'wrong';\n", 1)
+            self.assertEqual(self.behaviour_results(spec, "slug", mutant)["slugify behaves as asked"], "failed", repr(case))
 
     def test_the_duration_checks_pass_a_correct_implementation_and_fail_broken_ones(self) -> None:
         spec = "skills-wiki-memory.outcomes.json"
@@ -210,6 +216,10 @@ class PinnedOutcomeChecks(unittest.TestCase):
             "if (!match", "if (input === '1s1h') return 3601;\n  if (!match")
         for broken in (plain_error, any_order):
             self.assertEqual(self.behaviour_results(spec, "duration", broken)["parseDuration behaves as asked"], "failed")
+        # One mutant per pinned case: a wrong total for each valid input, no error for each invalid one.
+        for case in ["1h30m15s", "45s", "2m", "1h", "1h5s", "", "abc", "1s1h", "1h1h", "5", "h"]:
+            mutant = correct.replace("{\n", f"{{\n  if (input === {json.dumps(case)}) return 7;\n", 1)
+            self.assertEqual(self.behaviour_results(spec, "duration", mutant)["parseDuration behaves as asked"], "failed", repr(case))
 
     def test_the_syntax_check_catches_a_broken_command(self) -> None:
         self.assertIsNotNone(syntax_error(outcomes.Check("x", "correctness", ("node", "-e", "process.exit((1)"), 0)))
@@ -253,9 +263,14 @@ class OutcomeObserver(unittest.TestCase):
         self.assertEqual(record["outcome"][0]["status"], "passed")
 
     def test_run_confined_hands_the_outcome_checks_the_confined_runner(self) -> None:
-        source = inspect.getsource(run_comply.run_confined)
-        self.assertIn("outcome_observer(", source)
-        self.assertRegex(source, r"outcome_observer\([^)]*confined\.run", "never subprocess.run on the host")
+        # Parsed, not pattern-matched: argument order and comments cannot fake or break the check.
+        tree = ast.parse(textwrap.dedent(inspect.getsource(run_comply.run_confined)))
+        calls = [node for node in ast.walk(tree)
+                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "outcome_observer"]
+        self.assertEqual(len(calls), 1, "run_confined builds the outcome observer once")
+        arguments = [*calls[0].args, *(keyword.value for keyword in calls[0].keywords)]
+        runners = [ast.unparse(argument) for argument in arguments if isinstance(argument, ast.Attribute) and argument.attr == "run"]
+        self.assertEqual(runners, ["confined.run"], "the checks run confined, never through subprocess.run on the host")
 
 
 class Wiring(unittest.TestCase):

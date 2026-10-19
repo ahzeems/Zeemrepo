@@ -130,9 +130,9 @@ recorded. Outcome checks run in order in the scenario's disposable sandbox; writ
 once the conflict is resolved" edits `docs/notes.md` and restores it, unless its timeout kills it
 first, so keep it after the checks that read that file. How far the checks are proven (2026-10-19):
 
-- `test_outcomes.py` runs the branch-and-merge and wiki-memory behaviour and sibling-test checks
-  against a correct implementation and broken ones in `evals:test`, and fails if those checks are
-  made vacuous.
+- `test_outcomes.py` runs the branch-and-merge and wiki-memory behaviour and sibling-test checks in
+  `evals:test` against a correct implementation, broken ones, and one mutant per pinned case that is
+  wrong on that case alone, so a check that drops any case, or is made vacuous, fails the test.
 - A separate reviewer ran the write-guard checks against synthetic correct and broken sandboxes (a
   guard that never refuses, crashes, always refuses, has no test, is not wired or not documented);
   each broken one failed its matching check.

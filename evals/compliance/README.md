@@ -126,8 +126,12 @@ Compliance (whether the agent followed the steps) and outcome (whether the task 
 separate measures. `python3 evals/compliance/outcomes.py table <run directory>/records.jsonl` prints
 the outcome table: one row per attempt, with correctness and safety scores, turns, wall time,
 tokens and the cost estimate in separate columns. Subscription use and actual charges are not
-recorded. The pinned outcome checks have been run only by their unit tests, not yet against a
-correct and a broken sandbox.
+recorded. Outcome checks run in order in the scenario's disposable sandbox; write-guard's "passes
+once the conflict is resolved" edits `docs/notes.md` and restores it, unless its timeout kills it
+first, so keep it after the checks that read that file. On 2026-10-19 a separate reviewer ran the
+write-guard checks against synthetic correct and broken sandboxes (a guard that never refuses,
+crashes, always refuses, has no test, is not wired or not documented), and each broken one failed
+the matching check; the branch-and-merge and wiki-memory checks have not been run that way yet.
 
 **Known limit.** skill-comply grades tool calls, so it sees what an agent did, not what it said:
 "tell the owner only they can merge" is judged by the absence of a merge call, not by the words.

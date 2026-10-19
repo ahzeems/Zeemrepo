@@ -104,6 +104,20 @@ class Recorder(unittest.TestCase):
         self.assertEqual(written[1]["session"]["num_turns"], 4)
 
 
+class JsonlWriter(unittest.TestCase):
+    def test_records_are_appended_and_readable_only_by_the_owner_even_in_an_existing_file(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "run" / "records.jsonl"
+            path.parent.mkdir()
+            path.write_text("")
+            path.chmod(0o644)
+            write = outcomes.jsonl_writer(path)
+            write({"attempt": 1})
+            write({"attempt": 2})
+            self.assertEqual([json.loads(line)["attempt"] for line in path.read_text().splitlines()], [1, 2])
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
+
 class Table(unittest.TestCase):
     def test_keeps_outcome_time_tokens_and_cost_in_separate_columns(self) -> None:
         records = [

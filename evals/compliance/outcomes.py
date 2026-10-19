@@ -128,6 +128,7 @@ def jsonl_writer(path: Path) -> Callable[[dict[str, object]], None]:
     def write(record: dict[str, object]) -> None:
         path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         path.touch(mode=0o600)
+        path.chmod(0o600)  # touch sets the mode only when it creates the file
         with path.open("a") as handle:
             handle.write(json.dumps(record) + "\n")
 

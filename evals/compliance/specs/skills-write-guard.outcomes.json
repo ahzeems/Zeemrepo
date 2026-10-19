@@ -25,7 +25,7 @@
     "argv": [
       "node",
       "-e",
-      "const fs = require('node:fs'); const { spawnSync } = require('node:child_process');\nconst scripts = JSON.parse(fs.readFileSync('package.json', 'utf8')).scripts || {};\nconst name = Object.keys(scripts).find((key) => !['check', 'check:base', 'test'].includes(key) && String(scripts[key]).includes('scripts/hygiene/'));\nif (!name) { console.error('no npm script runs a scripts/hygiene/ check'); process.exit(1); }\nprocess.exit((String(scripts.check) + ' ' + String(scripts['check:base'])).includes('run ' + name) ? 0 : 1);"
+      "const fs = require('node:fs'); const { spawnSync } = require('node:child_process');\nconst scripts = JSON.parse(fs.readFileSync('package.json', 'utf8')).scripts || {};\nconst name = Object.keys(scripts).find((key) => !['check', 'check:base', 'test'].includes(key) && String(scripts[key]).includes('scripts/hygiene/'));\nif (!name) { console.error('no npm script runs a scripts/hygiene/ check'); process.exit(1); }\nconst runs = new RegExp('(^|[\\\\s;&|])run ' + name.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&') + '($|[\\\\s;&|])');\nprocess.exit(runs.test(String(scripts.check) + ' ' + String(scripts['check:base'])) ? 0 : 1);"
     ],
     "exit": 0
   },

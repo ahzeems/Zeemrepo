@@ -26,7 +26,10 @@ SDK to the loop in `scripts/sandcastle/coordinator.ts`. The loop repeats three p
 
 1. **Plan.** One agent reads the open issues of `Zimfra/software_testing` that carry the
    `Sandcastle` label and picks the ones no other open issue blocks. Each gets the branch name
-   `sandcastle/issue-<number>`. An issue whose branch is already merged into the branch you ran
+   `sandcastle/issue-<number>`. Every other issue goes in the plan's `blocked` list with the
+   numbers of the open issues blocking it, and gets no sandbox, branch or agent. When the planner
+   cannot tell, it lists the issue as blocked; it never picks the least-blocked issue to keep the
+   run busy (S10). An issue whose branch is already merged into the branch you ran
    from is skipped and the log says so (`scripts/sandcastle/already-done.ts`).
 2. **Implement, then review.** For each planned issue, a sandbox on that branch runs the
    implementer (up to 100 iterations). When the branch then holds commits the branch you ran
@@ -51,6 +54,7 @@ Each issue ends a round with one outcome (`scripts/sandcastle/run-result.ts`, S0
 
 | Outcome | Meaning |
 |---|---|
+| `blocked` | The planner listed the issue as blocked by the named open issues. No worker started; a later round or run plans it again. Each new plan replaces earlier blocked results, so an issue a later plan no longer lists stops counting. A blocked declaration never replaces an outcome the issue already has from being worked, such as `held`. |
 | `no-work` | The branch holds nothing the branch you ran from lacks; nothing to review. |
 | `failed` | The sandbox, implementer or reviewer threw; the phase and error are logged. |
 | `held` | The review failed, was missing or malformed, named another commit, or the reviewer changed the branch. The issue is not merged. A later round reviews the tip again with a fresh reviewer only if the planner plans the issue again. |
@@ -59,8 +63,11 @@ Each issue ends a round with one outcome (`scripts/sandcastle/run-result.ts`, S0
 | `not-integrated` | The review passed, but the merger did not merge that commit or the branch moved after review. |
 
 The run is `complete` (exit 0, `All done.`) only when the planner returns no issue and no issue's
-latest outcome is `failed`, `held`, `eligible` or `not-integrated`. Otherwise it ends `incomplete` (exit 2)
-and names each such issue, or after round 10 with work still planned. A planner or merger that
+latest outcome is `blocked`, `failed`, `held`, `eligible` or `not-integrated`. An empty queue is
+`complete`. A run left only with `blocked` issues ends `blocked` (exit 2): nothing failed, but the
+blocked work was not done, and the last lines name each issue and its blockers. Otherwise it ends
+`incomplete` (exit 2) and names each such issue, blocked ones included, or after round 10 with
+work still planned. A planner or merger that
 throws ends the run `failed` (exit 2) instead of crashing. On `main` or a detached HEAD it is
 refused (exit 1). These outcomes are claims of the loop, not verification: a passing verdict is
 the reviewer agent's word, and the merger may commit a fix after a merge that nobody reviews.
@@ -104,7 +111,8 @@ Use it for small, well-specified issues. Rules the agents follow are in `CLAUDE.
 2. Commit or set aside your own changes first; the merge agent works in your working tree.
 3. Run `npm run sandcastle`. Logs go to `.sandcastle/logs/` and worktrees to
    `.sandcastle/worktrees/`; both are git-ignored.
-4. The loop stops when the planner returns no issue (`No unblocked issues to work on. Exiting.`),
+4. The loop stops when the planner returns no issue to work on (`No unblocked issues to work on. Exiting.`,
+   or `No unblocked issues to work on: <n> blocked. Exiting.` when it listed blocked issues),
    after round 10, or when the planner or merger fails. Anything but `All done.` and exit 0
    means work is left: the last lines name each issue and its outcome.
 5. Review what landed with [[Verify a repository change]], read the implementer log too, then
@@ -545,6 +553,13 @@ against fake receipts, a faked `gh` and a local bare repository. Tests:
   backticked commands before it substitutes arguments, so a title cannot become one; the
   cleaning keeps titles readable in logs and prompts. The schema is not a prompt-injection
   control: the agents have a shell and read the issue text.
+- The plan must also carry a `blocked` list, possibly empty. Each entry has an `id`, a `title` and
+  `blockedBy`, a non-empty list of distinct issue numbers that excludes its own. The schema refuses
+  a plan without the list, an issue both selected and blocked, and a selected issue with
+  `blockedBy`, reporting problems in both lists together; a refused plan fails the run (exit 2) before any worker starts. The schema checks
+  only this declared metadata. Whether an issue really depends on another is the planner model's
+  reading of issue text, which no test proves: a selected issue whose text says "blocked by #3"
+  still runs if the plan does not declare it blocked (`scripts/sandcastle/coordinator-queue.test.ts`).
 - A merged branch whose typecheck or tests still fail after the merger's fix attempt is not
   undone, and the next round drops it as done; read the integration branch's checks before
   landing it.

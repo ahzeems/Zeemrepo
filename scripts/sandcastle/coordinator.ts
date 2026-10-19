@@ -47,7 +47,9 @@ const COPY_TO_WORKTREE = ["node_modules"];
 const tipOf = (branch: string, cwd: string): string | undefined =>
   tryGit(["rev-parse", "--verify", "--quiet", `refs/heads/${branch}^{commit}`], { cwd }) ?? undefined;
 
-async function plan<A, P, O>(deps: Coordinator<A, P, O>): Promise<{ pending: PlannedIssue[]; merged: IssueResult[] }> {
+type Queue = { pending: PlannedIssue[]; merged: IssueResult[]; blocked: IssueResult[] };
+
+async function plan<A, P, O>(deps: Coordinator<A, P, O>): Promise<Queue> {
   const { sandcastle } = deps;
   // Output.object rejects a missing tag, malformed JSON or a plan planSchema refuses, which
   // aborts the loop. Structured output requires maxIterations: 1.
@@ -64,7 +66,12 @@ async function plan<A, P, O>(deps: Coordinator<A, P, O>): Promise<{ pending: Pla
   const pending = pendingIssues(planned.output.issues, deps.cwd);
   const merged = planned.output.issues.filter((issue) => !pending.some((open) => open.id === issue.id));
   for (const issue of merged) deps.log(`  skipped ${issue.id}: ${issue.branch} is already merged into the current branch`);
-  return { pending, merged: merged.map((issue) => ({ issue, outcome: { kind: "integrated", sha: tipOf(issue.branch, deps.cwd) ?? "" } })) };
+  // A declared blocked issue gets no sandbox, branch or agent; it stays pending for a later run.
+  const blocked = planned.output.blocked.map(({ id, title, blockedBy }): IssueResult => ({
+    issue: { id, title, branch: `sandcastle/issue-${id}` }, outcome: { kind: "blocked", blockedBy },
+  }));
+  for (const { issue, outcome } of blocked) deps.log(`  blocked ${issue.id}: ${describeOutcome(outcome)}`);
+  return { pending, merged: merged.map((issue) => ({ issue, outcome: { kind: "integrated", sha: tipOf(issue.branch, deps.cwd) ?? "" } })), blocked };
 }
 
 async function attempt<T>(phase: Phase, step: () => Promise<T>): Promise<{ value: T } | { failed: IssueOutcome }> {
@@ -154,7 +161,8 @@ async function merge<A, P, O>(deps: Coordinator<A, P, O>, issues: readonly Plann
   deps.log("\nMerger finished.");
 }
 
-type Round = { results: IssueResult[]; stop?: Stop };
+// `planned` is false when the planner failed, so the round has no view of the queue.
+type Round = { results: IssueResult[]; stop?: Stop; planned: boolean };
 
 async function executeAll<A, P, O>(deps: Coordinator<A, P, O>, issues: readonly PlannedIssue[]): Promise<IssueResult[]> {
   const settled = await Promise.allSettled(issues.map((issue) => execute(deps, issue)));
@@ -165,21 +173,23 @@ async function executeAll<A, P, O>(deps: Coordinator<A, P, O>, issues: readonly 
   return results;
 }
 
-async function planned<A, P, O>(deps: Coordinator<A, P, O>): Promise<Awaited<ReturnType<typeof plan>> | Round> {
+async function planned<A, P, O>(deps: Coordinator<A, P, O>): Promise<Queue | Round> {
   try {
     return await plan(deps);
   } catch (error) {
-    return { results: [], stop: { kind: "failed", reason: `the planner failed: ${String(error)}` } };
+    return { results: [], stop: { kind: "failed", reason: `the planner failed: ${String(error)}` }, planned: false };
   }
 }
 
 async function round<A, P, O>(deps: Coordinator<A, P, O>): Promise<Round> {
   const queue = await planned(deps);
   if ("results" in queue) return queue;
-  const { pending, merged } = queue;
+  const { pending, blocked } = queue;
+  // Issues this round records without starting a worker: already merged, or declared blocked.
+  const known = [...queue.merged, ...blocked];
   if (pending.length === 0) {
-    deps.log("No unblocked issues to work on. Exiting.");
-    return { results: merged, stop: { kind: "drained" } };
+    deps.log(blocked.length === 0 ? "No unblocked issues to work on. Exiting." : `No unblocked issues to work on: ${String(blocked.length)} blocked. Exiting.`);
+    return { results: known, stop: { kind: "drained" }, planned: true };
   }
   deps.log(`Planning complete. ${pending.length} issue(s) to work in parallel:`);
   for (const issue of pending) deps.log(`  ${issue.id}: ${issue.title} → ${issue.branch}`);
@@ -189,7 +199,7 @@ async function round<A, P, O>(deps: Coordinator<A, P, O>): Promise<Round> {
   for (const { issue } of eligible) deps.log(`  ${issue.branch}`);
   if (eligible.length === 0) {
     deps.log("No reviewed work to merge.");
-    return { results: [...merged, ...executed] };
+    return { results: [...known, ...executed], planned: true };
   }
   let stop: Stop | undefined;
   try {
@@ -199,7 +209,18 @@ async function round<A, P, O>(deps: Coordinator<A, P, O>): Promise<Round> {
   }
   const integrated = integration(deps.cwd, eligible);
   for (const { issue, outcome } of outstanding(integrated)) deps.error(`  ✗ ${issue.id} (${issue.branch}) ${line(outcome)}`);
-  return { results: latest([...merged, ...executed], integrated), ...(stop === undefined ? {} : { stop }) };
+  return { results: latest([...known, ...executed], integrated), planned: true, ...(stop === undefined ? {} : { stop }) };
+}
+
+// A blocked outcome is only the latest plan's view: a plan that no longer lists the issue clears
+// it, and it replaces nothing but an earlier blocked outcome. An issue already worked keeps its
+// outcome (failed, held, eligible, not integrated or integrated), so a blocked declaration can
+// never hide work the partial-failure policy must report.
+function record(issues: readonly IssueResult[], done: Round): IssueResult[] {
+  const worked = (id: string): boolean => issues.some((entry) => entry.issue.id === id && entry.outcome.kind !== "blocked");
+  const fresh = done.results.filter(({ issue, outcome }) => outcome.kind !== "blocked" || !worked(issue.id));
+  const kept = done.planned ? issues.filter(({ outcome }) => outcome.kind !== "blocked") : issues;
+  return latest(kept, fresh);
 }
 
 async function rounds<A, P, O>(deps: Coordinator<A, P, O>): Promise<RunResult> {
@@ -212,7 +233,7 @@ async function rounds<A, P, O>(deps: Coordinator<A, P, O>): Promise<RunResult> {
     } catch (error) {
       return finish(issues, { kind: "failed", reason: `round ${String(iteration)} failed: ${String(error)}` });
     }
-    issues = latest(issues, done.results);
+    issues = record(issues, done);
     if (done.stop !== undefined) return finish(issues, done.stop);
   }
   return finish(issues, { kind: "exhausted", rounds: MAX_ITERATIONS });
@@ -243,7 +264,7 @@ export async function runSandcastle<A, P, O>(deps: Coordinator<A, P, O>): Promis
   return result;
 }
 
-/** The loop's exit status: 0 complete, 1 refused before any agent ran, 2 incomplete or failed. */
+/** The loop's exit status: 0 complete, 1 refused before any agent ran, 2 blocked, incomplete or failed. */
 export async function coordinate<A, P, O>(deps: Coordinator<A, P, O>): Promise<number> {
   return exitCode(await runSandcastle(deps));
 }

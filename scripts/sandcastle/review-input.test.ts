@@ -44,12 +44,12 @@ function fakeAgent(prompts: string[]): AgentProvider {
 }
 
 function planner(): { (options: { output: unknown }): Promise<{ output: Plan }>; (options: object): Promise<unknown> } {
-  const plans: Plan[] = [{ issues: [ISSUE] }, { issues: [] }];
+  const plans: Plan[] = [{ issues: [ISSUE], blocked: [] }, { issues: [], blocked: [] }];
   function run(options: { output: unknown }): Promise<{ output: Plan }>;
   function run(options: object): Promise<unknown>;
   async function run(options: object): Promise<unknown> {
     await Promise.resolve();
-    return "output" in options ? { output: plans.shift() ?? { issues: [] } } : {};
+    return "output" in options ? { output: plans.shift() ?? { issues: [], blocked: [] } } : {};
   }
   return run;
 }

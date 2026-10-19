@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED } from "../lib/cli.ts";
-import { exitCode, finish, judgeReview, latest, parseVerdict, type IssueOutcome, type IssueResult } from "./run-result.ts";
+import { describeOutcome, exitCode, finish, judgeReview, latest, parseVerdict, type IssueOutcome, type IssueResult } from "./run-result.ts";
 
 const A = "a".repeat(40);
 const B = "b".repeat(40);
@@ -93,6 +93,26 @@ await test("finish: any held, failed, eligible or not-integrated issue makes a d
     assert.equal(exitCode(run), EXIT_ERROR);
     assert.match(run.reason ?? "", /issue 2\b/);
   }
+});
+
+await test("finish: a drained queue left only with blocked issues is blocked, not complete or failed, exit 2", () => {
+  const run = finish([result(1, { kind: "integrated", sha: A }), result(2, { kind: "blocked", blockedBy: ["4", "5"] })], { kind: "drained" });
+  assert.equal(run.status, "blocked");
+  assert.equal(run.reason, "issue 2 is blocked by an open issue and was not worked");
+  assert.equal(exitCode(run), EXIT_ERROR);
+  assert.equal(describeOutcome({ kind: "blocked", blockedBy: ["4", "5"] }), "blocked by issue 4, issue 5");
+});
+
+await test("finish: blocked issues beside a held one leave the run incomplete, naming both kinds", () => {
+  const run = finish([result(2, { kind: "blocked", blockedBy: ["3"] }), result(3, { kind: "held", sha: A, reason: "r" })], { kind: "drained" });
+  assert.equal(run.status, "incomplete");
+  assert.equal(run.reason, "issue 3 is not integrated; issue 2 is blocked by an open issue and was not worked");
+  assert.equal(exitCode(run), EXIT_ERROR);
+});
+
+await test("latest replaces a blocked outcome when a later round works the issue", () => {
+  const earlier = [result(2, { kind: "blocked", blockedBy: ["1"] })];
+  assert.deepEqual(latest(earlier, [result(2, { kind: "integrated", sha: A })]), [result(2, { kind: "integrated", sha: A })]);
 });
 
 await test("finish: exhausted rounds are incomplete and a failed phase is failed, both exit 2", () => {

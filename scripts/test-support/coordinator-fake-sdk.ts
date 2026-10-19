@@ -36,7 +36,7 @@ export const Output = {
 };
 
 function plan(schema: Schema): Plan {
-  const result = schema["~standard"].validate(plans.shift() ?? { issues: [] });
+  const result = schema["~standard"].validate(plans.shift() ?? { issues: [], blocked: [] });
   if ("issues" in result) throw new Error(`fake StructuredOutputError: ${result.issues.map((issue) => issue.message).join("; ")}`);
   return result.value;
 }
@@ -54,7 +54,7 @@ export async function run(options: RunOptions): Promise<Result & { output: Plan 
   await Promise.resolve();
   journal.push({ call: "run", name: options.name, options });
   if (options.output !== undefined) return { output: plan(options.output.schema), commits: [], stdout: "" };
-  return { output: { issues: [] }, ...await reply({ name: options.name ?? "", branch: undefined, promptArgs: options.promptArgs }) };
+  return { output: { issues: [], blocked: [] }, ...await reply({ name: options.name ?? "", branch: undefined, promptArgs: options.promptArgs }) };
 }
 
 type Handle = { run(options: Options): Promise<Result>; close(): Promise<void> };

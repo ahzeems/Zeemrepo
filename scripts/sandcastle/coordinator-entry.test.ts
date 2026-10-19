@@ -92,14 +92,14 @@ await test("importing the coordinator loads no Sandcastle runtime and starts not
 });
 
 await test("on main the entry point refuses before any agent runs", async (t) => {
-  const result = await runEntry(t, repoOn(t, "main"), { plans: [{ issues: [issue(1, "One")] }] });
+  const result = await runEntry(t, repoOn(t, "main"), { plans: [{ issues: [issue(1, "One")], blocked: [] }] });
   assert.equal(result.status, 1);
   assert.deepEqual(result.err, ["Sandcastle merges into the checked-out branch: run it on a feature branch, not main or a detached HEAD."]);
   assert.deepEqual(journal, []);
 });
 
 await test("an empty plan ends the run after one planner call", async (t) => {
-  const result = await runEntry(t, repoOn(t), { plans: [{ issues: [] }] });
+  const result = await runEntry(t, repoOn(t), { plans: [{ issues: [], blocked: [] }] });
   assert.equal(result.error, undefined);
   assert.equal(result.status, 0);
   assert.deepEqual(calls(journal), ["run planner"]);
@@ -111,7 +111,7 @@ await test("a round plans, implements, reviews only work with commits, then merg
   const repo = repoOn(t);
   const base = repo.git(["rev-parse", "HEAD"]);
   const result = await runEntry(t, repo, {
-    plans: [{ issues: [issue(1, "First"), issue(2, "Second")] }, { issues: [] }],
+    plans: [{ issues: [issue(1, "First"), issue(2, "Second")], blocked: [] }, { issues: [], blocked: [] }],
     agent: crew(repo, ["sandcastle/issue-1"]),
   });
   assert.equal(result.error, undefined);
@@ -137,7 +137,7 @@ await test("a failed implementer is reported, its sandbox closed, the other bran
   const repo = repoOn(t);
   const honest = crew(repo, ["sandcastle/issue-2"]);
   const result = await runEntry(t, repo, {
-    plans: [{ issues: [issue(1, "First"), issue(2, "Second")] }],
+    plans: [{ issues: [issue(1, "First"), issue(2, "Second")], blocked: [] }],
     agent: (call) => {
       if (call.branch === "sandcastle/issue-1") throw new Error("boom");
       return honest(call);
@@ -157,7 +157,7 @@ await test("a failed implementer is reported, its sandbox closed, the other bran
 await test("a failed reviewer closes its sandbox and, with nothing else reviewed, the round merges nothing", async (t) => {
   const repo = repoOn(t);
   const result = await runEntry(t, repo, {
-    plans: [{ issues: [issue(5, "Fifth")] }],
+    plans: [{ issues: [issue(5, "Fifth")], blocked: [] }],
     agent: (call) => {
       if (call.name === "reviewer") throw new Error("review crashed");
       return [{ sha: commitOn(repo, "sandcastle/issue-5") }];
@@ -173,7 +173,7 @@ await test("a failed reviewer closes its sandbox and, with nothing else reviewed
 await test("a branch left ahead by an earlier round is reviewed and merged although the implementer adds nothing", async (t) => {
   const repo = repoOn(t);
   issueBranch(repo, "sandcastle/issue-3");
-  const result = await runEntry(t, repo, { plans: [{ issues: [issue(3, "Third")] }], agent: crew(repo, []) });
+  const result = await runEntry(t, repo, { plans: [{ issues: [issue(3, "Third")], blocked: [] }], agent: crew(repo, []) });
   assert.equal(result.error, undefined);
   assert.equal(result.status, 0);
   assert.deepEqual(forBranch(journal, "sandcastle/issue-3"), ["createSandbox sandcastle/issue-3", "sandbox.run implementer sandcastle/issue-3", "sandbox.run reviewer sandcastle/issue-3", "close sandcastle/issue-3"]);
@@ -184,13 +184,13 @@ await test("an issue whose work is already merged is skipped and not executed", 
   const repo = repoOn(t);
   issueBranch(repo, "sandcastle/issue-4");
   mergeInto(repo, "feat/work", "sandcastle/issue-4");
-  const result = await runEntry(t, repo, { plans: [{ issues: [issue(4, "Fourth")] }] });
+  const result = await runEntry(t, repo, { plans: [{ issues: [issue(4, "Fourth")], blocked: [] }] });
   assert.deepEqual(calls(journal), ["run planner"]);
   assert.deepEqual(result.out, ["\n=== Iteration 1/10 ===\n", "  skipped 4: sandcastle/issue-4 is already merged into the current branch", "No unblocked issues to work on. Exiting.", "\nAll done."]);
 });
 
 await test("rounds that produce nothing stop after ten iterations as an incomplete run, exit 2", async (t) => {
-  const plans = Array.from({ length: 11 }, () => ({ issues: [issue(6, "Sixth")] }));
+  const plans = Array.from({ length: 11 }, () => ({ issues: [issue(6, "Sixth")], blocked: [] }));
   const result = await runEntry(t, repoOn(t), { plans });
   assert.equal(result.error, undefined);
   assert.equal(result.status, 2);
@@ -202,7 +202,7 @@ await test("rounds that produce nothing stop after ten iterations as an incomple
 });
 
 await test("an invalid plan fails the run before any sandbox, exit 2", async (t) => {
-  const result = await runEntry(t, repoOn(t), { plans: [{ issues: [{ id: "x", title: "Bad", branch: "sandcastle/issue-x" }] }] });
+  const result = await runEntry(t, repoOn(t), { plans: [{ issues: [{ id: "x", title: "Bad", branch: "sandcastle/issue-x" }], blocked: [] }] });
   assert.equal(result.error, undefined);
   assert.equal(result.status, 2);
   assert.match(result.err.join("\n"), /Run failed: the planner failed: Error: fake StructuredOutputError: id must be an issue number/);
@@ -214,7 +214,7 @@ await test("a failed merger fails the run before another round, exit 2", async (
   const repo = repoOn(t);
   const honest = crew(repo, ["sandcastle/issue-7"]);
   const result = await runEntry(t, repo, {
-    plans: [{ issues: [issue(7, "Seventh")] }, { issues: [] }],
+    plans: [{ issues: [issue(7, "Seventh")], blocked: [] }, { issues: [], blocked: [] }],
     agent: (call) => {
       if (call.name === "merger") throw new Error("merge failed");
       return honest(call);

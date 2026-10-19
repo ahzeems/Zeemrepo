@@ -73,7 +73,7 @@ const inHead = (repo: RepoFixture, sha: string): boolean => {
 };
 
 await test("coordinate returns 1 and starts nothing in a checkout on main", async (t) => {
-  fake.script({ plans: [{ issues: [planned(1)] }] });
+  fake.script({ plans: [{ issues: [planned(1)], blocked: [] }] });
   const result = await call(repoOn(t, "main").dir);
   assert.equal(result.code, EXIT_REFUSED);
   assert.equal(result.err.length, 1);
@@ -86,7 +86,7 @@ await test("coordinate reads the checkout it is given, not the process directory
   const before = process.cwd();
   process.chdir(onMain.dir);
   t.after(() => process.chdir(before));
-  fake.script({ plans: [{ issues: [] }] });
+  fake.script({ plans: [{ issues: [], blocked: [] }] });
   const result = await call(feature.dir);
   assert.equal(result.code, EXIT_OK);
   assert.deepEqual(result.err, []);
@@ -97,7 +97,7 @@ await test("coordinate reads the checkout it is given, not the process directory
 await test("a candidate reviewed at its own SHA is merged and the run completes with exit 0", async (t) => {
   const repo = repoOn(t, "feat/work");
   const base = repo.git(["rev-parse", "HEAD"]);
-  fake.script({ plans: [{ issues: [planned(1)] }, { issues: [] }], agent: crew(repo) });
+  fake.script({ plans: [{ issues: [planned(1)], blocked: [] }, { issues: [], blocked: [] }], agent: crew(repo) });
   const { result, err } = await runIn(repo.dir);
   const sha = tip(repo, "sandcastle/issue-1");
   assert.deepEqual(err, []);
@@ -111,7 +111,7 @@ await test("a candidate reviewed at its own SHA is merged and the run completes 
 await test("every rejected sandbox creation ends incomplete after the round limit, exit 2, never All done", async (t) => {
   const repo = repoOn(t, "feat/work");
   fake.script({
-    plans: Array.from({ length: 11 }, () => ({ issues: [planned(1), planned(2)] })),
+    plans: Array.from({ length: 11 }, () => ({ issues: [planned(1), planned(2)], blocked: [] })),
     sandbox: () => { throw new Error("docker refused"); },
   });
   const { result, out, err } = await runIn(repo.dir);
@@ -126,7 +126,7 @@ await test("every rejected sandbox creation ends incomplete after the round limi
 
 await test("an implementer that throws closes its sandbox, is reported, and fails the run's issue", async (t) => {
   const repo = repoOn(t, "feat/work");
-  fake.script({ plans: [{ issues: [planned(2)] }], agent: () => { throw new Error("sandbox crash"); } });
+  fake.script({ plans: [{ issues: [planned(2)], blocked: [] }], agent: () => { throw new Error("sandbox crash"); } });
   const { result, err } = await runIn(repo.dir);
   assert.deepEqual(fake.journal.filter((event) => event.branch === "sandcastle/issue-2").map((event) => event.call), ["createSandbox", "sandbox.run", "close"]);
   assert.equal(err[0], "  ✗ 2 (sandcastle/issue-2) failed: Error: sandbox crash");
@@ -142,7 +142,7 @@ for (const [name, reviewer, reason] of [
 ] as const) {
   await test(`${name} holds the issue out of the merger; the run is incomplete, exit 2`, async (t) => {
     const repo = repoOn(t, "feat/work");
-    fake.script({ plans: [{ issues: [planned(5)] }, { issues: [] }], agent: crew(repo, { reviewer }) });
+    fake.script({ plans: [{ issues: [planned(5)], blocked: [] }, { issues: [], blocked: [] }], agent: crew(repo, { reviewer }) });
     const { result, err } = await runIn(repo.dir);
     assert.equal(named("merger").length, 0);
     assert.equal(result.status, "incomplete");
@@ -161,7 +161,7 @@ await test("a checkout whose branch lost its commit fails the review phase with 
     repo.git(["update-ref", "-d", "refs/heads/feat/work"]);
     return [{ sha }];
   };
-  fake.script({ plans: [{ issues: [planned(7)] }], agent: crew(repo, { implementer }) });
+  fake.script({ plans: [{ issues: [planned(7)], blocked: [] }], agent: crew(repo, { implementer }) });
   const { result, err } = await runIn(repo.dir);
   assert.deepEqual(result.issues[0]?.outcome, { kind: "failed", phase: "reviewer", reason: "the checked-out branch has no commit to review against" });
   assert.equal(named("reviewer").length, 0);
@@ -173,7 +173,7 @@ await test("a checkout whose branch lost its commit fails the review phase with 
 await test("a branch the implementer leaves at a commit HEAD already holds is no-work and is not reviewed", async (t) => {
   const repo = repoOn(t, "feat/work");
   const implementer: Role = (agentCall) => { repo.git(["branch", branchOf(agentCall), "HEAD"]); return []; };
-  fake.script({ plans: [{ issues: [planned(8)] }], agent: crew(repo, { implementer }) });
+  fake.script({ plans: [{ issues: [planned(8)], blocked: [] }], agent: crew(repo, { implementer }) });
   const { result } = await runIn(repo.dir);
   assert.deepEqual(result.issues[0]?.outcome, { kind: "no-work" });
   assert.equal(named("reviewer").length, 0);
@@ -182,7 +182,7 @@ await test("a branch the implementer leaves at a commit HEAD already holds is no
 await test("a stale verdict naming another commit holds the issue", async (t) => {
   const repo = repoOn(t, "feat/work");
   const base = repo.git(["rev-parse", "HEAD"]);
-  fake.script({ plans: [{ issues: [planned(6)] }], agent: crew(repo, { reviewer: () => ({ stdout: verdict(base) }) }) });
+  fake.script({ plans: [{ issues: [planned(6)], blocked: [] }], agent: crew(repo, { reviewer: () => ({ stdout: verdict(base) }) }) });
   const { result } = await runIn(repo.dir);
   const sha = tip(repo, "sandcastle/issue-6");
   assert.deepEqual(result.issues[0]?.outcome, { kind: "held", sha, reason: `the verdict names ${base}, not the candidate ${sha}` });
@@ -201,7 +201,7 @@ await test("a reviewer that edits cannot certify its own edit; a fresh review of
     }
     return { stdout: verdict(tip(repo, branchOf(agentCall))) };
   };
-  fake.script({ plans: [{ issues: [planned(7)] }, { issues: [planned(7)] }, { issues: [] }], agent: crew(repo, { reviewer, implementer: () => (reviews === 0 ? [{ sha: commitOn(repo, "sandcastle/issue-7") }] : []) }) });
+  fake.script({ plans: [{ issues: [planned(7)], blocked: [] }, { issues: [planned(7)], blocked: [] }, { issues: [], blocked: [] }], agent: crew(repo, { reviewer, implementer: () => (reviews === 0 ? [{ sha: commitOn(repo, "sandcastle/issue-7") }] : []) }) });
   const { result, err } = await runIn(repo.dir);
   assert.ok(err.some((line) => /7 .*held.*reviewer changed the candidate/.test(line)), err.join("\n"));
   assert.equal(named("merger").length, 1, "nothing merged after the editing review");
@@ -212,7 +212,7 @@ await test("a reviewer that edits cannot certify its own edit; a fresh review of
 await test("an independent passing issue stays eligible and merges while a failing one is held and named", async (t) => {
   const repo = repoOn(t, "feat/work");
   const reviewer: Role = (agentCall) => ({ stdout: verdict(tip(repo, branchOf(agentCall)), branchOf(agentCall) === "sandcastle/issue-2" ? "fail" : "pass", "broken") });
-  fake.script({ plans: [{ issues: [planned(1), planned(2)] }, { issues: [planned(2)] }], agent: crew(repo, { reviewer }) });
+  fake.script({ plans: [{ issues: [planned(1), planned(2)], blocked: [] }, { issues: [planned(2)], blocked: [] }], agent: crew(repo, { reviewer }) });
   const { result } = await runIn(repo.dir);
   assert.deepEqual(mergerArgs()[0], { BRANCHES: "- sandcastle/issue-1", ISSUES: "- 1: Issue 1" });
   assert.deepEqual(outcomes(result), { 1: "integrated", 2: "held" });
@@ -225,7 +225,7 @@ await test("an independent passing issue stays eligible and merges while a faili
 
 await test("a merger that leaves a reviewed branch unmerged makes the issue not integrated", async (t) => {
   const repo = repoOn(t, "feat/work");
-  fake.script({ plans: [{ issues: [planned(8)] }], agent: crew(repo, { merger: () => [] }) });
+  fake.script({ plans: [{ issues: [planned(8)], blocked: [] }], agent: crew(repo, { merger: () => [] }) });
   const { result } = await runIn(repo.dir);
   assert.deepEqual(result.issues[0]?.outcome, { kind: "not-integrated", sha: tip(repo, "sandcastle/issue-8"), reason: "the merger did not merge the reviewed commit" });
   assert.equal(result.status, "incomplete");
@@ -239,7 +239,7 @@ await test("a branch that moved after its review is not integrated, even when me
     mergeListed(repo, agentCall.promptArgs?.BRANCHES);
     return [];
   };
-  fake.script({ plans: [{ issues: [planned(9)] }], agent: crew(repo, { merger }) });
+  fake.script({ plans: [{ issues: [planned(9)], blocked: [] }], agent: crew(repo, { merger }) });
   const { result } = await runIn(repo.dir);
   assert.equal(result.issues[0]?.outcome.kind, "not-integrated");
   assert.match(JSON.stringify(result.issues[0]?.outcome), /moved after its review/);
@@ -248,7 +248,7 @@ await test("a branch that moved after its review is not integrated, even when me
 
 await test("a merger that throws fails the run with exit 2 before another round, keeping the issue outcomes", async (t) => {
   const repo = repoOn(t, "feat/work");
-  fake.script({ plans: [{ issues: [planned(3)] }, { issues: [] }], agent: crew(repo, { merger: () => { throw new Error("merge failed"); } }) });
+  fake.script({ plans: [{ issues: [planned(3)], blocked: [] }, { issues: [], blocked: [] }], agent: crew(repo, { merger: () => { throw new Error("merge failed"); } }) });
   const { result, err } = await runIn(repo.dir);
   assert.equal(result.status, "failed");
   assert.match(result.reason ?? "", /merger failed: Error: merge failed/);
@@ -260,7 +260,7 @@ await test("a merger that throws fails the run with exit 2 before another round,
 
 await test("a planner failure fails the run with exit 2 instead of rejecting", async (t) => {
   const repo = repoOn(t, "feat/work");
-  const bad = { plans: [{ issues: [{ id: "x", title: "Bad", branch: "sandcastle/issue-x" }] }] };
+  const bad = { plans: [{ issues: [{ id: "x", title: "Bad", branch: "sandcastle/issue-x" }], blocked: [] }] };
   fake.script(bad);
   const { result } = await runIn(repo.dir);
   assert.equal(result.status, "failed");
@@ -287,7 +287,7 @@ await test("coordinate runs the issue pipelines concurrently", async (t) => {
   let markSecondStarted = (): void => undefined;
   const secondStarted = new Promise<void>((resolve) => { markSecondStarted = resolve; });
   fake.script({
-    plans: [{ issues: [planned(1), planned(2)] }],
+    plans: [{ issues: [planned(1), planned(2)], blocked: [] }],
     // Issue 1's implementer finishes only after issue 2's has started.
     agent: async (agentCall) => {
       if (agentCall.name !== "implementer") return [];
@@ -307,7 +307,7 @@ await test("a branch left ahead by an earlier round is reviewed again and merged
   issueBranch(repo, "sandcastle/issue-5");
   const producing = new Set(["sandcastle/issue-1", "sandcastle/issue-2"]);
   fake.script({
-    plans: [{ issues: [planned(5), planned(3), planned(2), planned(1)] }],
+    plans: [{ issues: [planned(5), planned(3), planned(2), planned(1)], blocked: [] }],
     agent: crew(repo, { implementer: (agentCall) => (producing.has(branchOf(agentCall)) ? [{ sha: commitOn(repo, branchOf(agentCall)) }] : []) }),
   });
   await runIn(repo.dir);
@@ -327,7 +327,7 @@ await test("coordinate judges merged and left-over branches in the given checkou
   const before = process.cwd();
   process.chdir(elsewhere.dir);
   t.after(() => process.chdir(before));
-  fake.script({ plans: [{ issues: [planned(3), planned(4)] }], agent: crew(repo, { implementer: () => [] }) });
+  fake.script({ plans: [{ issues: [planned(3), planned(4)], blocked: [] }], agent: crew(repo, { implementer: () => [] }) });
   const { result, out } = await runIn(repo.dir);
   assert.ok(out.includes("  skipped 4: sandcastle/issue-4 is already merged into the current branch"));
   assert.equal(fake.journal.some((event) => event.branch === "sandcastle/issue-4"), false);

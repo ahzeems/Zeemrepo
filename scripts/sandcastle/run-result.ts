@@ -4,19 +4,21 @@ import type { PlannedIssue } from "./already-done.ts";
 // What a Sandcastle run established for each issue, and what the run as a whole may claim.
 // The owner's partial-failure policy (2026-10-16): checked and reviewed issues may proceed,
 // failed or unreviewed ones stay unintegrated, and a run with either reports incomplete with a
-// nonzero exit naming them. Nothing here authorizes publication; the AFK wrapper and npm run pr
-// judge the branch for themselves.
+// nonzero exit naming them. An issue the planner declared blocked is never worked; a run left
+// with only such issues is blocked, also nonzero. Nothing here authorizes publication; the AFK
+// wrapper and npm run pr judge the branch for themselves.
 
 export type Phase = "sandbox" | "implementer" | "reviewer";
 export type IssueOutcome =
   | { readonly kind: "no-work" }
+  | { readonly kind: "blocked"; readonly blockedBy: readonly string[] }
   | { readonly kind: "failed"; readonly phase: Phase; readonly reason: string }
   | { readonly kind: "held"; readonly sha: string; readonly reason: string }
   | { readonly kind: "eligible"; readonly sha: string }
   | { readonly kind: "integrated"; readonly sha: string }
   | { readonly kind: "not-integrated"; readonly sha: string; readonly reason: string };
 export type IssueResult = { readonly issue: PlannedIssue; readonly outcome: IssueOutcome };
-export type RunStatus = "complete" | "incomplete" | "failed" | "refused";
+export type RunStatus = "complete" | "blocked" | "incomplete" | "failed" | "refused";
 export type RunResult = { readonly status: RunStatus; readonly reason: string | undefined; readonly issues: readonly IssueResult[] };
 export type Verdict = { readonly verdict: "pass" | "fail"; readonly sha: string; readonly reason: string };
 export type ReviewRun = { readonly stdout: string; readonly commits: number; readonly tipAfter: string | undefined };
@@ -92,13 +94,26 @@ export function latest(earlier: readonly IssueResult[], later: readonly IssueRes
 
 export const outstanding = (issues: readonly IssueResult[]): IssueResult[] => issues.filter(({ outcome }) => !SETTLED.has(outcome.kind));
 
-/** The run's status: complete only when the queue drained and no issue is left failed, held or unmerged. */
+const issueList = (ids: readonly string[]): string => `issue ${ids.join(", issue ")} ${ids.length === 1 ? "is" : "are"}`;
+
+/**
+ * The run's status: complete only when the queue drained and no issue is left failed, held,
+ * unmerged or blocked. Blocked issues were never worked, so they make the run blocked, not failed;
+ * beside any other outstanding issue the run is incomplete.
+ */
 export function finish(issues: readonly IssueResult[], stop: Stop): RunResult {
   if (stop.kind === "failed") return { status: "failed", reason: stop.reason, issues };
   if (stop.kind === "exhausted") return { status: "incomplete", reason: `stopped after ${String(stop.rounds)} rounds with work still planned`, issues };
-  const left = outstanding(issues).map(({ issue }) => issue.id);
-  if (left.length === 0) return { status: "complete", reason: undefined, issues };
-  return { status: "incomplete", reason: `issue ${left.join(", issue ")} ${left.length === 1 ? "is" : "are"} not integrated`, issues };
+  const left = outstanding(issues);
+  const blocked = left.filter(({ outcome }) => outcome.kind === "blocked").map(({ issue }) => issue.id);
+  const unintegrated = left.filter(({ outcome }) => outcome.kind !== "blocked").map(({ issue }) => issue.id);
+  const blockedReason = `${issueList(blocked)} blocked by an open issue and was not worked`;
+  if (unintegrated.length > 0) {
+    const reason = `${issueList(unintegrated)} not integrated`;
+    return { status: "incomplete", reason: blocked.length > 0 ? `${reason}; ${blockedReason}` : reason, issues };
+  }
+  if (blocked.length > 0) return { status: "blocked", reason: blockedReason, issues };
+  return { status: "complete", reason: undefined, issues };
 }
 
 export function exitCode(result: RunResult): number {
@@ -115,5 +130,6 @@ export function describeOutcome(outcome: IssueOutcome): string {
     case "eligible": return `reviewed at ${outcome.sha} but never merged`;
     case "integrated": return `integrated at ${outcome.sha}`;
     case "no-work": return "no work";
+    case "blocked": return `blocked by issue ${outcome.blockedBy.join(", issue ")}`;
   }
 }

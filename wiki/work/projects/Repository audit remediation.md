@@ -9,7 +9,7 @@ agent: opencode
 status: in-progress
 owner: human
 priority: P1
-next_action: S18, the last slice, has every dependency landed and waits on the owner's decision on how a scoped model credential reaches the isolated guest. S14's review follow-ups are in review on fix/s14-guard-followups; run at most two heavy jobs at a time.
+next_action: Build S28 (the per-run credential proxy), then S29 (the guest's internal network and the two-name guard exception, after the owner answers its package-egress question), then S18. Run at most two heavy jobs at a time.
 idea: "[[Execute the repository audit remediation]]"
 evidence:
   - "OWNER DECISION: on 2026-10-16 the owner requested committed planning, a pull request and execution by another LLM in a separate terminal session."
@@ -32,6 +32,7 @@ evidence:
   - "VERIFIED: at about 12:45 UTC on 2026-10-19 PR 60 (feat/s14-isolated-coordinator, head 7b0df89) was open, so S14 is in review; S18 depends on S14, S15, S16 and S17, of which only S14 has not landed. This supersedes the 10:22 UTC in-progress line above for S17, S21 and S27 (checked by Claude Code, Opus 5.5)."
   - "VERIFIED: on 2026-10-19 gh pr view 60 reported MERGED by the code owner's account at 12:55:07 UTC as 2a69b17, and git merge-tree --write-tree 2a69b17^ 7b0df89 gave 2a69b17's own tree, so main received exactly the reviewed head 7b0df89. Twenty-five of the plan's 26 slices have landed, plus the follow-up S27; S18 remains, and all its dependencies (S14, S15, S16, S17) have landed. This supersedes the 12:45 UTC line above for S14 (checked by Claude Code, Opus 5.5)."
   - "INFERRED: per the final report of an independent verifier (a Claude Code verifier subagent on Opus 5.5, claude-opus-5-5, in a separate context), relayed by the coordinator on 2026-10-19 and not reproduced here, 7b0df89 (S14, PR 60) rated PASS with three LOWs, N1 to N3; the S14 builder's follow-ups are on branch fix/s14-guard-followups."
+  - "OWNER DECISION: on 2026-10-19 the owner chose \"Build our own tiny proxy (Recommended)\" for how the model credential reaches the isolated guest (recorded in Choose how the model credential reaches the isolated guest). This adds follow-up slices S28 and S29, outside the plan's 26, which S18 now depends on."
 ---
 
 ## Outcome

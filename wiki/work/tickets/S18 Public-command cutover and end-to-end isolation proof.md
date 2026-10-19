@@ -4,21 +4,22 @@ title: S18 Public-command cutover and end-to-end isolation proof
 summary: Route the public Sandcastle commands through the complete isolated pipeline and retire replaced host-execution paths only after end-to-end proof.
 tags: [area/agents, area/git, area/planning]
 created: 2026-10-16
-updated: 2026-10-17
+updated: 2026-10-19
 agent: opencode
 status: proposed
 owner: agent
 priority: P1
-next_action: Verify approval and S14-S17 completion, then exercise and switch the complete public workflow with its retirement checks.
+next_action: Wait for S28 and S29 to land (the credential decision is made), then verify approval and every parent and switch the complete public workflow with its retirement checks.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: build
 plan: "[[Repository audit remediation implementation plan]]"
-depends_on: ["[[S14 Isolated coordinator preparation and export]]", "[[S15 Independent isolated verification receipts]]", "[[S16 Trusted publication of verified candidate refs]]", "[[S17 Durable recovery and notification reconciliation]]"]
-related: ["[[Repository audit findings 2026-10-16]]", "[[Docker-capable containment proof is unavailable locally]]"]
+depends_on: ["[[S14 Isolated coordinator preparation and export]]", "[[S15 Independent isolated verification receipts]]", "[[S16 Trusted publication of verified candidate refs]]", "[[S17 Durable recovery and notification reconciliation]]", "[[S28 Per-run model credential proxy]]", "[[S29 Per-run guest network and credential wiring]]"]
+related: ["[[Choose how the model credential reaches the isolated guest]]", "[[Repository audit findings 2026-10-16]]", "[[Docker-capable containment proof is unavailable locally]]"]
 evidence:
   - "VERIFIED: this job spec preserves approved slice S18, A01/A10/A13/A14 integration and its four named prerequisites."
   - "UNKNOWN: job-spec approval and implementation evidence are pending."
+  - "OWNER DECISION: on 2026-10-19 the owner decided how a model credential reaches the isolated guest: \"Build our own tiny proxy (Recommended)\" (quoted in full in Choose how the model credential reaches the isolated guest). S28 and S29 deliver it, so this ticket now depends on them."
 ---
 
 ## Goal

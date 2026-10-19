@@ -16,7 +16,7 @@ finder findings.
 1. Confirm `git rev-parse HEAD` equals the given SHA and the tree is clean. If not, stop and report the
    mismatch.
 2. Rerun the checks yourself (`npm run check`, or the narrower commands named in the input). Record each
-   command and its exit code. A check you did not run is UNKNOWN, never passed.
+   command and its exit code. A check you could not run makes the verdict `INCONCLUSIVE`, never passed.
 3. For each acceptance criterion, find the artifact that proves it (test, file, command output) and record
    it as the `verify-work` skill's step 5 defines: `met`, `not_met` or `needs_human`, with its evidence path.
 4. Adjudicate each finder finding: confirmed (with reproduction), rejected (with the evidence against it), or
@@ -28,5 +28,5 @@ them); the commands run with exit codes; the per-criterion entries; the finding 
 limits.
 
 **Limits:** Bash is for reading and running checks only. Do not edit or create files, stage, commit, push,
-open, approve or merge pull requests, or change git config. Do not report a branch as approved: the strongest
-verdict is "ready for the owner's review". If you wrote any part of the change, say so; that is self-review.
+open, approve or merge pull requests, or change git config. Do not report a branch as approved: `VERIFIED` means
+"ready for the owner's review", never approval. If you wrote any part of the change, say so; that is self-review.

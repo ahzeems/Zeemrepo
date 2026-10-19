@@ -21,6 +21,9 @@ evidence:
   - "VERIFIED: branch-diff.ts branchBase takes the earlier of the fork point's commit date and the branch's author dates, and repo-memory-validation.ts counts a no-doc-change hatch anywhere outside code in any changed work record; Change records.md described both more narrowly."
   - "VERIFIED: npm run check exits 0 at d91f4ac on Node 24.22.0 (580 node tests and 56 evals tests pass; every guard passes)."
   - "VERIFIED: the read-only verifier agent, in a separate context, reran npm run check at d91f4ac (exit 0) and returned VERIFIED with all five criteria met; its one finding (the R7 row said 112 path-scoped rule files, git ls-tree gives 111) is corrected in this record."
+  - "VERIFIED: the read-only finder reviewed d91f4ac and reported no CRITICAL or HIGH findings; its MEDIUM and LOW findings were fixed in b6a686a and e09b0d4 or recorded under Observations."
+  - "VERIFIED: a second separate-context verifier pass at e09b0d4 reran npm run check (exit 0) and returned VERIFIED with all five criteria met; the commit after it changes only this record."
+  - "VERIFIED: npm run pr first refused because gh auth status exited 1 for a failing second stored login; after the owner fixed the login on 2026-10-19, gh auth status exits 0 and the active account is the machine account."
 ---
 
 Use evidence and owner decisions; do not invent approval.

@@ -21,7 +21,7 @@ check that does not rely on the model.
 | `CLAUDE.md`, and rule files without `paths:` frontmatter | At launch | `CLAUDE.md`, the 7 `.claude/rules/zeem/` files, the 10 `.claude/rules/ecc/common/` files |
 | Rule files with `paths:` frontmatter | When Claude reads, writes or edits a matching file, until compaction summarizes them away | `.claude/rules/ecc/typescript/` (`**/*.ts`, `**/*.tsx`, `**/*.js`, `**/*.jsx`), `.claude/rules/ecc/python/` (`**/*.py`, `**/*.pyi`; `fastapi.md` narrower) |
 | Rule files matched by `claudeMdExcludes` in `.claude/settings.json` | Never | The other 19 ECC sets |
-| Skills | Only the name and description, until a skill is invoked | `.claude/skills/` and the ECC plugin's skills |
+| Skills | Only the name and description, until a skill is invoked | `.claude/skills/`, and the ECC plugin's skills where the plugin is loaded ([[Integration admission]]) |
 
 Source for the loading rules: the Claude Code memory documentation (code.claude.com/docs/en/memory,
 read 2026-10-19). It says path-scoped rules load "when Claude uses the Read, Write, or Edit tool on a

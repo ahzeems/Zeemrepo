@@ -68,8 +68,9 @@ ready for the owner.
    reviewers (`ecc:code-reviewer`, `ecc:typescript-reviewer` for TypeScript, and
    `ecc:security-reviewer` for hooks, git, file system or credential code), and the repository's
    `.claude/agents/verifier.md` (read-only, one verdict per acceptance criterion) and
-   `.claude/agents/finder.md` (findings on pinned base and head SHAs). A changed head needs a
-   new review.
+   `.claude/agents/finder.md` (findings on pinned base and head SHAs). The ECC reviewers exist only
+   where the plugin is loaded ([[Integration admission]]); without them, use `finder` and `verifier`
+   and say so. A changed head needs a new review.
 7. Fix findings on the branch, rerun `npm run check`, and record the reviewed SHA, the commands
    and their results, and each criterion's verdict in the work record as labelled evidence.
    Pre-push reruns `npm run check`, except for the commit `npm run pr` has just checked.

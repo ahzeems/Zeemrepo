@@ -1,16 +1,4 @@
 {
-  "extraKnownMarketplaces": {
-    "ecc": {
-      "source": {
-        "source": "git",
-        "url": "https://github.com/affaan-m/ECC.git",
-        "ref": "v2.2.3"
-      }
-    }
-  },
-  "enabledPlugins": {
-    "ecc@ecc": true
-  },
   "permissions": {
     "deny": [
       "Bash(git push origin main)",
@@ -37,6 +25,18 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "ecc@ecc": true
+  },
+  "extraKnownMarketplaces": {
+    "ecc": {
+      "source": {
+        "source": "git",
+        "url": "https://github.com/affaan-m/ECC.git",
+        "ref": "v2.2.3"
+      }
+    }
   },
   "claudeMdExcludes": [
     "**/.claude/rules/ecc/angular/**",

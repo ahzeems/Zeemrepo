@@ -1,5 +1,10 @@
 {
   "pluginRef": "v2.2.3",
+  "loaded": [
+    "common",
+    "python",
+    "typescript"
+  ],
   "files": {
     "angular/coding-style.md": "07ff77e554dad197c179c0fbd6b70dcbedbe4e038e95e60da0475134a5be856c",
     "angular/hooks.md": "321620abd2771d766149f5d38edc6b0f6a70fc49cdf4467bf3d81985668fa088",

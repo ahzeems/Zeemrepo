@@ -1,8 +1,10 @@
 // npm run rules:check: the vendored ECC rules under .claude/rules/ecc/ are exactly the files the
 // manifest lists, unedited, for the plugin version .claude/settings.json pins: every rule set in
 // ECC's rules/ folder, kept complete (OWNER DECISION, 2026-10-10), plus the plugin's LICENSE.
-// rules/README.md stays out, because Claude Code would load it as a rule. After moving the pin,
-// copy the rule set folders in again and run with --write to record the new hashes.
+// rules/README.md stays out, because Claude Code would load it as a rule. The manifest's loaded
+// list names the sets Claude Code loads; every other set is excluded from loading by a
+// claudeMdExcludes pattern in the settings (OWNER DECISION, 2026-10-19). After moving the pin,
+// copy the rule set folders in again and run with --write to record the new hashes and sets.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { EXIT_ERROR, consoleOutput, isEntryPoint, report, rootFrom, runCli, type Output } from "../lib/cli.ts";
@@ -17,7 +19,9 @@ const SETTINGS_PATH = ".claude/settings.json";
 const REPOSITORY = join(import.meta.dirname, "../..");
 const USAGE = "usage: node scripts/governance/ecc-rules.ts [--write | --root <repository>]";
 
-type Manifest = { pluginRef: string; files: Record<string, string> };
+type Manifest = { pluginRef: string; loaded: string[]; files: Record<string, string> };
+// A whole set is excluded only by this exact pattern; any other spelling leaves the set loading.
+const EXCLUDED_SET = /^\*\*\/\.claude\/rules\/ecc\/([^/*]+)\/\*\*$/;
 export type Options = { cwd?: string; output?: Output };
 
 function readJson(path: string): unknown {
@@ -47,12 +51,41 @@ function vendored(root: string): { hashes: Record<string, string>; symlinks: str
   };
 }
 
+function excludedSets(root: string): string[] {
+  const settings = readJson(join(root, SETTINGS_PATH));
+  const patterns: unknown[] = isRecord(settings) && Array.isArray(settings.claudeMdExcludes) ? settings.claudeMdExcludes : [];
+  return patterns.flatMap((pattern) => {
+    const set = typeof pattern === "string" ? EXCLUDED_SET.exec(pattern)?.[1] : undefined;
+    return set === undefined ? [] : [set];
+  });
+}
+
+const ruleSets = (hashes: Record<string, string>): string[] =>
+  [...new Set(Object.keys(hashes).filter((path) => path.includes("/")).map((path) => path.split("/")[0] ?? ""))].sort();
+
 function readManifest(root: string): Manifest | null {
   const value = readJson(join(root, MANIFEST_PATH));
   if (!isRecord(value) || typeof value.pluginRef !== "string" || !isRecord(value.files)) return null;
+  const { loaded } = value;
+  if (!Array.isArray(loaded) || loaded.some((set) => typeof set !== "string")) return null;
   const files = Object.entries(value.files);
   if (files.length === 0 || files.some(([, hash]) => typeof hash !== "string")) return null;
-  return { pluginRef: value.pluginRef, files: Object.fromEntries(files.map(([path, hash]) => [path, String(hash)])) };
+  return { pluginRef: value.pluginRef, loaded: loaded.map(String), files: Object.fromEntries(files.map(([path, hash]) => [path, String(hash)])) };
+}
+
+function loadingErrors(root: string, loaded: readonly string[], sets: readonly string[]): string[] {
+  const excluded = excludedSets(root);
+  const errors = excluded.filter((set) => !sets.includes(set))
+    .map((set) => `${SETTINGS_PATH} excludes ${RULES_DIR}/${set}/, which is no vendored rule set`);
+  for (const set of sets) {
+    const loads = !excluded.includes(set);
+    if (loads && !loaded.includes(set)) errors.push(`${RULES_DIR}/${set}/ loads, but ${MANIFEST_PATH} does not list it in loaded: exclude it with "**/${RULES_DIR}/${set}/**" in claudeMdExcludes, or record it`);
+    if (!loads && loaded.includes(set)) errors.push(`${MANIFEST_PATH} lists ${set} as loaded, but ${SETTINGS_PATH} excludes it`);
+  }
+  for (const set of loaded) {
+    if (!sets.includes(set)) errors.push(`${MANIFEST_PATH} lists ${set} as loaded, which is no vendored rule set`);
+  }
+  return errors;
 }
 
 export function eccRulesErrors(root: string): string[] {
@@ -70,7 +103,7 @@ export function eccRulesErrors(root: string): string[] {
   for (const path of Object.keys(actual)) {
     if (!(path in manifest.files)) errors.push(`${RULES_DIR}/${path} is not in the manifest`);
   }
-  return errors;
+  return [...errors, ...loadingErrors(root, manifest.loaded, ruleSets(actual))];
 }
 
 export function main(args: readonly string[], options: Options = {}): number {
@@ -89,7 +122,9 @@ export function main(args: readonly string[], options: Options = {}): number {
       output.warn(`rules-check: ${SETTINGS_PATH} pins no ECC version, so there is nothing to record`);
       return EXIT_ERROR;
     }
-    const manifest: Manifest = { pluginRef, files: vendored(root).hashes };
+    const { hashes } = vendored(root);
+    const excluded = excludedSets(root);
+    const manifest: Manifest = { pluginRef, loaded: ruleSets(hashes).filter((set) => !excluded.includes(set)), files: hashes };
     mkdirSync(dirname(join(root, MANIFEST_PATH)), { recursive: true });
     writeFileSync(join(root, MANIFEST_PATH), `${JSON.stringify(manifest, null, 2)}\n`);
   }

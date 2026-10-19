@@ -4,12 +4,12 @@ title: Software factory runs ideas to completion
 summary: An orchestrator and dispatcher over the wiki kanban that works the owner's ideas to completion, improves itself, and lands every change by owner-merged pull request.
 tags: [area/agents, area/planning, kind/architecture]
 created: 2026-10-18
-updated: 2026-10-18
+updated: 2026-10-19
 agent: claude-code
 status: clarifying
 owner: human
 priority: P1
-next_action: The owner reviews the interview below and [[Software factory functions, gaps and build inventory]]; on approval a planner writes the factory plan.
+next_action: The owner works the decisions on [[Software factory map]]; once they are resolved a planner writes the factory plan.
 related: ["[[Repository tickets drive parallel agent work on a kanban board]]", "[[Smallest slice of a repository ticket board and its evals]]", "[[Run Sandcastle on GitHub issues]]"]
 evidence:
   - "OWNER DECISION: on 2026-10-18 the owner set the goal: \"we need to discuss having an orcastrator, and a kanban style ticketing system, with the idea of a software factory, something which self improves and works on my projects and ideas till cimpletion\"."

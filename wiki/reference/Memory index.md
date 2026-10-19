@@ -4,7 +4,7 @@ title: Memory index
 summary: Index of every memory note in the wiki, with a one-line summary each, grouped by type.
 tags: [area/wiki, kind/overview]
 created: 2026-10-09
-updated: 2026-10-17
+updated: 2026-10-19
 agent: claude-code
 status: active
 ---
@@ -56,6 +56,7 @@ One line per memory note. Add new notes here; work notes need no entry.
 - [[Verify a repository change]] - Run npm run check and the hooks, review read-only with separate reviewer subagents, and record evidence before opening a pull request.
 - [[Work with any agent provider]] - Load canonical instructions and skills with available tools, attribute notes correctly and arrange independent review in the current harness.
 - [[Resume repository audit remediation]] - Resume the committed map, plan and tickets in a fresh LLM session, checking decisions, approval, dependencies and verification before proceeding.
+- [[Resume software factory planning]] - Continue software factory planning in a fresh session: check PRs 64 and 65, refresh the gap facts, and work one map decision at a time with no build work.
 
 ## Reference
 
@@ -69,3 +70,4 @@ One line per memory note. Add new notes here; work notes need no entry.
 ## Sessions
 
 - [[2026-10-16 Provider-neutral authoring]] - The owner requested provider-neutral authoring, and tests reproduced the authoring barriers before their removal.
+- [[2026-10-19 Software factory planning]] - The software factory requirement, Hermes-based gap research and decision map were recorded across PRs 64 and 65, with no build work.

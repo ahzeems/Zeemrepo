@@ -1,0 +1,1 @@
+- New map for the software factory: eight owner decisions and four research questions the factory plan needs, charted from the requirement interview; no build tickets yet. A resume runbook and session note let another agent continue the planning.

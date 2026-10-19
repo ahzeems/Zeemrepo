@@ -1,7 +1,7 @@
 ---
 type: project
 title: Agent workflow improvement
-summary: Requirement-to-evidence assessment of the agent workflow (R1 to R9) and its five owner-gated phases; Phase 1 landed in PR 27, Phase 2 stops irrelevant ECC rules loading.
+summary: Requirement-to-evidence assessment of the agent workflow (R1 to R9) and its five owner-gated phases; Phases 1 and 2 landed (PRs 27, 28); Phase 3 records the ECC plugin's admission.
 tags: [area/agents, area/planning]
 created: 2026-10-19
 updated: 2026-10-19
@@ -9,11 +9,16 @@ agent: claude-code
 status: in-progress
 owner: human
 priority: P2
-next_action: Owner reviews and merges the Phase 2 pull request; Phase 3 (integration admission) branches from main only after that merge.
+next_action: Owner reviews and merges the Phase 3 pull request, and decides whether to install ECC on the machine agents use; Phase 4 (evaluation) branches from main only after that merge.
 idea: "[[Improve the agent workflow]]"
 evidence:
   - "OWNER DECISION: the owner's brief (2026-10-19) says \"Begin Phase 1 only\" and \"Stop at Phase 1 owner-review handoff. Do not begin Phase 2 before the owner merges Phase 1.\""
   - "OWNER DECISION: \"go ahead and fix it, then open the PR\" (2026-10-19), after the verifier's finding."
+  - "VERIFIED: PR #28 (Phase 2) merged by the owner (gh pr view 28: mergedBy ahzeems); check and guards passed on head 3018703."
+  - "OWNER DECISION: Phase 3 admits the \"ECC plugin (Recommended)\" first and records it on a \"Wiki reference page (Recommended)\" (2026-10-19)."
+  - "VERIFIED: git ls-remote resolves ECC tag v2.2.3 to commit c05b2d6614f62f6db0047669aa4eefb223d478f9, the commit of the local marketplace clone; its plugin.json, hooks/hooks.json and .mcp.json give 68 agents, 293 skills, 94 command shims, 24 hook commands on 7 events and a chrome-devtools MCP server."
+  - "VERIFIED: on 2026-10-19 claude plugin list --json printed [] and no ecc agent or skill was offered in this session, while .claude/settings.json enables ecc@ecc: enabled is not loaded on this machine."
+  - "VERIFIED: on a scratch copy, claude plugin disable ecc@ecc --scope project set the entry to false and rules:check exited 0; deleting the marketplace and enabledPlugins entries made rules:check refuse with the pin message."
   - "VERIFIED: PR #27 (Phase 1) merged by the owner (gh pr view 27: mergedBy ahzeems, merge commit c5e9a0b); the check and guards workflows passed on it; npm run audit reports 26 commits on main, all landed by merged pull request."
   - "OWNER DECISION: for Phase 2, \"Exclude all non-TS/Python\" ECC rule sets from loading, verified by \"One claude -p run\" (2026-10-19)."
   - "VERIFIED: before Phase 2, reading scripts/changes/repo-memory-validation.ts in a session on 2026-10-19 injected the ArkTS, React Native, TypeScript and Vue rules, and reading test files injected angular/testing.md; their globs (**/*.ts, **/*.test.ts) match 80 tracked .ts files."
@@ -111,7 +116,29 @@ Not fixed in Phase 2: a rule file placed directly under `.claude/rules/ecc/` (as
 Excluded from this change: skill descriptions (native discovery stays), the zeem rules and
 `CLAUDE.md` (always needed), and the telemetry setup.
 
+### Phase 3: integration admission (main at 40bae98)
+
+| Requirement (R8) | Before | Change |
+|---|---|---|
+| Exact upstream and revision | ECC pinned by tag only; the commit was not recorded | [[Integration admission]] records tag `v2.2.3` = `c05b2d6` and how to re-resolve it |
+| Purpose, contents, dependencies | Not recorded for the plugin; ADR-0024 says only that it is enabled | Agents, skills, hooks, MCP server and the repository's own dependencies on it listed |
+| Permissions | Not recorded | Hooks and MCP server run with the user's permissions; deny rules and the merge hook still apply |
+| Registered, evaluated, enabled, loaded | One `enabledPlugins` flag; the plugin was enabled but not loaded on the machine checked | The four words defined and recorded separately |
+| Disable and remove | Not defined | Disable checked on a scratch copy; removal shown to need its own branch |
+
+Not in this change: installing ECC (it turns on 24 hooks and an MCP server), changing the import
+baseline's schema, and a config file or guard for admission status (the owner chose a wiki page).
+
 ## Acceptance criteria
+
+Phase 3:
+
+- The ECC plugin has one admission section with upstream, exact commit, contents, permissions,
+  status in four separate words, and disable and removal steps, each from a command run or a cited
+  doc, dated.
+- Nothing is installed, enabled or configured.
+- The Verify runbook says what to use when the ECC reviewers are not loaded.
+
 
 Phase 2:
 

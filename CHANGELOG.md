@@ -4,6 +4,10 @@ Every branch adds its own entry here, under a `## YYYY-MM-DD` heading dated betw
 started and the day it lands (UTC). Entries describe the change; they never cite
 facts that only exist after the owner merges. `npm run changelog:guard` enforces this.
 
+## 2026-10-19
+
+- Phase 1 of the agent workflow review: `design-principles.md` now asks for the outcome, acceptance criteria, scope and open questions before the first edit (one plan line for a small, settled change) and for reading the tests and re-reading changed or truncated files; `evidence-and-review.md` says how a handoff reports done, refused, failed, blocked and unrun steps and the state left by work that stops early; the `verifier` agent returns `verify-work`'s verdicts (`VERIFIED`, `NOT_VERIFIED`, `INCONCLUSIVE`; `met`, `not_met`, `needs_human`) instead of PASS or FAIL, and a check it could not run makes the verdict `INCONCLUSIVE`; the Verify a repository change runbook commits before the separate-context review of the pinned commit, says that pre-push skips the check for a commit `npm run pr` just checked, and lists `eslint.config.ts` in the lint scope, and Land a change names that review; the Change records page states the changelog window and `[no-doc-change]` placement as the guards apply them.
+
 ## 2026-10-11
 
 - Closed the gaps the final audit of main found in the local backstops: the merge-blocking hook now joins backslash-newline continuations, drops backslash escapes outside quotes and reads a heredoc or quoted string fed to a shell as commands; `npm run audit` fetches origin's main before auditing it, so a stale local ref cannot hide a direct push; a new `.githooks/pre-merge-commit` refuses a `git merge` that would commit on main, which never ran pre-commit; and the Merge gate contract lists `rules:check` among the guards, the ruleset's unattributed-changes setting and the new hook.

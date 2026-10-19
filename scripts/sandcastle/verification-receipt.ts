@@ -73,34 +73,34 @@ const within = (inner: string, outer: string): boolean => {
   return path === "" || (!path.startsWith("..") && !isAbsolute(path));
 };
 
-/** Refusals unless `dir` is an absolute, real, private directory of this user, apart from every `forbidden` path. */
-export function storeRefusals(dir: string, forbidden: readonly string[]): string[] {
-  if (!isAbsolute(dir)) return [`the receipt store ${dir} is not an absolute path`];
+/** Refusals unless `dir` is an absolute, real, private directory of this user, apart from every `forbidden` path. `label` names the store in them. */
+export function storeRefusals(dir: string, forbidden: readonly string[], label = "receipt store"): string[] {
+  if (!isAbsolute(dir)) return [`the ${label} ${dir} is not an absolute path`];
   let info;
   try {
     info = lstatSync(dir);
   } catch {
     info = null;
   }
-  if (info === null || !info.isDirectory()) return [`the receipt store ${dir} is not a directory`];
+  if (info === null || !info.isDirectory()) return [`the ${label} ${dir} is not a directory`];
   const refusals: string[] = [];
-  if (info.uid !== process.getuid?.()) refusals.push(`the receipt store ${dir} is not owned by this user`);
-  if ((info.mode & 0o077) !== 0) refusals.push(`the receipt store ${dir} is not private (mode ${(info.mode & 0o777).toString(8)})`);
-  return [...refusals, ...placementRefusals(dir, forbidden)];
+  if (info.uid !== process.getuid?.()) refusals.push(`the ${label} ${dir} is not owned by this user`);
+  if ((info.mode & 0o077) !== 0) refusals.push(`the ${label} ${dir} is not private (mode ${(info.mode & 0o777).toString(8)})`);
+  return [...refusals, ...placementRefusals(dir, forbidden, label)];
 }
 
-function placementRefusals(dir: string, forbidden: readonly string[]): string[] {
+function placementRefusals(dir: string, forbidden: readonly string[], label: string): string[] {
   return forbidden.filter((path) => within(dir, path) || within(path, dir))
-    .map((path) => `the receipt store ${dir} is inside, or contains, ${path}, which a builder or container can reach`);
+    .map((path) => `the ${label} ${dir} is inside, or contains, ${path}, which a builder or container can reach`);
 }
 
 /** Creates the store privately when it is missing, then checks it. */
-export function prepareStore(dir: string, forbidden: readonly string[]): string[] {
-  if (!isAbsolute(dir)) return storeRefusals(dir, forbidden);
-  const placed = placementRefusals(dir, forbidden);
+export function prepareStore(dir: string, forbidden: readonly string[], label = "receipt store"): string[] {
+  if (!isAbsolute(dir)) return storeRefusals(dir, forbidden, label);
+  const placed = placementRefusals(dir, forbidden, label);
   if (placed.length > 0) return placed;
   mkdirSync(dir, { recursive: true, mode: 0o700 });
-  return storeRefusals(dir, forbidden);
+  return storeRefusals(dir, forbidden, label);
 }
 
 /** Writes the receipt under the SHA-256 of its bytes and returns that digest; an identical receipt is already there. */
@@ -115,7 +115,8 @@ export function writeReceipt(dir: string, receipt: Receipt): string {
   return digest;
 }
 
-function readBounded(path: string): Buffer | string {
+/** The bytes of a regular file this user owns and no one else can write, up to `limit`; otherwise why not. */
+export function readPrivate(path: string, limit: number): Buffer | string {
   let fd: number;
   try {
     if (!lstatSync(path).isFile()) return "is not a regular file";
@@ -127,7 +128,7 @@ function readBounded(path: string): Buffer | string {
     const info = fstatSync(fd);
     if (!info.isFile()) return "is not a regular file";
     if (info.uid !== process.getuid?.() || (info.mode & 0o022) !== 0) return "is writable by another user";
-    if (info.size > RECEIPT_BYTES) return `is over ${String(RECEIPT_BYTES)} bytes`;
+    if (info.size > limit) return `is over ${String(limit)} bytes`;
     const bytes = Buffer.alloc(info.size);
     let read = 0;
     for (let got = -1; read < info.size && got !== 0; read += got) got = readSync(fd, bytes, read, info.size - read, read);
@@ -142,7 +143,7 @@ export function readReceipt(dir: string, digest: string): { receipt: Receipt } |
   if (!DIGEST.test(digest)) return { refusals: [`${digest} is not a receipt digest`] };
   const store = storeRefusals(dir, []);
   if (store.length > 0) return { refusals: store };
-  const bytes = readBounded(join(dir, `${digest}.json`));
+  const bytes = readPrivate(join(dir, `${digest}.json`), RECEIPT_BYTES);
   if (typeof bytes === "string") return { refusals: [bytes === "does not exist" ? `there is no receipt ${digest} in the store` : `the receipt ${digest} ${bytes}`] };
   if (sha256(bytes) !== digest) return { refusals: [`the receipt's content does not match its digest ${digest}; it was changed after issue`] };
   let value: unknown;

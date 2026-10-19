@@ -6,9 +6,10 @@ import type { PlannedIssue } from "./already-done.ts";
 // failed or unreviewed ones stay unintegrated, and a run with either reports incomplete with a
 // nonzero exit naming them. An issue the planner declared blocked is never worked; a run left
 // with only such issues is blocked, also nonzero. Nothing here authorizes publication; the AFK
-// wrapper and npm run pr judge the branch for themselves.
+// wrapper and npm run pr judge the branch for themselves. On the isolated path (recovery.ts) an
+// issue settles as published once its verified candidate has its pull request and its notice.
 
-export type Phase = "sandbox" | "implementer" | "reviewer";
+export type Phase = "sandbox" | "implementer" | "reviewer" | "import" | "recovery" | "verification" | "publication" | "notification";
 export type IssueOutcome =
   | { readonly kind: "no-work" }
   | { readonly kind: "blocked"; readonly blockedBy: readonly string[] }
@@ -16,6 +17,7 @@ export type IssueOutcome =
   | { readonly kind: "held"; readonly sha: string; readonly reason: string }
   | { readonly kind: "eligible"; readonly sha: string }
   | { readonly kind: "integrated"; readonly sha: string }
+  | { readonly kind: "published"; readonly sha: string; readonly url: string }
   | { readonly kind: "not-integrated"; readonly sha: string; readonly reason: string };
 export type IssueResult = { readonly issue: PlannedIssue; readonly outcome: IssueOutcome };
 export type RunStatus = "complete" | "blocked" | "incomplete" | "failed" | "refused";
@@ -26,7 +28,7 @@ export type Stop = { readonly kind: "drained" } | { readonly kind: "exhausted"; 
 
 const FULL_SHA = /^[0-9a-f]{40}$/;
 const REVIEW_BLOCK = /<review>([\s\S]*?)<\/review>/g;
-const SETTLED: ReadonlySet<IssueOutcome["kind"]> = new Set(["no-work", "integrated"]);
+const SETTLED: ReadonlySet<IssueOutcome["kind"]> = new Set(["no-work", "integrated", "published"]);
 const EDITED = "the reviewer changed the candidate; the changed branch needs a new independent review";
 
 function parsed(text: string): unknown {
@@ -94,6 +96,9 @@ export function latest(earlier: readonly IssueResult[], later: readonly IssueRes
 
 export const outstanding = (issues: readonly IssueResult[]): IssueResult[] => issues.filter(({ outcome }) => !SETTLED.has(outcome.kind));
 
+// Recovery fails an issue in the notification phase only after its pull request is open.
+const onlyUnnotified = (outcome: IssueOutcome): boolean => outcome.kind === "failed" && outcome.phase === "notification";
+
 const issueList = (ids: readonly string[]): string => `issue ${ids.join(", issue ")} ${ids.length === 1 ? "is" : "are"}`;
 
 /**
@@ -105,13 +110,16 @@ export function finish(issues: readonly IssueResult[], stop: Stop): RunResult {
   if (stop.kind === "failed") return { status: "failed", reason: stop.reason, issues };
   if (stop.kind === "exhausted") return { status: "incomplete", reason: `stopped after ${String(stop.rounds)} rounds with work still planned`, issues };
   const left = outstanding(issues);
-  const blocked = left.filter(({ outcome }) => outcome.kind === "blocked").map(({ issue }) => issue.id);
-  const unintegrated = left.filter(({ outcome }) => outcome.kind !== "blocked").map(({ issue }) => issue.id);
+  const ids = (keep: (outcome: IssueOutcome) => boolean): string[] => left.filter(({ outcome }) => keep(outcome)).map(({ issue }) => issue.id);
+  const blocked = ids((outcome) => outcome.kind === "blocked");
+  const unnotified = ids(onlyUnnotified);
+  const unintegrated = ids((outcome) => outcome.kind !== "blocked" && !onlyUnnotified(outcome));
   const blockedReason = `${issueList(blocked)} blocked by an open issue and was not worked`;
-  if (unintegrated.length > 0) {
-    const reason = `${issueList(unintegrated)} not integrated`;
-    return { status: "incomplete", reason: blocked.length > 0 ? `${reason}; ${blockedReason}` : reason, issues };
-  }
+  const reasons = [
+    ...(unintegrated.length > 0 ? [`${issueList(unintegrated)} not integrated`] : []),
+    ...(unnotified.length > 0 ? [`${issueList(unnotified)} published, notification not confirmed`] : []),
+  ];
+  if (reasons.length > 0) return { status: "incomplete", reason: [...reasons, ...(blocked.length > 0 ? [blockedReason] : [])].join("; "), issues };
   if (blocked.length > 0) return { status: "blocked", reason: blockedReason, issues };
   return { status: "complete", reason: undefined, issues };
 }
@@ -129,6 +137,7 @@ export function describeOutcome(outcome: IssueOutcome): string {
     case "not-integrated": return `not integrated at ${outcome.sha}: ${outcome.reason}`;
     case "eligible": return `reviewed at ${outcome.sha} but never merged`;
     case "integrated": return `integrated at ${outcome.sha}`;
+    case "published": return `published at ${outcome.sha} as ${outcome.url}`;
     case "no-work": return "no work";
     case "blocked": return `blocked by issue ${outcome.blockedBy.join(", issue ")}`;
   }

@@ -480,6 +480,59 @@ Limits: no live reviewer is authorised, so no real receipt exists yet and public
 against fake receipts, a faked `gh` and a local bare repository. Tests:
 `node --test scripts/sandcastle/isolated-publication.test.ts`.
 
+## Durable recovery
+
+`scripts/sandcastle/recovery.ts` (S17, 2026-10-19) resumes an issue after a crash, a killed
+process or a failed step, without repeating finished work. It has no command yet; its entry points
+are `recoverIssue` and `recoverRun`, which S18 wires into the public commands. Until then nothing
+public calls it, and `npm run sandcastle:afk` keeps its own comment behaviour described above.
+
+Each issue passes three host phases after its sandbox exported an artifact: verification (a
+receipt), publication (the pushed SHA and its pull request) and notification (a comment on the
+issue). `scripts/sandcastle/run-state.ts` records each phase in one JSON file per issue under
+`$XDG_STATE_HOME/zeemrepo/run-state` (or `~/.local/state/zeemrepo/run-state`), a private directory
+beside the receipt store with the same placement rules. A save writes a temporary file and renames
+it into place, so a crash leaves the previous state or the new one, never half of either. A crash
+between the two can leave a `<key>.json.<12 hex>.tmp` file; the issue's next save removes it (regular
+files only, never a link).
+
+What a rerun does, per issue:
+
+- **Unchanged inputs** (task text digest, base, candidate ref, candidate SHA and the artifact's
+  manifest digest): it skips every recorded phase whose evidence still holds and runs only the
+  missing ones. A recorded receipt is reused only while it is in the store and binds exactly
+  those inputs.
+- **Changed inputs**: the old state file is renamed to `<key>.<time>.superseded.json` and kept,
+  and the issue starts over. A new verification also clears the publication and notification
+  recorded after it. Recorded state never authorises publication: publication validates its
+  receipt itself every time.
+- **A write whose answer was lost**: before each push, pull request or comment the state records
+  `attempted`. A retry reconciles before writing again: the push repeats the same SHA (a no-op),
+  the open pull request for exactly that SHA is reused, and the issue's comments are read for the
+  notice's hidden marker (`<!-- sandcastle-notification:<key> -->`) from the same `gh` login. A
+  marker in anyone else's comment does not count. If the issue cannot be read, nothing is posted.
+- **Failed verification**: the issue is `held` and stays unpublished until its candidate changes.
+- **Interrupted import or verification**: the artifact directory, `recovery.data` included, is only
+  read and stays as it was. A torn artifact fails the issue in the `import` phase; nothing is
+  restored into your checkout.
+
+Outcomes: an issue that reached its pull request and its notice is `published` (settled). Any
+other issue is `held` or `failed` in the phase that stopped it (`import`, `recovery`,
+`verification`, `publication` or `notification`), and the run ends `incomplete` with exit 2 naming
+each one (an issue stopped only at notification is named "published, notification not confirmed",
+because its pull request is open), while the published issues keep their pull requests (the owner's partial-failure policy
+of 2026-10-16). A failed state write is a host failure and stops the run.
+
+When to decide by hand. A state file that is malformed, held loosely (writable by another user),
+names another issue or has an unknown version is refused and left in place: read it, then move it
+aside yourself to start that issue over. A notice that stays unconfirmed means `gh` could not read
+or write the issue; fix `gh` and rerun. New notification channels or policies are out of scope
+and need the owner.
+
+Limits: tested only with a fake container runtime and reviewer, a local bare remote and a stateful
+fake `gh`; no real recovery run has happened. Tests:
+`node --test scripts/sandcastle/run-state.test.ts scripts/sandcastle/notifications.test.ts scripts/sandcastle/recovery.test.ts`.
+
 ## Known notes
 
 - The Dockerfile base is `ubuntu:26.04`, the release the owner's machine runs, pinned by digest

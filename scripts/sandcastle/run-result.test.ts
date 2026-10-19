@@ -127,3 +127,24 @@ await test("finish: exhausted rounds are incomplete and a failed phase is failed
 await test("exitCode maps a refused run to 1", () => {
   assert.equal(exitCode({ status: "refused", reason: "on main", issues: [] }), EXIT_REFUSED);
 });
+
+await test("a published issue is settled and names its pull request; recovery phases describe where work stopped", () => {
+  const url = "https://github.com/Zimfra/software_testing/pull/7";
+  assert.equal(finish([result(1, { kind: "published", sha: A, url })], { kind: "drained" }).status, "complete");
+  assert.equal(describeOutcome({ kind: "published", sha: A, url }), `published at ${A} as ${url}`);
+  assert.equal(describeOutcome({ kind: "failed", phase: "notification", reason: "gh failed" }), "failed in the notification: gh failed");
+  const mixed = finish([result(1, { kind: "published", sha: A, url }), result(2, { kind: "failed", phase: "publication", reason: "x" })], { kind: "drained" });
+  assert.equal(mixed.status, "incomplete");
+  assert.equal(mixed.reason, "issue 2 is not integrated");
+});
+
+await test("an issue failed only in notification is named as published with its notice unconfirmed, and still keeps the run incomplete", () => {
+  const url = "https://github.com/Zimfra/software_testing/pull/7";
+  const told = { kind: "failed", phase: "notification", reason: "gh failed" } as const;
+  const alone = finish([result(1, told)], { kind: "drained" });
+  assert.deepEqual([alone.status, alone.reason, exitCode(alone)], ["incomplete", "issue 1 is published, notification not confirmed", 2]);
+  const mixed = finish([result(1, { kind: "published", sha: A, url }), result(2, told), result(3, { kind: "held", sha: B, reason: "x" }), result(4, { kind: "blocked", blockedBy: ["9"] })], { kind: "drained" });
+  assert.equal(mixed.reason, "issue 3 is not integrated; issue 2 is published, notification not confirmed; issue 4 is blocked by an open issue and was not worked");
+  assert.equal(mixed.status, "incomplete");
+});
+

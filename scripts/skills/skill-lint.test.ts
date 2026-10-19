@@ -26,6 +26,8 @@ await test("the broken fixture library fails, listing each problem", () => {
   assert.equal(result.code, EXIT_REFUSED);
   assert.match(result.err, /name must equal the directory name/);
   assert.match(result.err, /cites a path that does not exist/);
+  assert.match(result.err, /example: references\/format\.md does not match its approved inventory/);
+  assert.match(result.err, /example: references\/added\.md is not in the approved inventory/);
 });
 
 await test("rejects unknown arguments", () => {
@@ -33,13 +35,23 @@ await test("rejects unknown arguments", () => {
 });
 
 const SKILL = "---\nname: alpha\ndescription: Use when testing.\n---\n\nBody.\n";
-const baseline = (installed: string): string => JSON.stringify({ skills: [{ name: "alpha", source: "example@0000000", sourceSha256: "a".repeat(64), installedSha256: installed }] });
+const COMPANION = "# Format\n";
+const QUOTE = "S21 baseline approved, go ahead";
+const APPROVAL = { record: "docs/approval.md", quote: QUOTE };
+type Inventory = { basis: string; files: Record<string, string>; approval: typeof APPROVAL; reason: string };
+const inventory = (basis: string, companion = COMPANION): Inventory => ({
+  basis, files: { "SKILL.md": provenanceHash(SKILL), "references/format.md": provenanceHash(companion) }, approval: APPROVAL, reason: "Files as installed.",
+});
+const baseline = (installed: string, inventories: Inventory[] = [inventory("migration-baseline")]): string =>
+  JSON.stringify({ skills: [{ name: "alpha", source: "example@0000000", sourceSha256: "a".repeat(64), installedSha256: installed, inventory: inventories }] });
 
 function branchWithBaseline(t: TestContext): ReturnType<typeof createRepo> {
   const repo = createRepo("skill-lint-history-");
   t.after(() => repo.cleanup());
   repo.write("config/skill-standards.json", JSON.stringify({ descriptionLimit: 160, bodyLimit: 6000, allowances: [], userOnly: [] }));
   repo.write(".claude/skills/alpha/SKILL.md", SKILL);
+  repo.write(".claude/skills/alpha/references/format.md", COMPANION);
+  repo.write("docs/approval.md", `The owner wrote "${QUOTE}" for alpha.\n`);
   repo.write(".claude/skills/import-baseline.json", baseline(provenanceHash(SKILL)));
   repo.git(["update-ref", "refs/remotes/origin/main", repo.commit("base")]);
   repo.git(["switch", "--quiet", "-c", "feature"]);
@@ -48,7 +60,8 @@ function branchWithBaseline(t: TestContext): ReturnType<typeof createRepo> {
 
 await test("history: a branch keeping landed provenance passes", (t) => {
   const repo = branchWithBaseline(t);
-  assert.equal(run([], repo.dir).code, EXIT_OK);
+  const result = run([], repo.dir);
+  assert.equal(result.code, EXIT_OK, result.err);
 });
 
 await test("history: a branch rewriting landed provenance is refused", (t) => {
@@ -60,6 +73,47 @@ await test("history: a branch rewriting landed provenance is refused", (t) => {
   assert.match(result.err, /landed installedSha256 was rewritten/);
 });
 
+await test("history: a companion-only edit without an approved revision is refused", (t) => {
+  const repo = branchWithBaseline(t);
+  repo.write(".claude/skills/alpha/references/format.md", COMPANION + "Edited.\n");
+  repo.commit("edit companion");
+  const result = run([], repo.dir);
+  assert.equal(result.code, EXIT_REFUSED);
+  assert.match(result.err, /alpha: references\/format\.md does not match its approved inventory/);
+});
+
+await test("history: an added or deleted imported file is refused", (t) => {
+  const repo = branchWithBaseline(t);
+  repo.git(["rm", "--quiet", ".claude/skills/alpha/references/format.md"]);
+  repo.write(".claude/skills/alpha/extra.md", "More instructions.\n");
+  repo.commit("swap companions");
+  const result = run([], repo.dir);
+  assert.equal(result.code, EXIT_REFUSED);
+  assert.match(result.err, /references\/format\.md is in the approved inventory but missing/);
+  assert.match(result.err, /extra\.md is not in the approved inventory/);
+});
+
+await test("history: an appended, approved inventory revision passes", (t) => {
+  const repo = branchWithBaseline(t);
+  const edited = COMPANION + "Edited.\n";
+  repo.write(".claude/skills/alpha/references/format.md", edited);
+  repo.write(".claude/skills/import-baseline.json", baseline(provenanceHash(SKILL), [inventory("migration-baseline"), inventory("revision", edited)]));
+  repo.commit("approved companion revision");
+  const result = run([], repo.dir);
+  assert.equal(result.code, EXIT_OK, result.err);
+});
+
+await test("history: rewriting a landed inventory to cover an edit is refused", (t) => {
+  const repo = branchWithBaseline(t);
+  const edited = COMPANION + "Edited.\n";
+  repo.write(".claude/skills/alpha/references/format.md", edited);
+  repo.write(".claude/skills/import-baseline.json", baseline(provenanceHash(SKILL), [inventory("migration-baseline", edited)]));
+  repo.commit("rewrite landed inventory");
+  const result = run([], repo.dir);
+  assert.equal(result.code, EXIT_REFUSED);
+  assert.match(result.err, /alpha: landed inventory 1 was changed or removed/);
+});
+
 await test("history: no baseline at the base yet is not an error", (t) => {
   const repo = createRepo("skill-lint-first-");
   t.after(() => repo.cleanup());
@@ -67,6 +121,8 @@ await test("history: no baseline at the base yet is not an error", (t) => {
   repo.git(["update-ref", "refs/remotes/origin/main", repo.commit("base")]);
   repo.git(["switch", "--quiet", "-c", "feature"]);
   repo.write(".claude/skills/alpha/SKILL.md", SKILL);
+  repo.write(".claude/skills/alpha/references/format.md", COMPANION);
+  repo.write("docs/approval.md", `The owner wrote "${QUOTE}" for alpha.\n`);
   repo.write(".claude/skills/import-baseline.json", baseline(provenanceHash(SKILL)));
   repo.commit("add baseline");
   assert.equal(run([], repo.dir).code, EXIT_OK);

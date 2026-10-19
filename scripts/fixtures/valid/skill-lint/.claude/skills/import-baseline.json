@@ -1,0 +1,24 @@
+{
+  "skills": [
+    {
+      "name": "example",
+      "source": "fixture",
+      "sourceSha256": "9075de81fc7feb7bb9b9d37629cf99c567a0d52f3f93a141e05891b3910ca89b",
+      "installedSha256": "9075de81fc7feb7bb9b9d37629cf99c567a0d52f3f93a141e05891b3910ca89b",
+      "inventory": [
+        {
+          "basis": "migration-baseline",
+          "files": {
+            "SKILL.md": "9075de81fc7feb7bb9b9d37629cf99c567a0d52f3f93a141e05891b3910ca89b",
+            "references/format.md": "02fcda0ad0fe16af8dca299179511d0bf4bf64d86606949410117a74d9d0fce8"
+          },
+          "approval": {
+            "record": "docs/approval.md",
+            "quote": "Fixture approval: keep these files as installed"
+          },
+          "reason": "Hashes of the fixture files as installed."
+        }
+      ]
+    }
+  ]
+}

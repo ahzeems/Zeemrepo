@@ -4,7 +4,7 @@ title: Skill standards
 summary: What npm run skills:lint enforces on .claude/skills (limits, user-only list, provenance hashes, citations, em dashes) and what stays convention.
 tags: [area/agents, tool/claude-code, kind/convention]
 created: 2026-09-21
-updated: 2026-10-16
+updated: 2026-10-19
 agent: claude-code
 status: active
 related: ["[[Skill integration must preserve the method]]", "[[Skill restoration needs source comparison]]"]
@@ -31,21 +31,37 @@ related: ["[[Skill integration must preserve the method]]", "[[Skill restoration
 
 `.claude/skills/import-baseline.json` records, per imported or owner-approved skill, a `source`,
 the `sourceSha256` of the original and the `installedSha256` accepted at import, hashed as UTF-8
-with LF line endings and no BOM. The installed `SKILL.md` must match the last revision's hash,
-or `installedSha256` when there is none.
+with LF line endings and no BOM. `revisions` holds the approved `SKILL.md` changes made before
+S21 and is now closed: appending one breaks the inventory chain check below and fails. Every new
+change, to `SKILL.md` or a companion, is an inventory revision.
 
-Each revision needs a reason and an `approval`: a record path inside the repository and a
-verbatim quote (12+ characters) that the record contains, in a record that names the skill.
+Each entry also needs an `inventory`: a list of records, each with a `basis`, a `files` map from
+every path in the skill folder (relative, `/`-separated, no `.` or `..` segment) to its hash, a
+`reason` and an `approval`. Every file in the folder, dot files included, must match the latest
+record: an edited, added or deleted file fails, and so does a symbolic link, an unreadable file or
+text that is not valid UTF-8. The first record's basis is `migration-baseline` (hashes of the files
+as installed when it was taken, not verified upstream text) or `import`, and its `SKILL.md` hash
+must equal the last revision (or `installedSha256`), so the inventory continues the recorded
+chain. Every later record has basis `revision`. To change an imported file, append a revision
+record listing the whole folder; the S21 baseline (2026-10-19) is the first record for all twelve
+imported skills, and [[S21 Complete imported-skill provenance]] lists its hashes.
+
+Each revision and inventory record needs an `approval`: a record path inside the repository and
+a verbatim quote (12+ characters) that the record contains, in a record that names the skill.
 Landed entries are append-only: against the merge base with main, no entry is removed and its
-`source`, hashes and landed revisions are unchanged. An unreadable landed copy fails.
+`source`, hashes, landed revisions and landed inventory records are unchanged. An unreadable
+landed copy fails.
 
 This proves only that the text matches a record. A branch can write its own record, so a
 reviewer compares the quote with the owner's actual words.
 
 ## Convention, not checked
 
-- Revisions cite their owner approvals in `docs/migration/skill-stocktake.md`; the linter
-  accepts any existing record file that holds the quote and names the skill.
+- Legacy revisions cite their owner approvals in `docs/migration/skill-stocktake.md` or the
+  idea note that recorded them; the S21 migration-baseline inventory records cite
+  [[S21 Complete imported-skill provenance]]. A later inventory revision cites the record
+  holding the owner's approval for that change. The linter accepts any existing record file
+  that holds the quote and names the skill, so it cannot tell a fresh approval from a reused one.
 - `THIRD-PARTY-NOTICES.md` carries the licence for attributed third-party text. The linter
   only permits the file; it does not read it.
 - Removing a name from `userOnly` fails `skills:lint` while the skill still sets

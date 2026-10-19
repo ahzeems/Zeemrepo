@@ -1,6 +1,6 @@
 {
   "hashNormalization": "UTF-8, LF line endings, no BOM",
-  "purpose": "Provenance for third-party and owner-approved skill text. installedSha256 is the text accepted at import (Zimi 9fb36b2); each later change is an appended revision citing a record that holds the owner's approval. Landed entries are append-only (npm run skills:lint).",
+  "purpose": "Provenance for third-party and owner-approved skill text. installedSha256 is the text accepted at import (Zimi 9fb36b2); revisions holds the SKILL.md changes approved before S21, each citing a record that holds the owner's approval, and takes no new entries. Landed entries are append-only (npm run skills:lint). The inventory lists every file in the skill folder by hash; its first record is a migration baseline of the files as installed when it was taken, not verified upstream text, and every later change, to SKILL.md or a companion, is an appended inventory revision with its own approval.",
   "skills": [
     {
       "name": "branch-review",
@@ -32,13 +32,39 @@
           },
           "reason": "Provider-neutral interface: use available independent reviewer contexts while preserving separate standards and spec axes, SHA pinning and disclosure of reviewer identity."
         }
+      ],
+      "inventory": [
+        {
+          "basis": "migration-baseline",
+          "files": {
+            "SKILL.md": "7361e6d78641e4ffed152e04775df2d72436eee8935a247bb3d2de80577984ba"
+          },
+          "approval": {
+            "record": "wiki/work/tickets/S21 Complete imported-skill provenance.md",
+            "quote": "S21 baseline approved, go ahead"
+          },
+          "reason": "S21 migration baseline: SHA-256 of every file in the skill folder as installed on main at 4c56101 (2026-10-19). These are not verified upstream hashes; SKILL.md continues the recorded revision chain."
+        }
       ]
     },
     {
       "name": "bro",
       "source": "Zimi .agents/skills/bro/SKILL.md at 9fb36b2",
       "sourceSha256": "a40a2bcc9637c90dcf6777da90ad93434b7fe3eb1affc5b0b47a9123f3eed43a",
-      "installedSha256": "a40a2bcc9637c90dcf6777da90ad93434b7fe3eb1affc5b0b47a9123f3eed43a"
+      "installedSha256": "a40a2bcc9637c90dcf6777da90ad93434b7fe3eb1affc5b0b47a9123f3eed43a",
+      "inventory": [
+        {
+          "basis": "migration-baseline",
+          "files": {
+            "SKILL.md": "a40a2bcc9637c90dcf6777da90ad93434b7fe3eb1affc5b0b47a9123f3eed43a"
+          },
+          "approval": {
+            "record": "wiki/work/tickets/S21 Complete imported-skill provenance.md",
+            "quote": "S21 baseline approved, go ahead"
+          },
+          "reason": "S21 migration baseline: SHA-256 of every file in the skill folder as installed on main at 4c56101 (2026-10-19). These are not verified upstream hashes; SKILL.md continues the recorded revision chain."
+        }
+      ]
     },
     {
       "name": "domain-modeling",
@@ -53,6 +79,21 @@
             "quote": "Approve as proposed (Recommended)"
           },
           "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
+        }
+      ],
+      "inventory": [
+        {
+          "basis": "migration-baseline",
+          "files": {
+            "SKILL.md": "3b7c408d86ea8b5fe4985347de5f5c27fe9fedf7d1952580cba1846b49c588d9",
+            "ADR-FORMAT.md": "50fac461b5a8e7cfe21f59c86d3799da4bc905c7c25f8e4b7aa033c995f2599b",
+            "CONTEXT-FORMAT.md": "17ab16ce783e4d2801ee52fd9acdf550cbf44de65ae76797a93943bbedf22a13"
+          },
+          "approval": {
+            "record": "wiki/work/tickets/S21 Complete imported-skill provenance.md",
+            "quote": "S21 baseline approved, go ahead"
+          },
+          "reason": "S21 migration baseline: SHA-256 of every file in the skill folder as installed on main at 4c56101 (2026-10-19). These are not verified upstream hashes; SKILL.md continues the recorded revision chain."
         }
       ]
     },
@@ -69,6 +110,19 @@
             "quote": "Keep the 3 Pocock edits"
           },
           "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
+        }
+      ],
+      "inventory": [
+        {
+          "basis": "migration-baseline",
+          "files": {
+            "SKILL.md": "61cc3e6d5697324292523bd4f7d56b8c9be856ad782a34f35a7de1eec1610e47"
+          },
+          "approval": {
+            "record": "wiki/work/tickets/S21 Complete imported-skill provenance.md",
+            "quote": "S21 baseline approved, go ahead"
+          },
+          "reason": "S21 migration baseline: SHA-256 of every file in the skill folder as installed on main at 4c56101 (2026-10-19). These are not verified upstream hashes; SKILL.md continues the recorded revision chain."
         }
       ]
     },
@@ -94,6 +148,19 @@
           },
           "reason": "Post-Phase 7 alignment: the PR is opened or updated with npm run pr (checks first) instead of a raw gh pr create, matching .claude/rules/zeem/branch-and-merge.md."
         }
+      ],
+      "inventory": [
+        {
+          "basis": "migration-baseline",
+          "files": {
+            "SKILL.md": "614352dda3359b88edef011ea9c9058086ad345a992ce31815279f316134b496"
+          },
+          "approval": {
+            "record": "wiki/work/tickets/S21 Complete imported-skill provenance.md",
+            "quote": "S21 baseline approved, go ahead"
+          },
+          "reason": "S21 migration baseline: SHA-256 of every file in the skill folder as installed on main at 4c56101 (2026-10-19). These are not verified upstream hashes; SKILL.md continues the recorded revision chain."
+        }
       ]
     },
     {
@@ -109,6 +176,19 @@
             "quote": "Keep the 3 Pocock edits"
           },
           "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
+        }
+      ],
+      "inventory": [
+        {
+          "basis": "migration-baseline",
+          "files": {
+            "SKILL.md": "4b2d77fa882a70aa6083b2e1edc275d3c1bde0e9670d0bc73098b45bf8ff6a5f"
+          },
+          "approval": {
+            "record": "wiki/work/tickets/S21 Complete imported-skill provenance.md",
+            "quote": "S21 baseline approved, go ahead"
+          },
+          "reason": "S21 migration baseline: SHA-256 of every file in the skill folder as installed on main at 4c56101 (2026-10-19). These are not verified upstream hashes; SKILL.md continues the recorded revision chain."
         }
       ]
     },
@@ -126,6 +206,19 @@
           },
           "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
         }
+      ],
+      "inventory": [
+        {
+          "basis": "migration-baseline",
+          "files": {
+            "SKILL.md": "3fd5971e20f6b3f55f559f952d39c657755ab6f9417644f34eb30835a5f5fdec"
+          },
+          "approval": {
+            "record": "wiki/work/tickets/S21 Complete imported-skill provenance.md",
+            "quote": "S21 baseline approved, go ahead"
+          },
+          "reason": "S21 migration baseline: SHA-256 of every file in the skill folder as installed on main at 4c56101 (2026-10-19). These are not verified upstream hashes; SKILL.md continues the recorded revision chain."
+        }
       ]
     },
     {
@@ -141,6 +234,19 @@
             "quote": "Authorize all (Recommended)"
           },
           "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
+        }
+      ],
+      "inventory": [
+        {
+          "basis": "migration-baseline",
+          "files": {
+            "SKILL.md": "3c175513daa14ff0cb0c0dcf383b4c0f79458c060926bd2aa77dde42a9d48886"
+          },
+          "approval": {
+            "record": "wiki/work/tickets/S21 Complete imported-skill provenance.md",
+            "quote": "S21 baseline approved, go ahead"
+          },
+          "reason": "S21 migration baseline: SHA-256 of every file in the skill folder as installed on main at 4c56101 (2026-10-19). These are not verified upstream hashes; SKILL.md continues the recorded revision chain."
         }
       ]
     },
@@ -158,6 +264,19 @@
           },
           "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
         }
+      ],
+      "inventory": [
+        {
+          "basis": "migration-baseline",
+          "files": {
+            "SKILL.md": "66ab10979de3edac9ac1a207ea6b24a9e912a0b7cb4f174e12a9c90376ee7355"
+          },
+          "approval": {
+            "record": "wiki/work/tickets/S21 Complete imported-skill provenance.md",
+            "quote": "S21 baseline approved, go ahead"
+          },
+          "reason": "S21 migration baseline: SHA-256 of every file in the skill folder as installed on main at 4c56101 (2026-10-19). These are not verified upstream hashes; SKILL.md continues the recorded revision chain."
+        }
       ]
     },
     {
@@ -174,6 +293,20 @@
           },
           "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
         }
+      ],
+      "inventory": [
+        {
+          "basis": "migration-baseline",
+          "files": {
+            "SKILL.md": "9012b8047506322f316675e492b4fa5f11b1f8b30a3b6aebecb7a95daadee3da",
+            "references/map-template.md": "421d6b4137a3a88e9751121ba23302cebb51457f736ad6abaee9d89a24d4852c"
+          },
+          "approval": {
+            "record": "wiki/work/tickets/S21 Complete imported-skill provenance.md",
+            "quote": "S21 baseline approved, go ahead"
+          },
+          "reason": "S21 migration baseline: SHA-256 of every file in the skill folder as installed on main at 4c56101 (2026-10-19). These are not verified upstream hashes; SKILL.md continues the recorded revision chain."
+        }
       ]
     },
     {
@@ -189,6 +322,19 @@
             "quote": "Approve as proposed (Recommended)"
           },
           "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
+        }
+      ],
+      "inventory": [
+        {
+          "basis": "migration-baseline",
+          "files": {
+            "SKILL.md": "d3a6108cbab69b6abe725cf6b03da9b95d4ff68fc35a461262ca65b311875723"
+          },
+          "approval": {
+            "record": "wiki/work/tickets/S21 Complete imported-skill provenance.md",
+            "quote": "S21 baseline approved, go ahead"
+          },
+          "reason": "S21 migration baseline: SHA-256 of every file in the skill folder as installed on main at 4c56101 (2026-10-19). These are not verified upstream hashes; SKILL.md continues the recorded revision chain."
         }
       ]
     },
@@ -213,6 +359,19 @@
             "quote": "lets change the only claude code to any providor - remove these blocks"
           },
           "reason": "Provider-neutral interface: canonical skills may be discovered or read explicitly, and equivalent available tools replace unavailable ECC discovery, drafting and inventory commands."
+        }
+      ],
+      "inventory": [
+        {
+          "basis": "migration-baseline",
+          "files": {
+            "SKILL.md": "538d94d8cc237113b6e5153889590545037da646a5ee27759157e7d9ac9a3c11"
+          },
+          "approval": {
+            "record": "wiki/work/tickets/S21 Complete imported-skill provenance.md",
+            "quote": "S21 baseline approved, go ahead"
+          },
+          "reason": "S21 migration baseline: SHA-256 of every file in the skill folder as installed on main at 4c56101 (2026-10-19). These are not verified upstream hashes; SKILL.md continues the recorded revision chain."
         }
       ]
     }

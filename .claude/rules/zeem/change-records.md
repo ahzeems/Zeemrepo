@@ -12,8 +12,8 @@ What a branch must carry before it lands. The guards and how to satisfy them are
 - Definition of done: the code, its dependency declarations (manifest and lockfile in the same commit), the
   documentation beside the behavior, and the work record land in the same PR. Work that cannot carry all
   four is too big; split it.
-- A new dependency carries a one-line justification in the commit that adds it. Prefer the standard library
-  for small scripts.
+- A new dependency carries a one-line justification in the commit that adds it. Prefer battle-tested
+  libraries over hand-rolled code, as ECC's development workflow says.
 - A new or replaced rule, skill or script retires what it replaces in the same PR and repoints every live
   reference. Historical records (changelog, decisions, migration docs) stay as written.
 - A rule lives in one file. Changing a rule means editing that file, not restating it elsewhere; the
@@ -33,8 +33,7 @@ What a branch must carry before it lands. The guards and how to satisfy them are
   its own work item `done` with evidence (the memory guard expects the record to move), but it is done only
   when the owner merges; never close an item outside its PR.
 
-## Overrides of ECC
+## ECC
 
-- **Dependencies.** ECC's development workflow says to prefer battle-tested libraries over hand-rolled
-  code, and its TypeScript coding style says to use Zod for validation. Here a small script uses the
-  standard library first, and any new dependency needs the justification above.
+ECC wins where this file and ECC disagree (`CLAUDE.md`), including its preference for battle-tested
+libraries and Zod for validation in TypeScript.

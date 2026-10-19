@@ -18,8 +18,7 @@ enforced by `npm run skills:lint`.
   reports false green.
 - Agents may draft or revise skills; the owner approves by merging the PR.
 
-## Overrides of ECC
+## ECC
 
-- **Overlapping skills.** When a repository skill and an ECC skill cover the same ground, the repository skill
-  wins for this repository's workflow (wiki, branches, change records); ECC wins for general engineering
-  practice.
+- **Overlapping skills.** When a repository skill and an ECC skill cover the same ground, the ECC skill
+  wins (`CLAUDE.md`); fix the repository skill or retire it.

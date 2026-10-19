@@ -94,13 +94,13 @@ are allowed when useful. Keep links sparse: ownership and actual dependencies in
 | ticket_kind | Every ticket | build, decision, research, prototype, or prerequisite. |
 | depends_on | Ticket dependencies | List of ticket links. No self-reference or cycle; never use its owning map or plan as a dependency. |
 | blocker | status blocked | Concrete reason and who or what can unblock it. |
-| approval_ref | Approved, ready or executing plan/spec | The pull request the owner merged to approve it: `#12` or its full GitHub URL. Nothing else counts, and the field alone never establishes authority; check that the PR was merged by the owner. |
+| approval_ref | Approved, ready or executing plan/spec | The owner's approval: on an integration branch, their own words as `OWNER DECISION: "<words>" (YYYY-MM-DD)`; for a plan that landed in its own pull request, `#12` or its full GitHub URL. Nothing else counts, and the field alone never establishes authority; check that the words are the owner's, or that the owner merged the PR. |
 | evidence | Work marked done | Nonempty list of labelled items (`VERIFIED:`, `INFERRED:`, `UNKNOWN:`, `OWNER DECISION:`), at least one `VERIFIED:` or `OWNER DECISION:`. |
 
 Workflow states are backlog, clarifying, proposed, approved, ready, in-progress, blocked,
 in-review, done, parked, and superseded. These are available states, not a mandatory
 sequence for every note. Start an idea in backlog, a map in clarifying, and a plan or spec
-in proposed. A plan is approved when the owner merges the pull request that adds it. Build tickets
+in proposed. A plan is approved when the owner approves it in their own words, recorded in `approval_ref` (or merges the pull request that adds it). Build tickets
 are created only from such a plan. Ready or executing tickets require completed dependencies.
 A blocked item names its blocker; done needs evidence. Use superseded_by for superseded
 records. The backlog is the view of records with status backlog, not another document.

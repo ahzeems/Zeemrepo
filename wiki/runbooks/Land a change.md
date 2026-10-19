@@ -23,8 +23,12 @@ requests on GitHub (owner decision, 2026-10-09).
 
 ## Steps
 
-1. Branch from current main: `git switch main && git pull --ff-only && git switch -c feat/<topic>`.
-   For parallel sessions, use a worktree under `.worktrees/` instead.
+1. Start the piece of work's one integration branch from current main:
+   `git switch main && git pull --ff-only && git switch -c work/<topic>`. Every phase, issue and ticket
+   of that work lands on it. A parallel agent or terminal adds a worktree on its own local branch,
+   `git worktree add -b work/<topic>--<name> .worktrees/<name> work/<topic>`, and when its slice passes
+   `npm run check`, merges it back from the integration branch's checkout:
+   `git merge --no-ff work/<topic>--<name>`.
 2. Work test-first. Commit with conventional subjects. Wiki files go in their own
    `docs(wiki): ` commits. The pre-commit hook refuses commits on main and mixed wiki staging,
    and runs lint, types, wiki:lint and skills:lint; the pre-merge-commit hook refuses a merge
@@ -32,9 +36,9 @@ requests on GitHub (owner decision, 2026-10-09).
 3. Record the change: a `CHANGELOG.md` entry, the owning work record under `wiki/work/`
    (status or next action, plus `VERIFIED:` evidence), and an operating document when
    workflow-critical files change. See [[Change records]].
-4. If main moved, merge it in: `git fetch origin && git merge origin/main`. Never rebase or
-   force-push a published branch.
-5. Run `npm run pr`. It refuses unless the tree is clean, the branch contains `origin/main`
+4. If main moved, merge it into the integration branch: `git fetch origin && git merge origin/main`.
+   The integration branch is shared, so it is not rebased ([[ADR-0027 One integration branch per piece of work]]).
+5. When the whole piece of work is complete, run `npm run pr`, once. It refuses unless the tree is clean, the branch contains `origin/main`
    and `npm run check` passes; then it pushes the branch and opens or reports the pull
    request. It never merges. `npm run pr -- --dry-run` checks without pushing.
 6. Wait for both required checks. `check` runs the change's own `npm run check`. `guards`

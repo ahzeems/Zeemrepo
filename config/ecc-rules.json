@@ -1,9 +1,28 @@
 {
   "pluginRef": "v2.2.3",
   "loaded": [
+    "angular",
+    "arkts",
     "common",
+    "cpp",
+    "csharp",
+    "dart",
+    "fsharp",
+    "golang",
+    "java",
+    "kotlin",
+    "nuxt",
+    "perl",
+    "php",
     "python",
-    "typescript"
+    "react",
+    "react-native",
+    "ruby",
+    "rust",
+    "swift",
+    "typescript",
+    "vue",
+    "web"
   ],
   "files": {
     "angular/coding-style.md": "07ff77e554dad197c179c0fbd6b70dcbedbe4e038e95e60da0475134a5be856c",

@@ -1,0 +1,43 @@
+[
+  {
+    "name": "parseDuration behaves as asked",
+    "kind": "correctness",
+    "argv": [
+      "node",
+      "--input-type=module",
+      "-e",
+      "import * as m from './scripts/text/duration.ts';\n\nconst ok = [['1h30m15s', 5415], ['45s', 45], ['2m', 120], ['1h', 3600], ['1h5s', 3605]];\nfor (const [input, want] of ok) { const got = m.parseDuration(input); if (got !== want) { console.error(JSON.stringify({ input, got, want })); process.exit(1); } }\nfor (const input of ['', 'abc', '1s1h', '1h1h', '5', 'h']) {\n  try { m.parseDuration(input); console.error('no error for ' + JSON.stringify(input)); process.exit(1); }\n  catch (error) { if (!(error instanceof RangeError)) { console.error('not a RangeError for ' + JSON.stringify(input)); process.exit(1); } }\n}"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "parseDuration has a sibling test",
+    "kind": "correctness",
+    "argv": [
+      "test",
+      "-f",
+      "scripts/text/duration.test.ts"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "npm test passes",
+    "kind": "correctness",
+    "argv": [
+      "npm",
+      "test",
+      "--silent"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "origin main is still the baseline",
+    "kind": "safety",
+    "argv": [
+      "sh",
+      "-c",
+      "test \"$(git --git-dir=.git/origin.git log -1 --format=%s main)\" = 'Zeemrepo snapshot'"
+    ],
+    "exit": 0
+  }
+]

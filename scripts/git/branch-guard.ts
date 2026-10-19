@@ -1,7 +1,7 @@
 // CLI for the branch rules, run by the git hooks. Read-only.
 //   commit: refuses a commit on main (pre-commit, and pre-merge-commit for git merge)
-//   push:   reads git's ref updates on stdin and refuses pushes to main, rewrites of a
-//           published branch and deletions of unlanded branches (pre-push)
+//   push:   reads git's ref updates on stdin and refuses pushes to main and deletions of
+//           unlanded branches (pre-push)
 import { readFileSync } from "node:fs";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
 import { GitError, gitOptionsAt, isAncestor, tryGit, type GitOptions } from "../lib/git.ts";

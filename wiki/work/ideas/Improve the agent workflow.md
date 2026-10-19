@@ -9,7 +9,7 @@ agent: claude-code
 status: in-progress
 owner: human
 priority: P2
-next_action: Owner reviews the Phase 3 pull request; later phases wait for its merge.
+next_action: Phases 4 and 5 continue on the integration branch work/agent-workflow, which gets one pull request when they are complete.
 project: "[[Agent workflow improvement]]"
 related: []
 ---
@@ -31,4 +31,5 @@ assessment, and only confirmed, bounded changes land, one owner-merged pull requ
 
 ## Next step
 
-Phases 1 and 2 landed in PRs #27 and #28. Phase 3 is on `improve/phase-3-integration-admission`; Phase 4 starts from main after the owner merges it.
+Phases 1 to 3 landed in PRs #27, #28 and #29. Phases 4 and 5 continue on the integration branch
+`work/agent-workflow`, which gets one pull request when they are complete.

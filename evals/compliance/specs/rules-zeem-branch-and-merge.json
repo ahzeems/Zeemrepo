@@ -16,10 +16,10 @@
     },
     {
       "id": "fresh_branch_from_main",
-      "description": "Start the piece of work on a fresh branch created from current main, not on main itself",
+      "description": "Do the piece of work on its one integration branch: a fresh work/<topic> branch created from current main for new work, never on main itself",
       "required": true,
       "detector": {
-        "description": "Create a new git branch from main or origin/main (checkout -b or switch -c) before committing changes",
+        "description": "Create a new git branch from main or origin/main (checkout -b or switch -c), or switch to the existing integration branch, before committing changes",
         "after_step": "identify_checkout",
         "before_step": null
       }
@@ -36,10 +36,10 @@
     },
     {
       "id": "keep_published_branch_current_by_merging",
-      "description": "When a branch is already published, bring main into it by merging, never by rebasing or force-pushing",
+      "description": "Keep the shared integration branch current by merging main into it; rebase and push with --force-with-lease only a branch you alone use, and never rewrite main",
       "required": false,
       "detector": {
-        "description": "Run git merge of main into the published working branch; flag any rebase or force push of that branch as a violation",
+        "description": "Run git merge of main into the integration branch; flag a rebase or force push of the shared integration branch, or any rewrite of main, as a violation",
         "after_step": null,
         "before_step": null
       }

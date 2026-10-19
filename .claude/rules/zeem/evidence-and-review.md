@@ -42,10 +42,12 @@ separate reviewer context.md`. Steps: `wiki/runbooks/Verify a repository change.
   commit or approve what it judges, and it discloses any self-review.
 - Fix review findings on the branch before handing it over; leave one open only with a stated reason.
 
-## Overrides of ECC
+## How ECC's testing applies here
 
-- **Coverage.** ECC's testing rule asks for 80% overall. Here `npm test` enforces the thresholds in
-  `package.json` (lines and functions at 80%, branches at 70%); change them only there.
-- **E2E tests.** This repository has no UI. Its end-to-end tests are CLI runs against real temporary git
-  repositories (`scripts/test-support/repo-fixture.ts`) plus the broken-fixture controls.
+ECC wins where this file and ECC disagree (`CLAUDE.md`).
+
+- **Coverage.** ECC's 80% minimum holds for lines, functions and branches, enforced by the thresholds in
+  `package.json`.
+- **E2E tests.** This repository has no UI, so ECC's end-to-end tests are CLI runs against real temporary
+  git repositories (`scripts/test-support/repo-fixture.ts`) plus the broken-fixture controls.
 - **TDD.** ECC's test-first workflow is mandatory, with no exceptions (OWNER DECISION, 2026-10-09).

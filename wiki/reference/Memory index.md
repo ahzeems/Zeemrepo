@@ -23,6 +23,8 @@ One line per memory note. Add new notes here; work notes need no entry.
 - [[ADR-0022 Independent review means a separate reviewer context]] - A review is independent when a separate reviewer context inspects pinned sources and runs its own checks; the reviewer's model and who launched it do not decide independence.
 - [[ADR-0024 Claude Code is the only harness]] - Zeemrepo targets Claude Code alone, with the pinned ECC plugin, rules in CLAUDE.md and .claude/rules/, and native user-only skills.
 - [[ADR-0025 Agents use a machine account and the owner approves]] - Agents push and open PRs as a machine account that cannot approve its own work; code-owner review is on and no owner credential is on the agents' machine, so only the owner's approval counts.
+- [[ADR-0026 ECC wins over the repository rules]] - ECC is the foundation: where a zeem rule, a repository skill or a wiki page disagrees with ECC, ECC wins, every ECC rule set loads, and nothing in the repository may block the plugin.
+- [[ADR-0027 One integration branch per piece of work]] - A piece of work, however many phases, issues or tickets, lives on one integration branch with one pull request at the end; parallel agents merge local worktree branches into it.
 
 ## Lessons
 
@@ -55,7 +57,7 @@ One line per memory note. Add new notes here; work notes need no entry.
 ## Reference
 
 - [[Change records]] - What every branch must record before it lands, which guard checks it, and how to satisfy each.
-- [[Context loading]] - Which instructions Claude Code loads, the 19 ECC rule sets excluded from loading and why, and how to measure what a session received.
+- [[Context loading]] - Which instructions Claude Code loads, why every ECC rule set loads, and how to measure what a session received.
 - [[Idea to execution]] - The path from an idea through a map, an owner-approved plan, build tickets and pull requests, with the skill and record at each step.
 - [[Integration admission]] - Each admitted external plugin or tool (imported skills stay in import-baseline.json), with its exact revision, what it adds, its permissions, its registered, evaluated, enabled and loaded status, and how to disable and remove it.
 - [[Merge gate contract]] - The merge gate is GitHub: the protect-main ruleset, the required check and guards workflows, the local backstops, and the read-only landing audit.

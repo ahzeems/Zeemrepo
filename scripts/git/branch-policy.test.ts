@@ -26,8 +26,9 @@ await test("pushRefusals: a branch push that only adds commits is allowed", () =
   assert.deepEqual(pushRefusals([update("refs/heads/feat/x", B, A), update("refs/heads/feat/new", A, ZERO)], ancestry), []);
 });
 
-await test("pushRefusals: rewriting a published branch is refused", () => {
-  assert.match(pushRefusals([update("refs/heads/feat/x", A, B)], ancestry).join(), /Refusing to rewrite refs\/heads\/feat\/x/);
+await test("pushRefusals: a rewrite of a branch other than main is allowed, as ECC's force-with-lease workflow needs", () => {
+  assert.deepEqual(pushRefusals([update("refs/heads/work/x--agent", A, B)], ancestry), []);
+  assert.match(pushRefusals([update("refs/heads/main", A, B)], ancestry).join(), /Refusing to push main/, "main is never rewritten");
 });
 
 await test("pushRefusals: deleting a branch needs its work on origin/main", () => {

@@ -11,27 +11,31 @@ Inspect `git status --short`, `git worktree list --porcelain`, and the remote fi
 
 ```bash
 git fetch origin
-git switch -c feat/<short-description> origin/main
-git push -u origin feat/<short-description>
+git switch -c work/<topic> origin/main
+git push -u origin work/<topic>
 ```
 
-Use the conventional-commit type as the prefix (`feat/`, `fix/`, `docs/`, `refactor/`, `test/`, `chore/`).
+A piece of work has one integration branch, `work/<topic>`, for all its phases, issues and tickets. Reuse
+it; never start a branch per phase or ticket.
 
-For concurrent work use a worktree under the checkout's canonical `.worktrees/` directory:
+For concurrent work, each agent or terminal uses a worktree under the checkout's canonical `.worktrees/`
+directory, on a local branch from the integration branch:
 
 ```bash
-git worktree add -b feat/<short-description> .worktrees/<session> origin/main
+git worktree add -b work/<topic>--<name> .worktrees/<name> work/<topic>
 ```
 
-Publish that branch from its selected checkout.
+When its slice passes `npm run check`, merge it back from the integration branch's checkout
+(`git merge --no-ff work/<topic>--<name>`). Only the integration branch is pushed.
 
 Never restart setup in a dirty mid-session checkout, and never discard or absorb another
 session's work. Run branch setup alone, not in parallel with a change.
 
 ## Keep it current
 
-When `main` moves under an active branch, merge it in (this repository merges; it does not rebase
-published history). If the merge stops on conflicts, load [resolve-conflicts](../resolve-conflicts/SKILL.md): it resolves each
+When `main` moves under the integration branch, merge it in: the integration branch is shared, so it
+is not rebased. A branch only you use may be rebased and pushed with `git push --force-with-lease`, as
+ECC's `git-workflow` skill does. If the merge stops on conflicts, load [resolve-conflicts](../resolve-conflicts/SKILL.md): it resolves each
 hunk from both sides' intent, not by taking whichever side is longer.
 
 Resolve, run `npm run check`, then commit the merge.
@@ -39,11 +43,11 @@ Resolve, run `npm run check`, then commit the merge.
 ## Commit and push
 
 Conventional commits (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`). Stage explicitly;
-`git add -A` from a dirty tree is how unrelated work joins a PR. Never commit or push to `main`, and never rewrite published history. Run `npm run check` on the exact tree you are pushing.
+`git add -A` from a dirty tree is how unrelated work joins a PR. Never commit or push to `main`, and never rewrite `main` or the shared integration branch. Run `npm run check` on the exact tree you are pushing.
 
 ## Open the pull request
 
-`npm run pr` refuses on main or a detached HEAD, a dirty tree, or a branch that lacks `origin/main`
+Open it once, when the whole piece of work on the integration branch is complete. `npm run pr` refuses on main or a detached HEAD, a dirty tree, or a branch that lacks `origin/main`
 or its own commits; then it runs `npm run check`, checks that `gh` is logged in, pushes the
 branch, and opens the PR (title and body from the commits) or reports the one already open. Then
 set the title and body:
@@ -77,4 +81,5 @@ Inspect the result with `git status --short`, `git branch -a`, and
 ## What this skill never does
 
 It never merges to `main`, by hand or on GitHub: merging is the owner's act. It never approves
-a pull request, never force-pushes, and never deletes a branch that has not landed.
+or reviews a pull request formally (findings go in comments), never force-pushes `main` or the shared
+integration branch, and never deletes a branch that has not landed.

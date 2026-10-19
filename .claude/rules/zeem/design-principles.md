@@ -12,8 +12,8 @@ under 50 lines, files under 800, nesting at most 4; OWNER DECISION, 2026-10-09: 
 - Read the nearest existing module that does something similar, in full, and match its conventions.
 - Find the tests, importers and callers of what you will change before editing it, not after. Re-read a
   file before relying on it when it changed since you read it or the read was truncated.
-- State the plan in three to six lines: what changes, which files, what could break. If it needs more, the
-  task is too big; say so instead of building.
+- Plan as ECC's development workflow says (the `planner` agent or `/ecc:plan`, with its planning
+  documents for a feature), and state what changes, which files and what could break.
 - Challenge a brief that duplicates an existing capability or crosses an ownership boundary before the first
   edit.
 
@@ -35,8 +35,8 @@ under 50 lines, files under 800, nesting at most 4; OWNER DECISION, 2026-10-09: 
 
 ## Boundaries and side effects
 
-- Validate at real boundaries: user input, external APIs, the network, file and git content. Do not add
-  defensive checks against your own code or guarantees the language or Node already makes.
+- Validate at system boundaries (user input, external APIs, the network, file and git content) and
+  handle errors explicitly at every level, as ECC's `coding-style.md` says.
 - Repository CLIs validate their inputs and refuse before changing the repository or a remote, saying why;
   report independent refusals together. Exit codes come from `scripts/lib/cli.ts`: 0 ok, 1 refused, 2 the
   tool failed or was called wrongly.
@@ -44,16 +44,9 @@ under 50 lines, files under 800, nesting at most 4; OWNER DECISION, 2026-10-09: 
   workaround, an invariant.
 - Match each language's naming: camelCase in TypeScript, kebab-case file names and CLI flags.
 
-## Overrides of ECC
+## ECC
 
-- **Input validation.** ECC's `coding-style.md` asks for validation at system boundaries and for comprehensive
-  error handling at every level. Here, do not add defensive checks inside the code past those boundaries.
-- **Research before building.** ECC's development workflow makes a GitHub, registry and web search
-  mandatory before any implementation. Here it is required only before adding a dependency or a new
-  subsystem; a change inside existing code starts from the nearest existing module instead.
-- **Size limits.** ECC counts lines; `eslint.config.ts` skips blank lines and comments for the
-  function limit, and lifts it for test files, whose cases group inside long `test()` callbacks. The
-  800-line file limit applies to tests too.
-- **Planning.** ECC's development workflow asks for the planner agent and planning documents (PRD,
-  architecture, system design, task list) before coding. Here the plan is the three to six lines above,
-  and a task that needs more is too big: say so instead of building.
+ECC wins where this file and ECC disagree (`CLAUDE.md`): its research step before any implementation,
+its planning workflow, its input validation and error handling, and its size limits apply as written.
+`eslint.config.ts` still skips blank lines and comments when it measures a function and lifts the
+function limit for test files; aligning it with ECC's line count is open work.

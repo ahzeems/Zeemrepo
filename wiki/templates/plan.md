@@ -15,8 +15,8 @@ idea: "[[REPLACE with originating idea title]]"
 related: []
 ---
 
-Use evidence and owner decisions; do not invent approval. The plan is approved when the
-owner merges the pull request that adds it; then set `approval_ref` to that PR.
+Use evidence and owner decisions; do not invent approval. The owner approves the plan in their
+own words; then set `approval_ref` to `OWNER DECISION: "<words>" (YYYY-MM-DD)`.
 
 ## Problem
 

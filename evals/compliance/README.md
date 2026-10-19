@@ -63,13 +63,22 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
   an index line) and has no `after_step` links the skill does not impose, which demoted a done step
   whenever an unrelated one was missed; wiki-memory's scenario setups only create `scripts/text`
   (the generated ones overwrote the real wiki with toy copies); and write-guard's supportive prompt
-  names `check:base`, as the skill's wiring step does. The CHANGELOG records when each changed;
+  names `check:base`, as the skill's wiring step does; on 2026-10-19 branch-and-merge's
+  `fresh_branch_from_main` and `keep_published_branch_current_by_merging` steps were reworded for one
+  integration branch per piece of work and for rebasing only a branch you alone use (ADR-0026,
+  ADR-0027), with the step ids kept so earlier reports stay comparable by step. The CHANGELOG records when each changed;
 - gives a sandbox a local bare `origin` (inside `.git`) with `main` pushed, so `npm run pr` can fetch
   and push there (it still stops at `gh`, which is logged out);
 - shows the grader a split chain's output only on its last command, and a long Bash call as its start
   and end, because ECC's classifier reads only the first 500 characters of an input;
 - saves each session's raw stream to `~/.cache/zeemrepo/comply-runs/` (outside the repository) for
   auditing outputs, splits and error flags;
+- runs each target's pinned outcome checks (`specs/<report name>.outcomes.json`, hidden from the
+  agent with the rest of `specs/`) in the scenario's sandbox after the session, and writes one record
+  per attempt, failed ones included, to `records.jsonl` beside the streams (`outcomes.py`): the
+  outcome by kind (correctness, safety), the wall time, the revision and whether the tree was dirty,
+  the Claude Code version, the models, the ECC pin, the host, and what the session's result event
+  reports (turns, tokens, and a list-price cost estimate, which is not a charge);
 - gives each call a copy of the login without its refresh token, and refuses to start unless the
   access token has at least an hour left. On 2026-10-09 the re-run's claude calls began failing
   as the token reached its expiry, with `platform.claude.com` allowed, and the owner's own Claude
@@ -112,6 +121,17 @@ sandboxes live under `/tmp/skill-comply-sandbox/`.
 A report gives the compliance rate per scenario, the spec, the prompts and each tool call with
 its classification. Low-compliance steps are candidates for a hook or a check (the
 `write-guard` skill), not for more prose.
+
+Compliance (whether the agent followed the steps) and outcome (whether the task came out right) are
+separate measures. `python3 evals/compliance/outcomes.py table <run directory>/records.jsonl` prints
+the outcome table: one row per attempt, with correctness and safety scores, turns, wall time,
+tokens and the cost estimate in separate columns. Subscription use and actual charges are not
+recorded. Outcome checks run in order in the scenario's disposable sandbox; write-guard's "passes
+once the conflict is resolved" edits `docs/notes.md` and restores it, unless its timeout kills it
+first, so keep it after the checks that read that file. On 2026-10-19 a separate reviewer ran the
+write-guard checks against synthetic correct and broken sandboxes (a guard that never refuses,
+crashes, always refuses, has no test, is not wired or not documented), and each broken one failed
+the matching check; the branch-and-merge and wiki-memory checks have not been run that way yet.
 
 **Known limit.** skill-comply grades tool calls, so it sees what an agent did, not what it said:
 "tell the owner only they can merge" is judged by the absence of a merge call, not by the words.

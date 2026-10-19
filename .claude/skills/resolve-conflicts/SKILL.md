@@ -8,8 +8,8 @@ Adapted 2026-09-18 from mattpocock/skills@3cca18b `skills/engineering/resolving-
 
 **Local deviations:**
 
-- This repository merges; it does not rebase published history. If a rebase is in progress,
-  stop and tell the owner.
+- The shared integration branch takes `main` by merging, never by rebasing. A rebase in progress is
+  allowed only on a branch you alone use; on the integration branch, abort it and merge instead.
 - The project check is `npm run check`. Stage the files you resolved by name, never `git add -A`.
 
 Load this when `git status` shows unmerged paths. A conflict is two intentions meeting in one

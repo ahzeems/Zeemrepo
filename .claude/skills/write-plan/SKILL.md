@@ -42,8 +42,8 @@ after the first slice.
 
 - One note, `wiki/work/plans/<Plan title>.md`, written through wiki-memory from
   [the plan template](../../../wiki/templates/plan.md), linked to its idea (and map, if any).
-- `status: proposed`. A branch cannot approve its own plan: the plan is approved only when the
-  owner merges the pull request that adds it.
+- `status: proposed`. A branch cannot approve its own plan: only the owner approves it, in their own
+  words recorded in `approval_ref`.
 - **Decisions:** one line each, the gist plus a link to the decision note or resolved ticket.
   Record nothing here that is not recorded there.
 - **Implementation slices:** describe the behaviour each slice makes work, its acceptance and
@@ -59,10 +59,10 @@ after the first slice.
 ## After writing
 
 Run `npm run wiki:lint`. Inspect the plan's references and acceptance criteria. Commit the plan
-alone with a `docs(wiki): ` subject and open the pull request with the plan as `proposed`.
-Tickets come later, from [plan-tickets](../plan-tickets/SKILL.md), and only after the owner merges
-that pull request; the follow-up wiki change then sets `status: approved` and `approval_ref` to
-that PR (`#N` or its URL).
+alone with a `docs(wiki): ` subject on the piece of work's integration branch, as `proposed`, and
+ask the owner to approve it. Tickets come later, from [plan-tickets](../plan-tickets/SKILL.md), and
+only after the owner approves in their own words; a `docs(wiki): ` change then sets
+`status: approved` and `approval_ref` to `OWNER DECISION: "<words>" (YYYY-MM-DD)`.
 
 ## What this skill never does
 

@@ -67,13 +67,19 @@ then lets the same action through on retry. It holds:
 |---|---|---|
 | The first Bash command of a session | `pre:bash:gateguard-fact-force` | The current request in one sentence, and what the command checks or produces |
 | The first Edit or Write of each file | `pre:edit-write:gateguard-fact-force` | The file's importers or callers, the API it affects, the data shapes it reads or writes, and the owner's instruction verbatim |
-| A command it judges destructive (`rm -rf`, `git branch -D`, `git push --delete`, posting to GitHub) | `pre:bash:gateguard-fact-force` | Every file or piece of data it modifies or deletes, a one-line rollback, and the owner's instruction verbatim |
+| A command its classifier judges destructive, such as `rm -rf`, `git branch -D` or `git push --force` (not `git push --delete` or posting to GitHub) | `pre:bash:gateguard-fact-force` | Every file or piece of data it modifies or deletes, a one-line rollback, and the owner's instruction verbatim |
+
+The Bash id is defined in the plugin's `scripts/hooks/bash-hook-dispatcher.js`, which `hooks.json`
+reaches through `pre-bash-dispatcher.js`; the Edit/Write id is in `hooks.json`. Which commands count as
+destructive is decided by `classifyDestructiveCommand` in `scripts/hooks/gateguard-fact-force.js`, so
+test a command against it rather than guessing: a single Bash call that holds one destructive part is
+held as a whole.
 
 Agents answer with the real facts and retry the same call. They never set `ECC_GATEGUARD`,
-`GATEGUARD_BASH_ROUTINE_DISABLED`, `GATEGUARD_EXEMPT_GLOBS` or `ECC_DISABLED_HOOKS` to get past it:
-those switches (read in the plugin's `scripts/hooks/gateguard-fact-force.js` and
-`scripts/lib/hook-flags.js`) are the owner's. GateGuard keeps its state under `~/.gateguard`, so a new
-session asks again. Captured 2026-10-19 from ECC v2.2.3; re-check with
+`GATEGUARD_DISABLED`, `GATEGUARD_BASH_ROUTINE_DISABLED`, `GATEGUARD_EXEMPT_GLOBS`,
+`GATEGUARD_BASH_EXTRA_DESTRUCTIVE`, `GATEGUARD_STATE_DIR` or `ECC_DISABLED_HOOKS` to get past it or
+change what it holds: those switches (read in `scripts/hooks/gateguard-fact-force.js` and
+`scripts/lib/hook-flags.js`) are the owner's. Captured 2026-10-19 from ECC v2.2.3; re-check with
 `grep -n "process.env" scripts/hooks/gateguard-fact-force.js` in the plugin's marketplace clone.
 
 **Install** (each machine, the owner's decision, because it turns on the hooks and the MCP server):

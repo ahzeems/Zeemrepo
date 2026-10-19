@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { test, type TestContext } from "node:test";
-import { issueBranch, mergeInto } from "../test-support/afk-harness.ts";
 import { journal, script, type AgentCall, type Event, type Scenario } from "../test-support/coordinator-fake-sdk.ts";
 import { FAKE_SDK, redirectSandcastle } from "../test-support/coordinator-hooks.ts";
 import { commitOn, mergeListed, tip, verdict } from "../test-support/coordinator-repo.ts";
@@ -116,6 +117,8 @@ await test("a round plans, implements, reviews only work with commits, then merg
   });
   assert.equal(result.error, undefined);
   assert.equal(result.status, 0);
+  // Read by path, not through coordinator.ts, which the import test above must load first.
+  assert.deepEqual(JSON.parse(readFileSync(join(repo.dir, ".git", "sandcastle-handed.json"), "utf8")), { handed: ["sandcastle/issue-1"] }, "the entry point leaves afk the record");
   assert.deepEqual(forBranch(journal, "sandcastle/issue-1"), ["createSandbox sandcastle/issue-1", "sandbox.run implementer sandcastle/issue-1", "sandbox.run reviewer sandcastle/issue-1", "close sandcastle/issue-1"]);
   assert.deepEqual(forBranch(journal, "sandcastle/issue-2"), ["createSandbox sandcastle/issue-2", "sandbox.run implementer sandcastle/issue-2", "close sandcastle/issue-2"]);
   const order = calls(journal);
@@ -172,7 +175,7 @@ await test("a failed reviewer closes its sandbox and, with nothing else reviewed
 
 await test("a branch left ahead by an earlier round is reviewed and merged although the implementer adds nothing", async (t) => {
   const repo = repoOn(t);
-  issueBranch(repo, "sandcastle/issue-3");
+  commitOn(repo, "sandcastle/issue-3");
   const result = await runEntry(t, repo, { plans: [{ issues: [issue(3, "Third")], blocked: [] }], agent: crew(repo, []) });
   assert.equal(result.error, undefined);
   assert.equal(result.status, 0);
@@ -182,8 +185,8 @@ await test("a branch left ahead by an earlier round is reviewed and merged altho
 
 await test("an issue whose work is already merged is skipped and not executed", async (t) => {
   const repo = repoOn(t);
-  issueBranch(repo, "sandcastle/issue-4");
-  mergeInto(repo, "feat/work", "sandcastle/issue-4");
+  commitOn(repo, "sandcastle/issue-4");
+  mergeListed(repo, "- sandcastle/issue-4");
   const result = await runEntry(t, repo, { plans: [{ issues: [issue(4, "Fourth")], blocked: [] }] });
   assert.deepEqual(calls(journal), ["run planner"]);
   assert.deepEqual(result.out, ["\n=== Iteration 1/10 ===\n", "  skipped 4: sandcastle/issue-4 is already merged into the current branch", "No unblocked issues to work on. Exiting.", "\nAll done."]);

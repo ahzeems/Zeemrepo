@@ -141,13 +141,27 @@ In order:
    these are reported together. Nothing has run yet. A login that is the
    repository owner is refused by step 4, after the loop; the work then stays merged on the
    branch.
-2. Runs `node .sandcastle/main.ts`. If that exits 2 (an incomplete or failed run), the wrapper
+2. Runs `node .sandcastle/main.ts`. If that exits 2 (a blocked, incomplete or failed run), the wrapper
    says so and goes on to judge the branch itself in step 3, so reviewed work the loop merged can
    still land, and the wrapper then exits 2 whatever lands. Any other non-zero exit stops the
    wrapper with exit 2, and nothing is pushed or commented. It also stops with exit 2 when HEAD is no longer on the
    starting branch afterwards, or the tree is left with uncommitted changes or a merge in
    progress, because the merger is an agent with a shell on this checkout.
-3. Runs `git fetch origin main`, then lists the local branches named `sandcastle/issue-<N>` that
+3. Runs `git fetch origin main`, then reads the loop's record of the branches the coordinator
+   handed the merger: `sandcastle-handed.json` in the git directory, which afk deletes before the
+   loop and the coordinator writes when the run ends. afk lands only those branches. When the record is
+   missing or malformed, or this run merged a `sandcastle/issue-<N>` branch with work that the
+   record does not name, afk names the issue, pushes and comments nothing, and exits 2, after a
+   loop exit 0 as well as 2. It cannot land the handed issues alone, because the pushed branch
+   would carry the other work too. It never falls back to the list Git shows as merged.
+   A record path afk cannot clear before the loop (a directory, or no permission) is refused
+   with the step 1 refusals; afk deletes an old record only after every step 1 check passed. Limit: the check reads branch names, so it holds only for issue
+   branches that still exist after the loop. A merger that merges an unhanded branch and then
+   deletes it gets past it: a branch that existed before the loop is reported only as deleted
+   (exit 2, the rest still lands), and one created, merged and deleted during the loop is not
+   seen at all. A merger that commits straight onto the branch is not seen either. Checking
+   merged commits against reviewed ones is S18's work.
+   It then lists the local branches named `sandcastle/issue-<N>` that
    are merged into `HEAD` and not on `origin/main`, and compares each branch tip with the tip it
    had before the loop. A branch with a commit entry in its reflog whose tip the run moved, or
    that the run merged for the first time, is announced; that includes an empty leftover the run
@@ -227,7 +241,7 @@ which branches are selected (merged by this run, not on `origin/main`, correctly
 commit of their own, or named when unrecognised), each refusal including a repository gh cannot
 see and (since 2026-10-18) an origin that is unreadable, not a GitHub URL, or publishes to another repository or host, both exit codes of the landing step and their wording, a URL taken from
 `gh` and not from the tool's text, a failing or timed-out comment, a branch switch, a moved HEAD, a dirty
-or half-merged tree after the loop, earlier work pushed and unpushed, an empty earlier branch, and that none of the wrapper's own
+or half-merged tree after the loop, earlier work pushed and unpushed, an empty earlier branch, (since 2026-10-19, S27) a merged branch not handed to the merger after loop exit 0 and 2 and a missing, stale or malformed hand-off record, and that none of the wrapper's own
 calls pushes, merges, closes, bypasses a hook or names `.env` (the landing tool is scripted, so
 its push is not exercised). Not exercised: the real `gh`, Docker, the
 Sandcastle loop, a real push, and GitHub's review request reaching the owner.

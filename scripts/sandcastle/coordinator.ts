@@ -1,4 +1,6 @@
-import { isAncestor, tryGit } from "../lib/git.ts";
+import { writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { git, isAncestor, tryGit } from "../lib/git.ts";
 import { pendingIssues, type PlannedIssue } from "./already-done.ts";
 import { branchRefusal } from "./branch-guard.ts";
 import { planSchema, type Plan } from "./plan-schema.ts";
@@ -36,6 +38,14 @@ export type Coordinator<Agent, Provider, PlanOutput> = {
   log(line: string): void;
   error(line: string): void;
 };
+
+// The branches this run handed the merger, written in the git directory (outside the tree) when the
+// run ends. npm run sandcastle:afk lands only these and refuses when the record is missing.
+export const HANDED_RECORD = "sandcastle-handed.json";
+export const handedRecordPath = (cwd: string): string => resolve(cwd, git(["rev-parse", "--git-path", HANDED_RECORD], { cwd }));
+export function writeHanded(cwd: string, branches: readonly string[]): void {
+  writeFileSync(handedRecordPath(cwd), `${JSON.stringify({ handed: branches })}\n`);
+}
 
 // Lower it for a quick smoke-test run, raise it for a large backlog.
 const MAX_ITERATIONS = 10;
@@ -161,8 +171,9 @@ async function merge<A, P, O>(deps: Coordinator<A, P, O>, issues: readonly Plann
   deps.log("\nMerger finished.");
 }
 
-// `planned` is false when the planner failed, so the round has no view of the queue.
-type Round = { results: IssueResult[]; stop?: Stop; planned: boolean };
+// `planned` is false when the planner failed, so the round has no view of the queue. `handed` names
+// the branches this round gave the merger.
+type Round = { results: IssueResult[]; stop?: Stop; planned: boolean; handed?: string[] };
 
 async function executeAll<A, P, O>(deps: Coordinator<A, P, O>, issues: readonly PlannedIssue[]): Promise<IssueResult[]> {
   const settled = await Promise.allSettled(issues.map((issue) => execute(deps, issue)));
@@ -209,7 +220,8 @@ async function round<A, P, O>(deps: Coordinator<A, P, O>): Promise<Round> {
   }
   const integrated = integration(deps.cwd, eligible);
   for (const { issue, outcome } of outstanding(integrated)) deps.error(`  ✗ ${issue.id} (${issue.branch}) ${line(outcome)}`);
-  return { results: latest([...known, ...executed], integrated), planned: true, ...(stop === undefined ? {} : { stop }) };
+  const handed = eligible.map(({ issue }) => issue.branch);
+  return { results: latest([...known, ...executed], integrated), planned: true, handed, ...(stop === undefined ? {} : { stop }) };
 }
 
 // A blocked outcome is only the latest plan's view: a plan that no longer lists the issue clears
@@ -223,20 +235,24 @@ function record(issues: readonly IssueResult[], done: Round): IssueResult[] {
   return latest(kept, fresh);
 }
 
-async function rounds<A, P, O>(deps: Coordinator<A, P, O>): Promise<RunResult> {
+type Ran = { result: RunResult; handed: string[] };
+
+async function rounds<A, P, O>(deps: Coordinator<A, P, O>): Promise<Ran> {
   let issues: IssueResult[] = [];
+  let handed: string[] = [];
   for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     deps.log(`\n=== Iteration ${iteration}/${MAX_ITERATIONS} ===\n`);
     let done: Round;
     try {
       done = await round(deps);
     } catch (error) {
-      return finish(issues, { kind: "failed", reason: `round ${String(iteration)} failed: ${String(error)}` });
+      return { result: finish(issues, { kind: "failed", reason: `round ${String(iteration)} failed: ${String(error)}` }), handed };
     }
     issues = record(issues, done);
-    if (done.stop !== undefined) return finish(issues, done.stop);
+    handed = [...new Set([...handed, ...(done.handed ?? [])])];
+    if (done.stop !== undefined) return { result: finish(issues, done.stop), handed };
   }
-  return finish(issues, { kind: "exhausted", rounds: MAX_ITERATIONS });
+  return { result: finish(issues, { kind: "exhausted", rounds: MAX_ITERATIONS }), handed };
 }
 
 function report<A, P, O>(deps: Coordinator<A, P, O>, result: RunResult): void {
@@ -254,17 +270,26 @@ function report<A, P, O>(deps: Coordinator<A, P, O>, result: RunResult): void {
  * merger failure is recorded in the result, never thrown.
  */
 export async function runSandcastle<A, P, O>(deps: Coordinator<A, P, O>): Promise<RunResult> {
+  return (await runLoop(deps)).result;
+}
+
+async function runLoop<A, P, O>(deps: Coordinator<A, P, O>): Promise<Ran> {
   const refusal = branchRefusal(deps.cwd);
   if (refusal !== undefined) {
     deps.error(refusal);
-    return { status: "refused", reason: refusal, issues: [] };
+    return { result: { status: "refused", reason: refusal, issues: [] }, handed: [] };
   }
-  const result = await rounds(deps);
-  report(deps, result);
-  return result;
+  const ran = await rounds(deps);
+  report(deps, ran.result);
+  return ran;
 }
 
-/** The loop's exit status: 0 complete, 1 refused before any agent ran, 2 blocked, incomplete or failed. */
+/**
+ * The loop's exit status: 0 complete, 1 refused before any agent ran, 2 blocked, incomplete or
+ * failed. It records the branches handed the merger for npm run sandcastle:afk (HANDED_RECORD).
+ */
 export async function coordinate<A, P, O>(deps: Coordinator<A, P, O>): Promise<number> {
-  return exitCode(await runSandcastle(deps));
+  const { result, handed } = await runLoop(deps);
+  writeHanded(deps.cwd, handed);
+  return exitCode(result);
 }

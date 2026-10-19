@@ -8,13 +8,14 @@
 // comment on each issue. It never pushes main, never merges or approves, never closes an issue,
 // never skips a hook and does not read .sandcastle/.env itself (the loop it starts does).
 import { createHash } from "node:crypto";
-import { lstatSync, readFileSync, readdirSync, readlinkSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { accessSync, constants, lstatSync, readFileSync, readdirSync, readlinkSync, rmSync, statSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
 import { destination, exactOpenPullRequest, slug, spawnRunner, type Repository, type Run } from "../git/pr-ready.ts";
 import { MAIN_REFSPEC } from "../lib/git.ts";
 import { CHANGELOG_FRAGMENT_PATTERN } from "../lib/paths.ts";
 import { branchWork, type BranchWork } from "./already-done.ts";
+import { HANDED_RECORD } from "./coordinator.ts";
 
 export type Options = { cwd?: string; output?: Output; run?: Run; env?: NodeJS.ProcessEnv };
 
@@ -36,12 +37,16 @@ const ISSUE_BRANCH = /^refs\/heads\/sandcastle\/issue-([1-9]\d*)$/;
 
 const USAGE = `Usage: node scripts/sandcastle/afk.ts
 Runs the Sandcastle loop on the current feature branch, then opens a pull request for the issue
-branches it merged (npm run pr's tool) and comments on each issue. Never merges or closes anything.
+branches it merged (npm run pr's tool) and comments on each issue. It lands only branches the loop
+handed its merger, as the loop's record says. Never merges or closes anything.
 Exit: 0 done or nothing to land, 1 refused with nothing pushed (before the loop: a failed fetch,
-an unreadable hooks directory, code on the branch; after it: code that may not land unattended, or
+an unreadable hooks directory, code on the branch, a record of the branches handed to the
+merger that cannot be removed; after it: code that may not land unattended, or
 a refusal from the landing tool), 2 a step failed or work is incomplete (including a loop that
-reported incomplete work, after landing what it integrated, and a fetch that failed after the
-loop, when issue branches may already be merged here).`;
+reported blocked or incomplete work, after landing what it integrated; a fetch that failed after
+the loop, when issue branches may already be merged here; and, landing nothing, a missing or
+malformed record of the branches handed to the merger or an issue branch merged without being
+handed to it).`;
 
 function git(run: Run, args: readonly string[]): string {
   const result = run("git", args);
@@ -120,7 +125,7 @@ function hooksSnapshot(run: Run, cwd: string | undefined): string | undefined {
 }
 
 /** The current branch (empty on a detached HEAD), the repository gh reports, and every reason not to run the loop. */
-function readiness(run: Run, env: NodeJS.ProcessEnv, cwd: string | undefined): { branch: string; repo: string; refused: string[]; hooks: string } {
+function readiness(run: Run, env: NodeJS.ProcessEnv, cwd: string | undefined): { branch: string; repo: string; refused: string[]; hooks: string; record: string } {
   const head = run("git", ["symbolic-ref", "--quiet", "--short", "HEAD"]);
   const branch = head.status === 0 ? head.stdout.trim() : "";
   const refused: string[] = [];
@@ -142,7 +147,9 @@ function readiness(run: Run, env: NodeJS.ProcessEnv, cwd: string | undefined): {
   }
   const hooks = hooksSnapshot(run, cwd);
   if (hooks === undefined) refused.push("The git hooks directory cannot be read (an unreadable entry or a dangling link), so changes to it could not be seen. Fix or remove that entry, then rerun.");
-  return { branch, repo: REPO_SCOPE, refused, hooks: hooks ?? "" };
+  const record = resolve(cwd ?? process.cwd(), git(run, ["rev-parse", "--git-path", HANDED_RECORD]).trim());
+  if (!removable(record)) refused.push(`The record of the branches handed to the merger at ${record} cannot be removed (a directory, or no permission), so this run's record could not be told from an earlier one. Remove it, then rerun.`);
+  return { branch, repo: REPO_SCOPE, refused, hooks: hooks ?? "", record };
 }
 
 const branchesMerged = (run: Run, flag: string, ref: string): string[] =>
@@ -329,26 +336,27 @@ export function main(args: readonly string[], options: Options = {}): number {
   }
   const run = options.run ?? defaultRunner(options.cwd);
   const env = options.env ?? process.env;
-  const { branch, repo, refused, hooks: hooksBefore } = readiness(run, env, options.cwd);
+  const { branch, repo, refused, hooks: hooksBefore, record } = readiness(run, env, options.cwd);
   for (const reason of refused) output.warn(`afk: ${reason}`);
   if (refused.length > 0) return EXIT_REFUSED;
   // "Earlier" work is a branch that was already merged here with its tip unchanged by the loop.
   // A branch whose tip the loop moved is this run's, even when it was merged or empty before.
-  const tipsBefore = issueTips(run);
   const mergedBefore = new Set(mergedBranches(run, options.cwd).map((entry) => entry.ref));
+  const before: BeforeLoop = { tipsBefore: issueTips(run), mergedBefore, record: cleared(record) };
   const headBefore = git(run, ["rev-parse", "HEAD"]).trim();
   const configBefore = localConfig(run);
 
   output.write("afk: step 1 of 3, running the Sandcastle loop (node .sandcastle/main.ts).");
   const loop = run("node", [".sandcastle/main.ts"], { inherit: true }).status;
-  // Exit 2 is the loop's incomplete or failed run (run-result.ts): reviewed issues it integrated
-  // may still proceed, judged below from the branch itself, and this run then exits 2 as well.
+  // Exit 2 is the loop's blocked, incomplete or failed run (run-result.ts): reviewed issues it
+  // integrated may still proceed, judged below from the branch and the loop's record of what it
+  // handed the merger, and this run then exits 2 as well.
   if (loop !== EXIT_OK && loop !== EXIT_ERROR) {
     output.warn("afk: the Sandcastle loop failed (output above). Nothing was pushed or commented, but the loop may already have merged issues into this branch.");
     return EXIT_ERROR;
   }
   const loopIncomplete = loop === EXIT_ERROR;
-  if (loopIncomplete) output.warn("afk: the Sandcastle loop reported incomplete or failed work (exit 2, named above). What it merged is judged from the branch below; this run exits 2 whatever lands.");
+  if (loopIncomplete) output.warn("afk: the Sandcastle loop reported incomplete or failed work, or blocked issues (exit 2, named above). What it merged is judged from the branch below; this run exits 2 whatever lands.");
   const tampered = loopAftermath(run, options.cwd, { branch, configBefore, hooksBefore });
   if (tampered !== undefined) {
     output.warn(`afk: ${tampered} Nothing was pushed or commented.`);
@@ -358,7 +366,12 @@ export function main(args: readonly string[], options: Options = {}): number {
     output.warn("afk: the loop ran and may have merged issue branches into this branch, but git fetch origin main failed afterwards, so the result cannot be classified. Nothing was pushed or commented; check the network, then rerun.");
     return EXIT_ERROR;
   }
-  const { issues, unannounced, earlier, earlierRefs, stranded, deleted } = classify(run, options.cwd, tipsBefore, mergedBefore);
+  const found = classifyHanded(run, options.cwd, before);
+  if (typeof found === "string") {
+    output.warn(`afk: ${found} Nothing was pushed or commented.`);
+    return EXIT_ERROR;
+  }
+  const { issues, unannounced, earlier, earlierRefs, stranded, deleted } = found;
   reportClassification(output, { issues, unannounced, earlier, earlierRefs, stranded, deleted });
   const incomplete = loopIncomplete || unannounced.length > 0 || stranded.length > 0 || deleted.length > 0;
   if (issues.length === 0) return nothingToAnnounce(run, output, { branch, headBefore, earlier, earlierRefs, incomplete });
@@ -370,9 +383,62 @@ export function main(args: readonly string[], options: Options = {}): number {
 }
 
 type Classified = { issues: string[]; unannounced: string[]; earlier: string[]; earlierRefs: string[]; stranded: string[]; deleted: string[] };
+type BeforeLoop = { record: string; tipsBefore: ReadonlyMap<string, string>; mergedBefore: ReadonlySet<string> };
+
+/**
+ * True when the record path is absent, or a file or link afk may delete: checked without deleting,
+ * so a refusal before the loop changes nothing.
+ */
+function removable(record: string): boolean {
+  let entry: ReturnType<typeof lstatSync>;
+  try {
+    entry = lstatSync(record);
+  } catch (error) {
+    return error instanceof Error && "code" in error && error.code === "ENOENT";
+  }
+  if (!entry.isFile() && !entry.isSymbolicLink()) return false;
+  try {
+    accessSync(dirname(record), constants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Remove the record an earlier run left, once every check before the loop has passed. */
+function cleared(record: string): string {
+  rmSync(record, { force: true });
+  return record;
+}
+
+/** The refs of the branches the loop recorded handing its merger, or undefined when the record is missing or malformed. */
+function handedRefs(record: string): Set<string> | undefined {
+  let value: unknown;
+  try {
+    value = JSON.parse(readFileSync(record, "utf8"));
+  } catch {
+    return undefined;
+  }
+  if (typeof value !== "object" || value === null || !("handed" in value) || !Array.isArray(value.handed)) return undefined;
+  const handed: readonly unknown[] = value.handed;
+  return handed.every((branch) => typeof branch === "string") ? new Set(handed.map((branch) => `refs/heads/${String(branch)}`)) : undefined;
+}
+
+/**
+ * Classify the issue branches, or say why nothing may land: the loop's record of what it handed the
+ * merger is missing or malformed, or this run merged a branch with work that the merger was not handed
+ * (the pushed branch would carry it).
+ */
+function classifyHanded(run: Run, cwd: string | undefined, before: BeforeLoop): Classified | string {
+  const handed = handedRefs(before.record);
+  if (handed === undefined) return "the loop's record of the branches handed to the merger is missing or malformed, so a branch the merger was not handed cannot be told apart.";
+  const found = classify(run, cwd, before, handed);
+  if (found.unhanded.length === 0) return found;
+  return `issue ${found.unhanded.join(", ")} was merged into this branch by this run but not handed to the merger (the loop's record does not name it), so the branch, which carries that work, is not landed; review it.`;
+}
 
 /** Sort the issue branches after the loop into announced, earlier, unrecognised and stranded work. */
-function classify(run: Run, cwd: string | undefined, tipsBefore: ReadonlyMap<string, string>, mergedBefore: ReadonlySet<string>): Classified {
+function classify(run: Run, cwd: string | undefined, { tipsBefore, mergedBefore }: BeforeLoop, handed: ReadonlySet<string>): Classified & { unhanded: string[] } {
   const merged = mergedBranches(run, cwd);
   const tipsAfter = issueTips(run);
   const isEarlier = (ref: string): boolean => mergedBefore.has(ref) && tipsBefore.get(ref) === tipsAfter.get(ref);
@@ -380,6 +446,7 @@ function classify(run: Run, cwd: string | undefined, tipsBefore: ReadonlyMap<str
   const numbers = (refs: string[]): string[] => refs.map(issueNumber).sort(byNumber);
   const earlierRefs = merged.filter((entry) => isEarlier(entry.ref) && entry.work === "worked").map((entry) => entry.ref);
   return {
+    unhanded: numbers(fresh.filter((entry) => entry.work !== "empty" && !handed.has(entry.ref)).map((entry) => entry.ref)),
     issues: numbers(fresh.filter((entry) => entry.work === "worked").map((entry) => entry.ref)),
     unannounced: numbers(fresh.filter((entry) => entry.work === "unrecognised").map((entry) => entry.ref)),
     earlier: numbers(earlierRefs),

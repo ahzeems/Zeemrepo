@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { PROMPT_REPO } from "./afk.ts";
+import { writeHanded } from "./coordinator.ts";
 import { test } from "node:test";
 import type { Run } from "../git/pr-ready.ts";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED } from "../lib/cli.ts";
@@ -714,4 +716,82 @@ await test("arguments", (t) => {
   const repo = fixture(t);
   assert.equal(go(repo, runner(repo).run, ["--bogus"]).code, EXIT_ERROR);
   assert.match(go(repo, runner(repo).run, ["--help"]).out, /Usage/);
+});
+
+const landedNothing = (calls: string[]): boolean => !calls.some((call) => call.includes("pr-ready") || call.startsWith("gh issue"));
+
+await test("a branch merged without being handed to the merger is named, nothing lands, and the run exits 2", async (t) => {
+  // Issue 6 has a commit of its own; issue 9 is a ref with no commit entry in its reflog (unrecognised work).
+  const unhanded: Record<string, (repo: AfkFixture) => void> = {
+    6: (repo) => mergeInto(repo, "feat/afk-work", "sandcastle/issue-6"),
+    9: (repo) => { repo.write("b.md", "b\n"); repo.commit("feat: b"); repo.git(["update-ref", "refs/heads/sandcastle/issue-9", "HEAD"]); },
+  };
+  for (const exit of [EXIT_OK, EXIT_ERROR]) {
+    for (const [issue, merge] of Object.entries(unhanded)) {
+      await t.test(`issue ${issue} after loop exit ${String(exit)}`, (t) => {
+        const repo = fixture(t);
+        issueBranch(repo, "sandcastle/issue-4");
+        issueBranch(repo, "sandcastle/issue-6");
+        const { run, calls } = runner(repo, {
+          loop: () => { mergeInto(repo, "feat/afk-work", "sandcastle/issue-4"); merge(repo); return exit; },
+          handed: ["sandcastle/issue-4"],
+        });
+        const result = go(repo, run);
+        assert.equal(result.code, EXIT_ERROR);
+        assert.match(result.err, new RegExp(`issue ${issue} was merged .*not handed`));
+        assert.ok(landedNothing(calls), "neither pushed nor commented");
+      });
+    }
+  }
+});
+
+await test("a record path afk cannot clear is refused, and no refusal removes an existing record", async (t) => {
+  const cases: [string, (repo: AfkFixture) => void, RegExp][] = [
+    ["a directory at the record path", (repo) => mkdirSync(join(repo.dir, ".git", "sandcastle-handed.json")), /record of the branches handed to the merger .*cannot be removed/],
+    ["code on the branch beside a record", (repo) => { writeHanded(repo.dir, ["sandcastle/issue-4"]); repo.write("scripts/app/owner-work.ts", "x\n"); repo.commit("feat: owner work"); }, /not documentation/],
+    ["a record in a directory afk may not write", (repo) => { writeHanded(repo.dir, []); chmodSync(join(repo.dir, ".git"), 0o555); }, /record of the branches handed to the merger .*cannot be removed/],
+  ];
+  for (const [name, arrange, reason] of cases) {
+    await t.test(name, (t) => {
+      const repo = fixture(t);
+      arrange(repo);
+      const { run, calls } = runner(repo);
+      const result = go(repo, run);
+      chmodSync(join(repo.dir, ".git"), 0o755);
+      assert.equal(result.code, EXIT_REFUSED);
+      assert.match(result.err, reason);
+      assert.ok(!calls.includes("node .sandcastle/main.ts") && existsSync(join(repo.dir, ".git", "sandcastle-handed.json")), "nothing ran or changed");
+    });
+  }
+});
+
+await test("a handed, merged issue lands after loop exit 0 and exit 2, and a handed issue left unmerged does not", async (t) => {
+  for (const exit of [EXIT_OK, EXIT_ERROR]) {
+    await t.test(`after loop exit ${String(exit)}`, (t) => {
+      const repo = fixture(t);
+      issueBranch(repo, "sandcastle/issue-4");
+      issueBranch(repo, "sandcastle/issue-6");
+      const { run, calls } = runner(repo, {
+        loop: () => { mergeInto(repo, "feat/afk-work", "sandcastle/issue-4"); return exit; },
+        handed: ["sandcastle/issue-4", "sandcastle/issue-6"],
+      });
+      const result = go(repo, run);
+      assert.equal(result.code, exit, result.err);
+      assert.ok(calls.includes("node scripts/git/pr-ready.ts"));
+      assert.deepEqual(comments(calls).map((call) => call.split(" ")[3]), ["4"]);
+    });
+  }
+});
+
+await test("a missing, stale or malformed record of the handed issues lands nothing and exits 2", async (t) => {
+  for (const [name, handed] of [["no record", null], ["not JSON", "{handed"], ["no list", "{\"handed\":\"sandcastle/issue-4\"}"], ["a list of non-strings", "{\"handed\":[4]}"], ["not an object", "[\"sandcastle/issue-4\"]"]] as const) {
+    await t.test(name, (t) => {
+      const repo = fixture(t);
+      issueBranch(repo, "sandcastle/issue-4");
+      writeHanded(repo.dir, ["sandcastle/issue-4"]); // an earlier run's record is not this run's
+      const { run, calls } = runner(repo, { loop: () => { mergeInto(repo, "feat/afk-work", "sandcastle/issue-4"); return EXIT_OK; }, handed });
+      const result = go(repo, run);
+      assert.ok(result.code === EXIT_ERROR && /record of the branches handed to the merger/.test(result.err) && landedNothing(calls), result.err);
+    });
+  }
 });

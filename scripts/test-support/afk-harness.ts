@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TestContext } from "node:test";
@@ -7,6 +7,7 @@ import type { Run } from "../git/pr-ready.ts";
 import type { Output } from "../lib/cli.ts";
 import { cleanGitEnv, createRepo, type RepoFixture } from "./repo-fixture.ts";
 import { main } from "../sandcastle/afk.ts";
+import { handedRecordPath, writeHanded } from "../sandcastle/coordinator.ts";
 
 export const PR_URL = "https://github.com/Zimfra/software_testing/pull/21";
 
@@ -70,6 +71,9 @@ export type Script = {
   prs?: (head: string) => Reply;
   ghRepo?: Reply;
   failComments?: string[];
+  // The coordinator's record of the branches it handed the merger: by default every local issue
+  // branch, null for no record, a string for the record's raw text.
+  handed?: readonly string[] | null | string;
 };
 
 // The commit GitHub would show as the branch's pull request head: the branch's tip on origin.
@@ -94,7 +98,13 @@ export function runner(repo: AfkFixture, script: Script = {}): { run: Run; calls
       const result = spawnSync("git", [...NETWORK_FENCE, ...network, ...args], { cwd: repo.dir, env: cleanGitEnv, encoding: "utf8" });
       return { status: result.status, stdout: result.stdout };
     }
-    if (line === "node .sandcastle/main.ts") return { status: script.loop?.() ?? 0, stdout: "" };
+    if (line === "node .sandcastle/main.ts") {
+      const status = script.loop?.() ?? 0;
+      const issues = (): string[] => repo.git(["for-each-ref", "--format=%(refname:short)", "refs/heads/sandcastle/issue-*"]).split("\n").filter((ref) => ref !== "");
+      if (typeof script.handed === "string") writeFileSync(handedRecordPath(repo.dir), script.handed);
+      else if (script.handed !== null) writeHanded(repo.dir, script.handed ?? issues());
+      return { status, stdout: "" };
+    }
     if (line === "node scripts/git/pr-ready.ts") {
       const landed = script.pr ?? { status: 0, stdout: `pr-ready: pull request ${PR_URL} is open.\n` };
       // A successful landing pushed the checked HEAD to the branch on origin, as pr-ready does.

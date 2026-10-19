@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test, type TestContext } from "node:test";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED } from "../lib/cli.ts";
 import { issueBranch, mergeInto } from "../test-support/afk-harness.ts";
 import * as fake from "../test-support/coordinator-fake-sdk.ts";
 import { commitOn, mergeListed, tip, verdict } from "../test-support/coordinator-repo.ts";
 import { createRepo, type RepoFixture } from "../test-support/repo-fixture.ts";
-import { coordinate, runSandcastle } from "./coordinator.ts";
+import { coordinate, handedRecordPath, runSandcastle } from "./coordinator.ts";
 import { exitCode, type IssueOutcome, type RunResult } from "./run-result.ts";
 
 // The coordinator called directly, with the fake SDK as its boundary and a real Git fixture: the
@@ -333,4 +334,28 @@ await test("coordinate judges merged and left-over branches in the given checkou
   assert.equal(fake.journal.some((event) => event.branch === "sandcastle/issue-4"), false);
   assert.deepEqual(mergerArgs(), [{ BRANCHES: "- sandcastle/issue-3", ISSUES: "- 3: Issue 3" }]);
   assert.deepEqual(outcomes(result), { 3: "integrated", 4: "integrated" });
+});
+
+await test("coordinate records exactly the branches it handed the merger, across rounds", async (t) => {
+  const repo = repoOn(t, "feat/work");
+  issueBranch(repo, "sandcastle/issue-4");
+  mergeInto(repo, "feat/work", "sandcastle/issue-4");
+  const reviewer: Role = (agentCall) => ({ stdout: verdict(tip(repo, branchOf(agentCall)), branchOf(agentCall) === "sandcastle/issue-2" ? "fail" : "pass") });
+  fake.script({
+    plans: [{ issues: [planned(1), planned(2), planned(4)], blocked: [] }, { issues: [planned(3)], blocked: [] }, { issues: [], blocked: [] }],
+    agent: crew(repo, { reviewer }),
+  });
+  const { code } = await call(repo.dir);
+  assert.equal(code, EXIT_ERROR);
+  const record: unknown = JSON.parse(readFileSync(handedRecordPath(repo.dir), "utf8"));
+  assert.deepEqual(record, { handed: ["sandcastle/issue-1", "sandcastle/issue-3"] }, "not the held issue 2 nor the already merged issue 4");
+});
+
+await test("coordinate records an empty hand-off when it refuses or nothing reaches the merger", async (t) => {
+  for (const branch of ["main", "feat/work"]) {
+    const repo = repoOn(t, branch);
+    fake.script({ plans: [{ issues: [], blocked: [] }] });
+    await call(repo.dir);
+    assert.deepEqual(JSON.parse(readFileSync(handedRecordPath(repo.dir), "utf8")), { handed: [] }, branch);
+  }
 });

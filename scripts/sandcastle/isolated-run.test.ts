@@ -8,7 +8,7 @@ import { isRecord } from "../lib/record.ts";
 import { REPOSITORY, createTarget } from "../test-support/isolated-run-fixture.ts";
 import { cleanGitEnv, createRepo, type RepoFixture } from "../test-support/repo-fixture.ts";
 import type { Docker, DockerResult } from "./container-runtime.ts";
-import { GUEST_DIR, createArgs, callRefusals, dockerExec, guardCalls, prepareRun, type AsyncDocker, type Ended, type Request } from "./isolated-run.ts";
+import { GUEST_DIR, createArgs, callRefusals, dockerExec, guardCalls, guardedDeps, prepareRun, type AsyncDocker, type Ended, type Request } from "./isolated-run.ts";
 
 // The host launcher against a scripted Docker. The guest's export is produced by the real
 // guest-runner.ts export step on temporary repositories, so the host reads genuine artifacts; only
@@ -28,7 +28,7 @@ const SAFE_INSPECT = {
 };
 
 type Guest = { commit: boolean; tamper?: (manifest: Record<string, unknown>) => void; drop?: string[] };
-type Script = { version?: number; inspect?: unknown; setup?: number; run?: { status: number | null; ended: Ended }; export?: DockerResult; collect?: (name: string) => DockerResult | undefined };
+type Script = { created?: string; version?: number; inspect?: unknown; setup?: number; run?: { status: number | null; ended: Ended }; export?: DockerResult; collect?: (name: string) => DockerResult | undefined };
 type Made = { target: RepoFixture; tooling: RepoFixture; base: string; out: string; scratch: string; calls: string[][]; guestDir: string };
 
 function step(args: readonly string[]): void {
@@ -66,7 +66,7 @@ function fakeDocker(made: Made, script: Script): Docker {
     const [command, ...rest] = args;
     if (command === "version") return script.version === undefined ? ok("27.0.0") : { status: script.version, stdout: "", stderr: "no daemon" };
     if (command === "image") return ok("sha256:fixture-image");
-    if (command === "create") return ok("container-1");
+    if (command === "create") return ok(script.created ?? "container-1");
     if (command === "inspect") return ok(JSON.stringify([script.inspect ?? SAFE_INSPECT]));
     if (command !== "exec") return ok();
     const program = rest.slice(rest.indexOf("container-1") + 1);
@@ -174,6 +174,8 @@ await test("only the Docker calls the launcher makes pass the guard; anything el
     ["exec", "-ie", "GH_TOKEN", "cid", "node"], ["exec", "-ieGH_TOKEN", "cid", "node"], ["exec", "-de", "X", "cid", "node"],
     ["exec", "--detach-keys", "ctrl-p", "-e", "X", "cid", "node"], ["--log-level", "info", "exec", "-e", "X", "cid", "node"],
     ["exec", "--privileged", "cid", "node"], ["run", "img"], ["create", "--volume", "/:/host", "img"], ["image", "rm", "img"], [],
+    ["rm", "--force", "cid", "-v"], ["start", "cid", "--attach"], ["inspect", "cid", "--size"], ["cp", "/tmp/x", "cid:/tmp/x", "-a"],
+    [...createArgs("n", "img"), "--privileged"], ["image", "inspect", "img", "--format", "x"],
   ];
   for (const args of refused) assert.notDeepEqual(callRefusals(args), [], args.join(" "));
   const made: string[][] = [
@@ -188,10 +190,26 @@ await test("only the Docker calls the launcher makes pass the guard; anything el
 
 await test("prepareRun puts every Docker call behind the guard", async (t) => {
   const made = setup(t);
+  // A container id is Docker's output; one that reads as an option must not reach the next call.
+  await assert.rejects(prepare(made, null, { created: "-v" }), /not allowed/);
+  assert.deepEqual(made.calls.filter((call) => call[0] !== "create" && call.includes("-v")), [], "no call carrying it reached Docker");
+});
+
+await test("the async exec path refuses a call the launcher does not make, before Docker sees it", async () => {
+  const reached: string[][] = [];
+  const deps = guardedDeps({ docker: () => ({ status: 0, stdout: "", stderr: "" }), exec: (args) => { reached.push([...args]); return Promise.resolve({ status: 0, ended: "exited" }); } });
+  await assert.rejects(deps.exec(["exec", "-ie", "GH_TOKEN", "cid", "node"], { timeoutMs: 1000 }), /not allowed/);
+  assert.deepEqual(reached, []);
+  await deps.exec(["exec", "--workdir", "/home/agent/tooling", "cid", "node"], { timeoutMs: 1000 });
+  assert.equal(reached.length, 1);
+});
+
+await test("an image name that reads as an option is refused as input, before Docker is touched", async (t) => {
+  const made = setup(t);
   const prepared = await prepare(made, null, {}, { image: "-eGH_TOKEN" });
-  assert.notEqual(prepared.status, "candidate");
-  assert.deepEqual(made.calls.filter((call) => call.includes("-eGH_TOKEN")), [], "the disallowed call never reached Docker");
-  assert.ok(!made.calls.some((call) => call[0] === "create"), "nothing was created");
+  assert.equal(prepared.status, "refused");
+  assert.match(prepared.refusals.join("\n"), /image/);
+  assert.equal(made.calls.length, 0);
 });
 
 await test("unsafe launch arguments refuse before a container exists", () => {

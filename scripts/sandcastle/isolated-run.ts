@@ -53,6 +53,8 @@ const EXPORT_TIMEOUT_MS = 10 * 60_000;
 const LOG_BYTES = 16 * 1024 * 1024;
 export const BOUNDS = ["--memory=4g", "--cpus=2", "--pids-limit=1024"];
 const TASK = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+// A Docker image reference: name, optional tag or digest. Starting alphanumeric keeps it from reading as an option.
+const IMAGE = /^[a-z0-9][a-z0-9._/:@-]{0,254}$/;
 const REF = /^refs\/(?!.*\.\.)[A-Za-z0-9._/-]+$/;
 const COPIED: readonly [string, string][] = [["tooling.tar", INPUTS.tooling], ["base.bundle", INPUTS.bundle], ["spec.json", INPUTS.spec]];
 const FILES: readonly [string, number][] = [[MANIFEST_FILE, LIMITS.manifestBytes], [BUNDLE_FILE, LIMITS.bundleBytes], [RECOVERY_FILE, LIMITS.recoveryBytes]];
@@ -109,7 +111,9 @@ export function dockerExec(program = "docker", logBytes = LOG_BYTES): AsyncDocke
 // The only Docker calls the launcher makes, as subcommand (with "image inspect" as one) and the
 // options each may carry before its container or image: a flag allowed exactly as written, or one
 // that takes the next argument as its value. Anything else, including a global option before the
-// subcommand, an unknown option or a short-option cluster that could hide -e, fails closed.
+// subcommand, an unknown option or a short-option cluster that could hide -e, fails closed. Docker
+// also reads options after a positional, so only exec, whose trailing arguments are the guest
+// program's, may have an option-like argument after its container.
 const CALLS: Readonly<Record<string, { flags: readonly string[]; valued: readonly string[]; bare?: true }>> = {
   version: { flags: [], valued: ["--format"], bare: true },
   "image inspect": { flags: [], valued: ["--format"] },
@@ -132,6 +136,8 @@ export function callRefusals(args: readonly string[]): string[] {
     else if (!call.flags.includes(arg)) refusals.push(`docker ${name} option ${arg} is not allowed`);
   }
   if (i >= args.length && call.bare !== true) refusals.push(`docker ${name} names no container or image`);
+  const trailing = name === "exec" ? [] : args.slice(i).filter((arg) => arg.startsWith("-"));
+  refusals.push(...trailing.map((arg) => `docker ${name} option ${arg} after its container or image is not allowed`));
   return refusals;
 }
 
@@ -144,7 +150,8 @@ export function guardCalls(docker: Docker): Docker {
   };
 }
 
-function guardedDeps(deps: Deps): Deps {
+/** Both Docker functions behind the guard. */
+export function guardedDeps(deps: Deps): Deps {
   return {
     docker: guardCalls(deps.docker),
     exec: (args, options) => {
@@ -161,6 +168,7 @@ const result = (status: Prepared["status"], run: RunEnd, pinned: Pinned, extra: 
 function inputRefusals(request: Request): { refusals: string[]; base: string; tooling: string } {
   const refusals: string[] = [];
   if (!TASK.test(request.task)) refusals.push(`the task ${JSON.stringify(request.task)} is not a plain identifier`);
+  if (!IMAGE.test(request.image)) refusals.push(`the image ${JSON.stringify(request.image)} is not a Docker image reference`);
   if (existsSync(request.out)) refusals.push(`the output directory ${request.out} already exists; each run owns a new one`);
   const status = tryGit(["status", "--porcelain"], { cwd: request.tooling });
   if (status === null || status !== "") refusals.push(`the tooling checkout ${request.tooling} has uncommitted changes or is not a checkout`);

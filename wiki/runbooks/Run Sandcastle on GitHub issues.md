@@ -298,8 +298,10 @@ same user that owns the guest's tooling directory, so they can rewrite the expor
 is guest-controlled and the host trusts only what quarantine checks. The export's Git ignores a
 planted fsmonitor, hooks and external diff or textconv, but `git status` and `git diff` still run a
 clean filter the agents configure (inside the guest only). Docker calls go through an allowlist:
-only the subcommands and options the launcher itself uses pass, so no call can add `--env`, `-e`,
-`--env-file` or any other option. Tests:
+only the subcommands the launcher itself makes pass, with only the options it uses before the
+container or image, and no option-like argument after it except in `exec`, where the trailing
+arguments are the guest program's own. An image name that is not a plain Docker reference is
+refused before Docker is touched. Tests:
 `node --test scripts/sandcastle/guest-runner.test.ts scripts/sandcastle/isolated-run.test.ts scripts/sandcastle/isolated-run-smoke.test.ts`.
 
 ## Candidate artifacts and quarantine

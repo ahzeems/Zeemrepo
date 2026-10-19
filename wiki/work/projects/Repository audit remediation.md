@@ -9,7 +9,7 @@ agent: opencode
 status: in-progress
 owner: human
 priority: P1
-next_action: Build S28 (the per-run credential proxy), then S29 (the guest's internal network and the two-name guard exception, after the owner answers its package-egress question), then S18. Run at most two heavy jobs at a time.
+next_action: Build S28 (the per-run credential proxy) and S29 (the two-name guard exception and token handling) in parallel, then S30 (the guest's internal network, after the owner answers its package-egress and gateway-exposure questions), then S18. Run at most two heavy jobs at a time.
 idea: "[[Execute the repository audit remediation]]"
 evidence:
   - "OWNER DECISION: on 2026-10-16 the owner requested committed planning, a pull request and execution by another LLM in a separate terminal session."

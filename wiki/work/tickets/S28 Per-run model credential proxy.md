@@ -15,11 +15,13 @@ project: "[[Repository audit remediation]]"
 ticket_kind: build
 plan: "[[Repository audit remediation implementation plan]]"
 depends_on: ["[[S14 Isolated coordinator preparation and export]]"]
-related: ["[[Choose how the model credential reaches the isolated guest]]", "[[Credential proxies for the isolated guest's model calls]]", "[[S29 Per-run guest network and credential wiring]]"]
+related: ["[[Choose how the model credential reaches the isolated guest]]", "[[Credential proxies for the isolated guest's model calls]]", "[[S29 Guest credential wiring and token handling]]", "[[S30 Per-run internal guest network]]"]
 evidence:
   - "OWNER DECISION: on 2026-10-19 the owner chose \"Build our own tiny proxy (Recommended)\"; the option text is quoted in Choose how the model credential reaches the isolated guest."
   - "INFERRED: this ticket is a follow-up to slices S14 and S18 of the approved remediation plan, not one of the plan's 26 slices, in the way S27 was added by PR 55; it is approved when the owner merges the PR that adds it."
   - "INFERRED: the proxy and the network wiring are split into S28 and S29 because each needs its own red tests and broken controls, and together they would touch the proxy, both S12 and S14 guards, the launcher and the CI smoke in one PR (design-principles: a task that needs more than one plan of three to six lines is too big)."
+  - "INFERRED: from the coordinator's relay of the independent verifier's review of PR 66 at a213a15 (Claude Code verifier subagent, Opus 5.5): the proxy must bind only to an address the caller names and refuse wildcard and unexpected addresses, and two starts must yield distinct tokens; this ticket was amended on 2026-10-19 to require both (Claude Code, Opus 5.5)."
+  - "INFERRED: the amendment adds one listen-address check with its tests and one token test to a single module, so the ticket still fits one pull request."
   - "UNKNOWN: implementation evidence is pending."
 ---
 
@@ -42,19 +44,23 @@ Anthropic Messages API with a throwaway token while the real key stays in the ho
 2. `startCredentialProxy({ upstream, key, listen })` returns `{ url, token, close }`. The token
    is 32 random bytes from `node:crypto`, made per call. `upstream` is a parameter only so tests
    can pass the fake; the exported default and the CLI entry fix it to `https://api.anthropic.com`.
-3. Accept only `POST /v1/messages` and `POST /v1/messages/count_tokens`, matched on the parsed
+3. `listen` is required and names one literal IP address and a port. The proxy refuses, before
+   opening a socket, a missing address, a hostname and the wildcards `0.0.0.0` and `::`, and it
+   binds only to the one address passed. It cannot tell whether that address is the run
+   network's gateway; S30's launcher test guarantees that. Tests here pass loopback.
+4. Accept only `POST /v1/messages` and `POST /v1/messages/count_tokens`, matched on the parsed
    path (the query, such as `?beta=true`, is forwarded). Everything else, including `CONNECT`,
    absolute-form targets and `HEAD /api/hello`, gets a fixed refusal and no upstream call.
-4. Check `Authorization: Bearer <token>` with `timingSafeEqual`. On a match, drop the client's
+5. Check `Authorization: Bearer <token>` with `timingSafeEqual`. On a match, drop the client's
    `authorization`, `x-api-key`, `cookie`, `proxy-*`, `host` and hop-by-hop headers, set
    `x-api-key` to the key, and forward `anthropic-*` headers and the body unchanged.
-5. Pipe the response back as it arrives: status, `content-type`, `retry-after`,
+6. Pipe the response back as it arrives: status, `content-type`, `retry-after`,
    `x-should-retry`, `anthropic-ratelimit-*` and `request-id`, and the body including SSE `ping`
    events and error bodies. Never follow a redirect.
-6. Scan every response header and body chunk for the key's bytes. Hold back only the longest
+7. Scan every response header and body chunk for the key's bytes. Hold back only the longest
    chunk suffix that is a prefix of the key, so a key split across chunks is caught and ordinary
    events are not delayed. On a match, abort the response and log a fixed line.
-7. Log only method, path, status and duration. The proxy's own error bodies are fixed strings.
+8. Log only method, path, status and duration. The proxy's own error bodies are fixed strings.
    `close()` stops the listener and destroys open sockets, after which the token is useless.
 
 ## Acceptance criteria
@@ -78,14 +84,20 @@ Anthropic Messages API with a throwaway token while the real key stays in the ho
 - [ ] `retry-after`, `x-should-retry` and `anthropic-ratelimit-unified-*` from the fake upstream
   reach the client unchanged, and a 429 or 529 error body arrives unmodified.
 - [ ] Log output captured across every case contains neither the key nor the token.
+- [ ] `startCredentialProxy` refuses, without opening a socket, a missing listen address, a
+  hostname, `0.0.0.0` and `::`; given `127.0.0.1` it listens there and nowhere else, and a test
+  reads the bound address back from the server.
+- [ ] Two proxy starts in one test yield different tokens, and each start's token is refused by
+  the other proxy.
 - [ ] The exported default upstream is `https://api.anthropic.com`, asserted by a test.
 - [ ] No new dependency: `package.json` and `package-lock.json` are unchanged.
 - [ ] `npm run check` passes at the final commit.
 
 ## Out of scope
 
-- Starting the proxy from the launcher, the guest's network, and the S12 and S14 guard
-  exceptions: [[S29 Per-run guest network and credential wiring]].
+- The S12 and S14 guard exceptions and token passing:
+  [[S29 Guest credential wiring and token handling]]. Starting the proxy from the launcher and
+  the guest's network: [[S30 Per-run internal guest network]].
 - Any live call to `api.anthropic.com`, creating a workspace, or handling a real key.
 - Rate limiting or spend accounting in the proxy; the workspace spend limit is the cap.
 - Other providers, `/v1/models` discovery, and Bedrock or Vertex formats.
@@ -93,7 +105,7 @@ Anthropic Messages API with a throwaway token while the real key stays in the ho
 ## Allowed files
 
 - New `scripts/sandcastle/credential-proxy.ts` and `scripts/sandcastle/credential-proxy.test.ts`.
-- New `scripts/test-support/fake-anthropic-upstream.ts` if the fake is shared with S29.
+- New `scripts/test-support/fake-anthropic-upstream.ts` if the fake is shared with S30.
 - `scripts/lib/change-policy.ts` and its test, only if the new path needs classification.
 - This ticket and a new `changelog/` fragment.
 
@@ -124,14 +136,16 @@ None. Tests use a made-up key and a fake upstream on loopback. CI gets no secret
   pings, passed-through retry and rate-limit headers.
 - Broken controls, each written before the code and shown red: wrong token, other paths and
   methods, host redirection, the five echo and redirect upstreams above, a client-supplied
-  credential header, a key split across chunks.
+  credential header, a key split across chunks, each refused listen address, two starts sharing
+  a token.
 - Mutants to plant and kill after green: header strip removed, key scan removed, carry-over of
   the split key removed, path match loosened to a prefix, `close()` leaving sockets open,
-  buffering the whole response before sending.
+  buffering the whole response before sending, the token fixed to one value for every start,
+  the listen check removed so a wildcard address is accepted.
 
 ## Rollback and recovery
 
-The proxy is unused until S29 wires it in, so a revert of this ticket's PR removes it with no
+The proxy is unused until S30 wires it in, so a revert of this ticket's PR removes it with no
 other effect.
 
 ## Evidence
@@ -142,5 +156,5 @@ the streaming timing case, and the CI run at the final head. State that no live 
 ## Wiki and doc updates
 
 The module's own header comment states what the proxy accepts and refuses. The runbook changes
-wait for S29, when the proxy is usable; until then this ticket records
-`[no-doc-change: the proxy has no caller until S29 wires it into the launcher]`.
+wait for S30, when the proxy is usable; until then this ticket records
+`[no-doc-change: the proxy has no caller until S30 wires it into the launcher]`.

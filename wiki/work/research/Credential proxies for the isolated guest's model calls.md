@@ -9,7 +9,7 @@ agent: claude-code
 status: done
 owner: human
 priority: P1
-next_action: None. The owner chose the in-repo proxy; S28 and S29 carry the build.
+next_action: None. The owner chose the in-repo proxy; S28, S29 and S30 carry the build.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 related: ["[[Choose how the model credential reaches the isolated guest]]", "[[A scoped model credential for the isolated guest awaits an owner decision]]", "[[S14 Isolated coordinator preparation and export]]"]
@@ -19,6 +19,7 @@ evidence:
   - "VERIFIED: Agent Vault's docs/env.mdx says AGENT_VAULT_TELEMETRY defaults to true and that telemetry events carry the authenticated user's email; docs/container-isolation.mdx adds NET_ADMIN and NET_RAW for its iptables firewall and mounts a per-session MITM CA into the container (read 2026-10-19)."
   - "VERIFIED: gh issue view 445 -R Infisical/agent-vault on 2026-10-19 reported OPEN, created 2026-10-06, titled 'CI: add govulncheck job - 3 reachable vulnerabilities currently on main'."
   - "VERIFIED: gh api for advisory GHSA-3cv6-jpf6-8222 on 2026-10-19 reported 'Authenticated SSRF and provider-credential exfiltration via unvalidated request-body routing parameters', published 2026-08-26, affecting litellm below 1.94.0 with 1.96.2 among the patched versions; the latest LiteLLM release was v1.106.0 (2026-10-18) and the latest Caddy release v2.11.7 (2026-10-03)."
+  - "VERIFIED: on 2026-10-19 gh api /advisories/GHSA-3cv6-jpf6-8222 listed nine vulnerable ranges, from '< 1.88.6' through '>= 1.96.0, < 1.96.2', with first patched versions 1.88.6, 1.89.7, 1.90.7, 1.91.5, 1.92.2, 1.93.2, 1.94.3, 1.95.1 and 1.96.2, and global publication 2026-09-30; gh api repos/BerriAI/litellm/security-advisories/GHSA-3cv6-jpf6-8222 gave one range '<1.94.0' with the same patched list (re-checked by Claude Code, Opus 5.5)."
   - "VERIFIED: the Claude Code pages llm-gateway-connect and llm-gateway-protocol and the Claude Platform Workspaces page, fetched on 2026-10-19, say what the Findings below quote from them."
   - "VERIFIED: in the repository at b38ff85, scripts/sandcastle/containment-smoke.ts line 37 allows only CONTAINMENT_MARKERS as launch environment, line 38's CREDENTIAL pattern matches ANTHROPIC and CLAUDE_CODE names, launchRefusals (lines 72 to 87) refuses any other --env, and inspectRefusals (lines 117 and 118) refuses a credential name in Config.Env; scripts/sandcastle/isolated-run.ts lines 117 to 123 allow create with no --network or --env and exec with only --workdir."
   - "VERIFIED: at b38ff85 the guest setup runs npm ci (isolated-run.ts line 64), the coordinator's onSandboxReady hook runs npm install (coordinator.ts line 54), and no workflow under .github/workflows references a secrets. value."
@@ -67,7 +68,10 @@ content and not run.
 
 **LiteLLM v1.106.0** needs PostgreSQL for virtual keys. Its advisory of 2026-08-26 describes an
 authenticated user making the proxy send its provider credentials to a destination the user
-controls, which is the exact leak this work must prevent. It was fixed in 1.96.2.
+controls, which is the exact leak this work must prevent. It was fixed per release line, not in
+one version. The global advisory lists nine affected ranges, the last being 1.96.0 up to but
+not including 1.96.2, and each line is fixed at its own patch release, from 1.88.6 to 1.96.2.
+The repository advisory gives a single range, below 1.94.0, with the same patched list.
 
 **Caddy v2.11.7** is a plain reverse proxy. It flushes `text/event-stream` responses at once, so
 streaming works, but it has no per-run token and adds a binary to the image and the CI job.
@@ -104,7 +108,8 @@ offline source. CI uses no secrets and must stay that way.
 
 The owner chose the in-repo proxy on 2026-10-19;
 [[Choose how the model credential reaches the isolated guest]] records the choice. It needs no new dependency, keeps the real key on the host,
-and the guest sees only a per-run token and the proxy address. The build is split in two:
-[[S28 Per-run model credential proxy]] (the proxy alone, tested against a fake upstream) and
-[[S29 Per-run guest network and credential wiring]] (the internal network, the two guard
-exceptions and the package question).
+and the guest sees only a per-run token and the proxy address. The build is split in three:
+[[S28 Per-run model credential proxy]] (the proxy alone, tested against a fake upstream),
+[[S29 Guest credential wiring and token handling]] (the two guard exceptions, token passing
+by name and token scans) and [[S30 Per-run internal guest network]] (the internal network, the
+gateway exposure and the package question).

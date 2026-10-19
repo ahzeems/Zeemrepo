@@ -9,12 +9,12 @@ agent: opencode
 status: proposed
 owner: agent
 priority: P1
-next_action: Wait for S28 and S29 to land (the credential decision is made), then verify approval and every parent and switch the complete public workflow with its retirement checks.
+next_action: Wait for S28, S29 and S30 to land (the credential decision is made), then verify approval and every parent and switch the complete public workflow with its retirement checks.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: build
 plan: "[[Repository audit remediation implementation plan]]"
-depends_on: ["[[S14 Isolated coordinator preparation and export]]", "[[S15 Independent isolated verification receipts]]", "[[S16 Trusted publication of verified candidate refs]]", "[[S17 Durable recovery and notification reconciliation]]", "[[S28 Per-run model credential proxy]]", "[[S29 Per-run guest network and credential wiring]]"]
+depends_on: ["[[S14 Isolated coordinator preparation and export]]", "[[S15 Independent isolated verification receipts]]", "[[S16 Trusted publication of verified candidate refs]]", "[[S17 Durable recovery and notification reconciliation]]", "[[S28 Per-run model credential proxy]]", "[[S29 Guest credential wiring and token handling]]", "[[S30 Per-run internal guest network]]"]
 related: ["[[Choose how the model credential reaches the isolated guest]]", "[[Repository audit findings 2026-10-16]]", "[[Docker-capable containment proof is unavailable locally]]"]
 evidence:
   - "VERIFIED: this job spec preserves approved slice S18, A01/A10/A13/A14 integration and its four named prerequisites."

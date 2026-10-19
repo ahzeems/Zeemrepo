@@ -9,7 +9,7 @@ agent: claude-code
 status: done
 owner: human
 priority: P1
-next_action: None. S28 builds the proxy, S29 the network and guard exceptions, and S18 then uses them.
+next_action: None. S28 builds the proxy, S29 the guard exceptions, S30 the network, and S18 then uses them.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: decision
@@ -20,7 +20,7 @@ evidence:
   - "OWNER DECISION: on 2026-10-19 the owner wrote: \"https://infisical.com/blog/agent-vault-the-open-source-credential-proxy-and-vault-for-agents#agent-vault -- Research something like this. I want some sort of open-source tool that will do it if we can use something like this, something quick and cheerful. Let's do it.\""
   - "OWNER DECISION: on 2026-10-19, asked \"How should the agent's credential reach the container?\", the owner chose \"Build our own tiny proxy (Recommended)\". The option read: \"One small in-repo TypeScript proxy, no dependencies. A per-run token plus the proxy address go in, the real key stays on the host, the container gets a private network, and the cap is a spend-limited Anthropic workspace. The guards get a narrow exception for exactly those two variables.\" Relayed by the coordinator."
   - "VERIFIED: the research note's evidence lines record what was read for each option on 2026-10-19 (Agent Vault README, LICENSE, docs and issue 445; LiteLLM's virtual-key docs and advisory GHSA-3cv6-jpf6-8222; Caddy's reverse_proxy docs; Claude Code's gateway pages; the Workspaces page) and the repository lines the guards live on (checked by Claude Code, Opus 5.5)."
-  - "INFERRED: the decision approves a direction and the S28 and S29 job specs when the owner merges the PR that adds them; it is not authorization to create a workspace, hold a key in any file, or make a live model call."
+  - "INFERRED: the decision approves a direction and the S28, S29 and S30 job specs when the owner merges the PRs that add them; it is not authorization to create a workspace, hold a key in any file, or make a live model call."
 ---
 
 ## Question
@@ -62,7 +62,12 @@ OWNER DECISION: on 2026-10-19 the owner chose "Build our own tiny proxy (Recomme
 option text is quoted in the evidence above. Agent Vault and Caddy were rejected for the reasons
 in Options.
 
-The build is split into [[S28 Per-run model credential proxy]] and
-[[S29 Per-run guest network and credential wiring]], because the proxy and the network and guard
-changes each need their own failing controls and would not fit one pull request. How the guest
-gets npm packages without general egress is left as an owner question in S29.
+LiteLLM was not offered to the owner. The research note set it aside because its virtual keys
+need PostgreSQL, and because advisory GHSA-3cv6-jpf6-8222 let an authenticated user make the
+proxy send its provider credentials to a destination that user controls.
+
+The build is split into [[S28 Per-run model credential proxy]],
+[[S29 Guest credential wiring and token handling]] (the guard exceptions and token handling)
+and [[S30 Per-run internal guest network]], because each needs its own failing controls and
+together they would not fit one pull request. How the guest gets npm packages without general
+egress, and how the gateway exposure is closed, are left as owner questions in S30.

@@ -11,10 +11,12 @@ name one deliverable, state acceptance a command can settle, and cite the plan t
 
 ## Before slicing
 
-The plan must have an owner-approved merge, and its map must have every decision ticket
+The plan must have the owner's approval, and its map must have every decision ticket
 resolved. Until then there is nothing to slice: extend the plan instead. Verify the actual
-approval: the plan's `approval_ref` names a pull request, and GitHub shows the owner merged it
-(`gh pr view <N> --json state,mergedBy`). A status label written by the agent does not establish it.
+approval: the plan's `approval_ref` quotes the owner's own dated words
+(`OWNER DECISION: "<words>" (YYYY-MM-DD)`) that you can find in the conversation or record they came
+from, or names a pull request GitHub shows the owner merged (`gh pr view <N> --json state,mergedBy`).
+A status label written by the agent does not establish it.
 
 ## Slicing
 

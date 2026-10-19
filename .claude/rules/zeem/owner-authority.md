@@ -18,7 +18,9 @@ What only the owner decides, and how agents treat owner input.
   post) needs authorization for that destination and a redaction pass on the final text: secrets, other
   people's identities, hostnames, LAN addresses, absolute paths containing a user name, unsettled decisions,
   and quoted private messages.
-- A plan, ticket or skill an agent drafts is approved only when the owner merges the PR that adds it. An
-  agent-written status label never establishes approval.
+- A plan, ticket or skill an agent drafts is approved only by the owner: by merging the PR that adds it,
+  or, on an integration branch that lands as one PR, by the owner's own words recorded as
+  `OWNER DECISION: "<words>" (YYYY-MM-DD)` (OWNER DECISION, 2026-10-19). An agent-written status label
+  never establishes approval.
 - An explicit owner decision is policy at once. A preference only inferred from past sessions becomes a rule
   or skill only after it recurs in two or more independent sessions and nothing contradicts it.

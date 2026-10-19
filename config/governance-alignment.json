@@ -119,8 +119,18 @@
     },
     {
       "id": "zeem-over-ecc",
-      "pattern": "\\bzeem`? rules? wins\\b|\\bwin over the vendored ECC\\b|\\bthe repository skill\\s+wins\\b|\\boverride ECC where they disagree\\b",
+      "pattern": "\\bzeem`? rules? (wins?|override[sd]?)\\b|\\bwin over the vendored ECC\\b|\\brepository skills?\\s+wins?\\b|\\boverride ECC where they disagree\\b|#+ Overrides of ECC\\b",
       "supersededBy": "Owner decision 2026-10-19: ECC wins everywhere (ADR-0026)"
+    },
+    {
+      "id": "branch-per-piece",
+      "pattern": "\\bstart each piece of work on a fresh branch\\b|\\bthe owner merges the ticket's pull request\\b",
+      "supersededBy": "Owner decision 2026-10-19: one integration branch per piece of work, one pull request when it is complete (ADR-0027)"
+    },
+    {
+      "id": "plan-approval-by-merge",
+      "pattern": "\\bapproved only when the owner merges\\b|\\bthe plan must have an owner-approved merge\\b",
+      "supersededBy": "Owner decision 2026-10-19: a plan is approved by the owner's quoted words or a merged pull request (ADR-0027)"
     }
   ],
   "allowed": [

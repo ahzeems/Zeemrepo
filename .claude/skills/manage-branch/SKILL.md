@@ -11,19 +11,22 @@ Inspect `git status --short`, `git worktree list --porcelain`, and the remote fi
 
 ```bash
 git fetch origin
-git switch -c feat/<short-description> origin/main
-git push -u origin feat/<short-description>
+git switch -c work/<topic> origin/main
+git push -u origin work/<topic>
 ```
 
-Use the conventional-commit type as the prefix (`feat/`, `fix/`, `docs/`, `refactor/`, `test/`, `chore/`).
+A piece of work has one integration branch, `work/<topic>`, for all its phases, issues and tickets. Reuse
+it; never start a branch per phase or ticket.
 
-For concurrent work use a worktree under the checkout's canonical `.worktrees/` directory:
+For concurrent work, each agent or terminal uses a worktree under the checkout's canonical `.worktrees/`
+directory, on a local branch from the integration branch:
 
 ```bash
-git worktree add -b feat/<short-description> .worktrees/<session> origin/main
+git worktree add -b work/<topic>--<name> .worktrees/<name> work/<topic>
 ```
 
-Publish that branch from its selected checkout.
+When its slice passes `npm run check`, merge it back from the integration branch's checkout
+(`git merge --no-ff work/<topic>--<name>`). Only the integration branch is pushed.
 
 Never restart setup in a dirty mid-session checkout, and never discard or absorb another
 session's work. Run branch setup alone, not in parallel with a change.
@@ -43,7 +46,7 @@ Conventional commits (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`). Stage
 
 ## Open the pull request
 
-`npm run pr` refuses on main or a detached HEAD, a dirty tree, or a branch that lacks `origin/main`
+Open it once, when the whole piece of work on the integration branch is complete. `npm run pr` refuses on main or a detached HEAD, a dirty tree, or a branch that lacks `origin/main`
 or its own commits; then it runs `npm run check`, checks that `gh` is logged in, pushes the
 branch, and opens the PR (title and body from the commits) or reports the one already open. Then
 set the title and body:

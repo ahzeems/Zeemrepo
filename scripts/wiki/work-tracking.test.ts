@@ -212,16 +212,18 @@ await test("open work may carry inconclusive evidence", () => {
   assert.equal(errors(records), "");
 });
 
-await test("approval_ref must name the pull request the owner merged", () => {
+await test("approval_ref is the pull request the owner merged or the owner's quoted, dated approval", () => {
   const records = graph();
   records.push(record("ticket", "Build", { idea: "[[Idea]]", project: "[[Project]]", plan: "[[Plan]]", ticket_kind: "build" }));
-  for (const approval of ["#12", "https://github.com/ahzeems/Zeemrepo/pull/12"]) {
+  for (const approval of ["#12", "https://github.com/ahzeems/Zeemrepo/pull/12", 'OWNER DECISION: "Approve the plan" (2026-10-19)']) {
     Object.assign(find(records, "Plan").data, { status: "approved", approval_ref: approval });
     assert.equal(errors(records), "", approval);
   }
-  for (const approval of ["owner said yes", "12", "https://github.com/ahzeems/Zeemrepo/issues/12", "#12 and more"]) {
+  const refused = ["owner said yes", "12", "https://github.com/ahzeems/Zeemrepo/issues/12", "#12 and more",
+    "OWNER DECISION: yes", 'OWNER DECISION: "yes"', 'OWNER DECISION: "" (2026-10-19)', 'OWNER DECISION: "yes" (19 Oct)'];
+  for (const approval of refused) {
     find(records, "Plan").data.approval_ref = approval;
-    assert.match(errors(records), /approval_ref must be the merged pull request/, approval);
+    assert.match(errors(records), /approval_ref must be the merged pull request .* or the owner's quoted approval/, approval);
   }
 });
 

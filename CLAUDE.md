@@ -5,8 +5,9 @@ harness, with the ECC plugin (`ecc@ecc`, pinned in `.claude/settings.json`).
 
 ## Non-negotiable
 
-- **Nothing is pushed to `main`.** Work on a branch, finish with `npm run pr`, and leave merging to the owner on
-  GitHub. Never merge or approve a pull request.
+- **Nothing is pushed to `main`.** Each piece of work lives on one integration branch until it is complete,
+  then gets one pull request through `npm run pr`. Only the owner approves and merges on GitHub; never merge
+  or approve a pull request, even where an ECC command suggests `gh pr merge`.
 - **Test first.** ECC's TDD workflow is mandatory.
 - **Every branch records itself:** a `CHANGELOG.md` entry, an updated work record under `wiki/work/`, and an
   operating doc when workflow-critical files change. `npm run check` refuses a branch without them.
@@ -29,7 +30,8 @@ Each rule has one home. Read the file before acting in its area.
 ECC is this repository's foundation. Where a `zeem` rule, a repository skill or a wiki page disagrees
 with an ECC rule or skill, ECC wins; fix the other text (OWNER DECISION, 2026-10-19: "ECC wins
 everywhere"). The `zeem` rules add what ECC does not cover, and nothing in the repository may block or
-restrict the ECC plugin.
+restrict the ECC plugin. The one exception is merging and approving on GitHub, which stay the owner's
+alone (OWNER DECISION, 2026-10-19: "You merge it").
 
 ## Working here
 

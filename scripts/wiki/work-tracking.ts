@@ -30,8 +30,10 @@ const TERMINAL = new Set(["done", "parked", "superseded"]);
 const STARTED = new Set(["in-progress", "in-review", "done"]);
 // Evidence says how a claim is known. Done work must rest on something checked or decided,
 // not on inference alone.
-// Work lands only by pull request, so a plan's approval is the PR the owner merged.
+// A plan is approved by the PR the owner merged, or, on a branch that lands as one PR when all its
+// work is done, by the owner's quoted and dated words (OWNER DECISION, 2026-10-19).
 const PULL_REQUEST = /^(#\d+|https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+)$/;
+const QUOTED_APPROVAL = /^OWNER DECISION: "[^"]+" \(\d{4}-\d{2}-\d{2}\)$/;
 
 const linkTarget = (value: unknown): string | undefined => stringValue(value).match(/^\[\[([^[\]#|\n]+)\]\]$/)?.[1];
 
@@ -100,7 +102,9 @@ function checkApproval(graph: Graph, { data, file }: WorkRecord): void {
   if (!NEEDS_APPROVAL.has(stringValue(data.status))) return;
   const approval = stringValue(data.approval_ref).trim();
   if (!approval) graph.fail(file, "approved, ready or executing plans and specs need approval_ref");
-  else if (!PULL_REQUEST.test(approval)) graph.fail(file, "approval_ref must be the merged pull request: #N or its GitHub URL");
+  else if (!PULL_REQUEST.test(approval) && !QUOTED_APPROVAL.test(approval)) {
+    graph.fail(file, `approval_ref must be the merged pull request (#N or its GitHub URL) or the owner's quoted approval: OWNER DECISION: "<words>" (YYYY-MM-DD)`);
+  }
 }
 
 function checkTicket(graph: Graph, record: WorkRecord): void {

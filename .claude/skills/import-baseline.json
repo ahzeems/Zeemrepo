@@ -85,6 +85,14 @@
             "quote": "Approve both (Recommended)"
           },
           "reason": "Post-Phase 7 alignment: the PR is opened or updated with npm run pr (checks first) instead of a raw gh pr create, matching .claude/rules/zeem/branch-and-merge.md."
+        },
+        {
+          "sha256": "302a90be73ff1ad481a211e64160acb8248894d613127f11a74be732082064cd",
+          "approval": {
+            "record": "wiki/decisions/ADR-0027 One integration branch per piece of work.md",
+            "quote": "everything should be assigned to a singal branch which can be updated until the work is completed, only then a PR will be required"
+          },
+          "reason": "Single integration branch: a piece of work uses one work/<topic> branch for all its phases and tickets, parallel agents merge local worktree branches into it, and the pull request opens once when the work is complete."
         }
       ]
     },
@@ -101,6 +109,14 @@
             "quote": "Keep the 3 Pocock edits"
           },
           "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
+        },
+        {
+          "sha256": "0384e2962b60fd70aa52db3c22e0fe8f63bb394bb42450d67cdaf80670397189",
+          "approval": {
+            "record": "wiki/decisions/ADR-0027 One integration branch per piece of work.md",
+            "quote": "everything should be assigned to a singal branch which can be updated until the work is completed, only then a PR will be required"
+          },
+          "reason": "Single integration branch: a plan's approval is the owner's quoted, dated words in approval_ref, or a pull request the owner merged."
         }
       ]
     },
@@ -181,6 +197,14 @@
             "quote": "Approve as proposed (Recommended)"
           },
           "reason": "Zeemrepo migration: removed references to Zimi machinery (AGENTS.md, gate, git notes, Codex, OpenCode), applied the stocktake changes and the review fixes recorded in docs/migration/skill-stocktake.md."
+        },
+        {
+          "sha256": "a94401c4bfc513325fd23dcaab0c08fd97e149c5cbdbd8dcae1889c7ccee0bab",
+          "approval": {
+            "record": "wiki/decisions/ADR-0027 One integration branch per piece of work.md",
+            "quote": "everything should be assigned to a singal branch which can be updated until the work is completed, only then a PR will be required"
+          },
+          "reason": "Single integration branch: the plan is committed on the work's integration branch and approved by the owner's own words, recorded in approval_ref."
         }
       ]
     },

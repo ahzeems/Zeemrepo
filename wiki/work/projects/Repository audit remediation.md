@@ -9,7 +9,7 @@ agent: opencode
 status: in-progress
 owner: human
 priority: P1
-next_action: Run the next eligible tickets, at most two heavy jobs at a time, S09 and S11 (parent S08), S15 (parents S12 and S13), and S20 to S23 and S26 (parent S01); S21 also needs the owner's approval for its baseline.
+next_action: S11, S16 and S24 are in progress on their own branches; start S10 (parent S09, now landed) when a heavy-job slot is free, at most two heavy jobs at a time. S21 waits for the owner's approval of its baseline; S14, S17 and S18 wait for their parents.
 idea: "[[Execute the repository audit remediation]]"
 evidence:
   - "OWNER DECISION: on 2026-10-16 the owner requested committed planning, a pull request and execution by another LLM in a separate terminal session."
@@ -21,6 +21,7 @@ evidence:
   - "VERIFIED: S01 landed as PR 18, merged as 875a2e8 by the code owner after an APPROVED review."
   - "VERIFIED: S02 landed as PR 21, merged as 5d56a42 by the code owner after an APPROVED review."
   - "VERIFIED: on 2026-10-18 gh pr list --state merged showed twelve of 26 slices landed: S01 (PR 18), S02 (PR 21), S03 (PR 25), S04 (PR 23), S05 (PR 32), S06 (PR 38, follow-up PR 42), S07 (PR 26), S08 (PR 39), S12 (PR 34, follow-up PR 40), S13 (PR 37), S19 (PR 35) and S25 (PR 36)."
+  - "VERIFIED: on 2026-10-18 gh pr view showed PRs 44 to 49 merged by the code owner's account, each squash merge carrying exactly its last reviewed head, so eighteen of 26 slices have landed: the twelve above plus S20 (PR 44, 1790817), S09 (PR 45, 13c3b11), S26 (PR 46, f949e56), S23 (PR 47, 024d415), S22 (PR 48, 3905db2) and S15 (PR 49, caa99e3). When checked on 2026-10-18 after PR 49 merged, S11 was open as PR 50 (head 95d8717) and feat/s16-trusted-publication and fix/s24-compliance-outcomes had no PR yet; S10 depends only on S09 and is the one eligible ticket not started (checked by Claude Code, Opus 5.5)."
 ---
 
 ## Outcome

@@ -9,7 +9,7 @@ agent: claude-code
 status: done
 owner: agent
 priority: P1
-next_action: None once the owner merges its PR; S10 (blocked-queue planning) and S11 are eligible. Discovered gaps are listed below for idea notes.
+next_action: None. It landed as PR 45 (13c3b11); S10 is now eligible. The afk landing risk is assigned to S16, the merger's post-merge commits are covered by S18 (its acceptance criterion that changed integration SHAs are independently verified), and durable retry state by S17; the rest of the discovered work continues as idea notes that link this ticket.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: build
@@ -27,6 +27,8 @@ evidence:
   - "VERIFIED: review fixes test first: at 892931a run-result.test.ts failed 2 of 12 (unclosed trailing block, duplicate keys); green at ed33800, 12 of 12. The prompt-example test at 0c6df25 passes on the new prompt and fails 1 of 13 with the previous prompt restored. Mutants, each restored: unclosed trailing block ignored 1 of 32 failed; duplicate keys accepted 1 of 32; keys counted at every depth (a nested sha key) 1 of 32."
   - "INFERRED: the real SDK's SandboxRunResult.stdout carries the reviewer's <review> block and commits land on the host branch the coordinator reads with git rev-parse; both come from the Sandcastle 0.12.0 type definitions and its host worktree code, not from a run."
   - "UNKNOWN: model behaviour (whether a real reviewer follows the read-only verdict contract), Docker and GitHub are not exercised; fake responses establish only the coordinator's handling."
+  - "VERIFIED: on 2026-10-18 gh pr view 45 reported MERGED by the code owner's account as 13c3b11, and git merge-tree --write-tree 13c3b11^ f19d838 gave 13c3b11's own tree, so main received exactly the reviewed head f19d838 (checked by Claude Code, Opus 5.5)."
+  - "INFERRED: per the final report of an independent verifier (Claude Code subagent, Opus 5.5, separate context), relayed to the coordinator and not reproduced here, f19d838 rated PASS: the unclosed trailing block, duplicate keys, prompt example, runbook table and PR body findings are fixed. Left open: the MEDIUM on afk landing after loop exit 2 (S16), the unused aheadIssues, no-work for vanished commits, and a new LOW that a <review> mentioned in prose holds the issue."
 ---
 
 ## Goal
@@ -109,7 +111,7 @@ exits 2. The approved policy was applied as written; no new outcome needed an ow
   coordinator reports only listed issues it failed to merge, and afk classifies from Git, so such a
   merge would be announced and landed. Needs trusted merging or publication (S16 territory).
 - The merger may commit a fix after a merge, which no reviewer sees; the run still reports the
-  issue integrated. New integration SHAs need new verification (S15).
+  issue integrated. New integration SHAs need new verification (S18 acceptance: changed integration SHAs are independently verified).
 - A comment the merger posts on an issue is a phase claim made before the coordinator checks
   integration; it can announce an issue the coordinator then reports not integrated
   (notification reconciliation, S17).

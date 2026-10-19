@@ -1,7 +1,7 @@
 ---
 type: idea
 title: Reviewers stop only processes they started
-summary: A verifier killed processes by matching a name pattern and interrupted another agent's git commit; reviewers should stop only processes they started, by exact PID.
+summary: A verifier killed processes by matching a name pattern and interrupted another session's git commit; reviewers should stop only processes they started, by exact PID.
 tags: [area/agents, kind/pitfall]
 created: 2026-10-18
 updated: 2026-10-18
@@ -14,12 +14,14 @@ related: ["[[Improvement loop turns every finding into tracked work]]", "[[Paral
 evidence:
   - "INFERRED: the S13 ticket records that, per the coordinator's relay of the third verifier report, a verifier's process kill interrupted another session's commit (2026-10-18)."
   - "VERIFIED: on 2026-10-18 grep found no rule about stopping processes in .claude/agents/verifier.md or .claude/agents/finder.md."
+  - "INFERRED: the independent verifier's report on PR 37 at a4c30ed, relayed to the coordinator and not reproduced here, says it matched leftover Git processes with the pattern ^/usr/lib/git-core/git|^git , which caught the S12 session's git commit in another worktree, and sent SIGKILL to it and its process group (2026-10-18)."
 ---
 
 ## Problem
 
-Verifiers run mutation and load probes and sometimes need to stop a stuck process. On 2026-10-18 one stopped
-processes by matching a pattern, which also matched another agent's `git commit` in a different worktree.
+Verifiers run mutation and load probes and sometimes need to stop a stuck process. On 2026-10-18 a verifier's
+process kill interrupted another session's `git commit`, as the S13 ticket records. Its report says it matched
+Git processes by a name pattern, which caught that commit in another worktree, and killed its process group.
 
 ## Desired outcome
 

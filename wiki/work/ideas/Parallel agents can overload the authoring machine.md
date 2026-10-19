@@ -13,7 +13,7 @@ next_action: Plan where a concurrency limit for heavy jobs lives, among the coor
 related: ["[[Improvement loop turns every finding into tracked work]]", "[[Parallel agents collide in the shared scratchpad]]"]
 evidence:
   - "OWNER DECISION: on 2026-10-18 the owner reported the crashes: \"continue - the server creashed\", twice."
-  - "INFERRED: before the crashes up to seven agents ran at once, several with full npm run check runs and mutation runs, and one stress probe ran 16 busy loops (load average 39, recorded in the S25 ticket). After the coordinator limited itself to two heavy jobs at a time there was no further crash that day."
+  - "INFERRED: before the crashes up to seven agents ran at once, several with full npm run check runs and mutation runs, and one stress probe ran 16 busy loops (load average 39, recorded in the S25 ticket). After the coordinator limited itself to two heavy jobs at a time there was no further crash up to when this note was written."
   - "VERIFIED: on 2026-10-18 nproc reported 8 and free reported about 7 GiB of memory on the authoring machine."
 ---
 

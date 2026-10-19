@@ -9,7 +9,7 @@ agent: claude-code
 status: done
 owner: agent
 priority: P2
-next_action: Owner review of the fix/s23-clean-eval-snapshots pull request; S24 builds on the contract under Snapshot contract for S24.
+next_action: None. It landed as PR 47 (024d415); S24 builds on the contract under Snapshot contract for S24. Discovered work continues as idea notes that link this ticket.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: build
@@ -31,6 +31,8 @@ evidence:
   - "VERIFIED: red commit 6afb0ca, the new tool-marker and YAML-spec cases failed (2 failures of 63 tests in test_snapshot_boundary and test_run_comply); fix 8ee8589 refuses a marker line in any non-prose file (the preferred option for L1, not a README-only correction) and any non-JSON file under specs/; the README now lists the four pattern gaps."
   - "VERIFIED: at 7a29848, 25 planted mutants each failed test_snapshot_boundary (25 of 25 killed): the 14 above, the scenario-list read (the reviewer's M6), the non-JSON refusal, the marker refusal, and the removal of each of the 8 evaluation-word alternatives (including the reviewer's O4, re-run)."
   - "INFERRED: the boundary is pattern-based, so results restated without a percentage or an evaluation word, or a rubric paraphrased without its ids, would pass; the README records this limit."
+  - "VERIFIED: on 2026-10-18 gh pr view 47 reported MERGED by the code owner's account as 024d415, and git merge-tree --write-tree 024d415^ 98826a0 gave 024d415's own tree, so main received exactly the reviewed head 98826a0 (checked by Claude Code, Opus 5.5)."
+  - "INFERRED: per the final report of an independent verifier (Claude Code subagent, Opus 5.5, separate context), relayed to the coordinator and not reproduced here, 98826a0 rated PASS: the MEDIUM and three LOWs from d9c2cc9 are fixed and 12 of 12 of its mutants are killed. Remaining limits: detection by pattern only, as the README states (now the idea note Snapshot leak check matches patterns only), and the live harness path is UNKNOWN."
 ---
 
 ## Goal

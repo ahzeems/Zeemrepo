@@ -19,8 +19,9 @@ evidence:
 ## Problem
 
 S06 made `npm run pr` refuse to hand off a pull request whose head is not the commit it checked and pushed.
-That is right, but GitHub updates the head a little after the push. On 2026-10-18 every live run on an open
-pull request refused once, and each rerun repeats `npm run check`, which takes minutes and loads the machine.
+That is right, but GitHub updates the head a little after the push. On 2026-10-18 the two live runs on PR 38
+each refused once (the S06 ticket and the PR 38 body record them), and the S06 agent reported the same for a
+third run on PR 42. Each rerun repeats `npm run check`, which takes minutes and loads the machine.
 
 ## Desired outcome
 

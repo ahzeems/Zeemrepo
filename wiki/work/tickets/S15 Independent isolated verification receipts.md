@@ -9,7 +9,7 @@ agent: opencode
 status: done
 owner: agent
 priority: P1
-next_action: None once PR 49 merges after the third review round. The owner reviews the receipt store location and contract in the PR; S16 and S17 consume validateReceipt; a live reviewer waits for owner authorisation.
+next_action: None. It landed as PR 49 (caa99e3); S16 is eligible. A live reviewer waits for the owner's authorization, and the discovered work continues as idea notes that link this ticket.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: build
@@ -42,6 +42,9 @@ evidence:
   - "INFERRED: per the coordinator's relay of the independent verifier's second report, not reproduced here except where a VERIFIED line says so: 54f7215 rated PASS with every earlier finding closed. Two LOWs: mutant L3d (baseDefinitions running only the first check:base link) survived because the fixture's check:base has one link, and the real-container UNKNOWN line under-claimed after CI ran."
   - "VERIFIED: at 72c0ab7 a driver test uses a base whose check:base is npm run a && npm test with only test failing: both links run, the receipt is failed with exits a 0 and test 1, and the consumer's trustedChecksDigest covers both. Planting L3d (checkDefinitions on chosen.names.slice(0, 1)) fails that test (22 of 23 pass); the file was restored and passes 23 of 23."
   - "INFERRED: the store location ($XDG_STATE_HOME or ~/.local/state, then zeemrepo/verification-receipts), the machinery list, the 30-minute and 16 MiB step limits and the 64 KiB review response cap are this agent's proposals for the owner to confirm in the PR. S13's limits are unchanged."
+  - "VERIFIED: on 2026-10-18 gh pr view 49 reported MERGED by the code owner's account as caa99e3, and git merge-tree --write-tree caa99e3^ 1654e5c gave caa99e3's own tree, so main received exactly the reviewed head 1654e5c (checked by Claude Code, Opus 5.5)."
+  - "INFERRED: per the final report of an independent verifier (Claude Code subagent, Opus 5.5, separate context), relayed to the coordinator and not reproduced here, 1654e5c rated PASS in the third round: the L3d mutant now fails the multi-link check:base test and the ticket's labels are accurate. Info items it did not count as findings, each now an idea note: shell substitution such as $(printf np)m passes the package-manager check (needs a hostile base), a node_modules under a non-code directory is not flagged, and a forged receipt in a directory the caller chooses validates (documented as a consumer requirement)."
+  - "VERIFIED: main CI run 39169338254 (check, push) at caa99e3 concluded success, and its Prove the sandbox boundary step printed the verifier-control receipt line and containment-smoke: contained. (checked by Claude Code, Opus 5.5)"
 ---
 
 ## Goal

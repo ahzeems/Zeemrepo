@@ -9,7 +9,7 @@ agent: opencode
 status: done
 owner: agent
 priority: P2
-next_action: None once the owner merges PR 48; the discovered work below is for the coordinator to file.
+next_action: None. It landed as PR 48 (3905db2). Discovered work and the review's open LOWs continue as idea notes that link this ticket.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: build
@@ -37,9 +37,13 @@ evidence:
   - "VERIFIED: merged origin/main 024d415 (PRs 44 to 47) at 4135973, keeping both sides' lines in note-schema.md (S20's section paragraph and this branch's history paragraph); the separating blank line is its own commit. wiki:compliance passes on the merged head."
   - "OWNER DECISION: on 2026-10-18 the owner chose \"Keep agent fixed (Recommended)\" (question dialog, relayed by the coordinator). S09 and S23 stay as they are on main (claude-code, changed by PRs 45 and 47, like S06 and S25); from now on agent stays the note's creator, builders name themselves in evidence lines, and the guard stays as written."
   - "VERIFIED: survey extended in a disposable clone with GitHub's main: PR 45 (13c3b11, S09 ticket) and PR 47 (024d415, S23 ticket) would have been refused for the agent change from opencode to claude-code; PRs 44 and 46 have no history findings; open PR 49 (head bdea98a, base a6b69c5) passes the history check."
+  - "INFERRED: correction to the survey line above, from the independent verifier's report at 0e16c04 relayed to the coordinator: PR 49 later moved to head 54f7215, which also passes the history check; PR 49 then merged as caa99e3 from head 1654e5c."
   - "VERIFIED: at red commit 6b05351, wiki-history.test.ts failed 3 of 39 cases: a commit dated on the note's day above a later parent, a backdated merge above later parents, and an updated of 2027-01-01 after a 2026-10-05 edit. The author-versus-committer and rename-path cases passed already; they pin behaviour. At fdc5c13 all 39 pass, and node --test scripts/wiki/*.test.ts reports 261 of 261."
   - "VERIFIED: 27 planted mutations, run one at a time at fdc5c13, were all caught (at least 1 failing case each), including the review's surviving two: dating by author date only, and by committer date only (1 case each), dating a rename only by its old path (1), dating by the commit alone instead of its ancestors (2), and dropping the future-updated refusal (1)."
   - "UNKNOWN: commit dates are self-reported by the committer, so a single forged commit with no later parent can still move an edit onto a note's created day. Independent verification of this branch's head is pending."
+  - "VERIFIED: on 2026-10-18 gh pr view 48 reported MERGED by the code owner's account as 3905db2, and git merge-tree --write-tree 3905db2^ 0e16c04 gave 3905db2's own tree, so main received exactly the reviewed head 0e16c04 (checked by Claude Code, Opus 5.5)."
+  - "INFERRED: per the final report of an independent verifier (Claude Code subagent, Opus 5.5, separate context), relayed to the coordinator and not reproduced here, 0e16c04 rated PASS: the evil-merge-day and updated-future probes are now refused and all five of its mutants are killed. Open LOWs: these npm run pr refusals were not yet recorded (next line), the survey line names PR 49 at bdea98a although its head 54f7215 also passed, a possible timezone edge on the future-updated rule, and self-reported dates."
+  - "INFERRED: per the builder's report relayed by the coordinator, npm run pr at 0e16c04 ran npm run check green four times and refused four times: three for refs changed, then once after pushing because GitHub still showed 793ed0e as PR 48's head; afterwards git ls-remote and gh pr view showed 0e16c04."
 ---
 
 ## Goal

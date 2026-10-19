@@ -9,6 +9,7 @@ agent: opencode
 status: done
 owner: agent
 priority: P2
+next_action: None. It landed as PR 44 (1790817). Its discovered work continues as the idea notes Obsidian comments and math blocks still hide headings that count, and Wikilink scan strips code with regular expressions.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: build
@@ -28,6 +29,8 @@ evidence:
   - "VERIFIED: after adding the unclosed-fence control in 45e47da, the mutant that drops the heading_open check fails 2 tests (31 run) where it previously survived; the unmutated suite passes 31 of 31."
   - "VERIFIED: ran missingSections directly: '##  Fix', '##<tab>Fix' and '   ## Fix' count; '    ## Fix' and '<div>' then '## Fix' with no blank line do not."
   - "UNKNOWN: independent verification of the round-one fixes is pending."
+  - "VERIFIED: on 2026-10-18 gh pr view 44 reported MERGED by the code owner's account as 1790817, and git merge-tree --write-tree 1790817^ 1818175 gave 1790817's own tree, so main received exactly the reviewed head 1818175 (checked by Claude Code, Opus 5.5)."
+  - "INFERRED: per the final report of an independent verifier (Claude Code subagent, Opus 5.5, separate context), relayed to the coordinator and not reproduced here, 1818175 rated PASS: the three round-one LOWs are fixed, the M8 mutant now fails 2 tests, and 19 heading forms behave as note-schema.md says. The %%, $$ and <div hidden> forms stay open, as Discovered work records."
 ---
 
 ## Goal

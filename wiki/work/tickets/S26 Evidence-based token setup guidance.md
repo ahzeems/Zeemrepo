@@ -9,7 +9,7 @@ agent: opencode
 status: done
 owner: agent
 priority: P2
-next_action: Owner reviews the pull request from branch docs/s26-token-setup-guidance; an independent verifier reviews its head first.
+next_action: None. It landed as PR 46 (f949e56). The stale step reference is closed in Runbook prerequisites point at the token check; the governance entry and the review's unwrapped-lines LOW continue as idea notes.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: build
@@ -28,6 +28,8 @@ evidence:
   - "INFERRED: two different tokens can carry the same expiry date, because the date is chosen at creation, so expiry cannot identify a token (audit A16)."
   - "UNKNOWN: no live read or write trial was run for this ticket; no token was created, viewed or used, and no owner authorization for a trial was sought. The commands in steps 5 and 6 are unexecuted in this form."
   - "UNKNOWN: whether GitHub still returns the expiry header today; only the 2021 announcement documents it."
+  - "VERIFIED: on 2026-10-18 gh pr view 46 reported MERGED by the code owner's account as f949e56, and git merge-tree --write-tree f949e56^ aed8422 gave f949e56's own tree, so main received exactly the reviewed head aed8422 (checked by Claude Code, Opus 5.5)."
+  - "INFERRED: per the final report of an independent verifier (Claude Code subagent, Opus 5.5, separate context), relayed to the coordinator and not reproduced here, aed8422 rated PASS with all four round-one findings fixed. Its one new LOW, two runbook lines left unwrapped, continues as the idea note The Sandcastle runbook has unwrapped long lines."
 ---
 
 ## Goal

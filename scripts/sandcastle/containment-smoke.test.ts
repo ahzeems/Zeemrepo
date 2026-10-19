@@ -87,20 +87,23 @@ await test("a contained run builds the image, launches a clean container without
   assert.equal(order.filter((step) => step.startsWith("docker ")).at(-1), "docker rm", "the container is removed last");
 });
 
-await test("after containment passes, the verifier control runs on the same image and its failure refuses", (t) => {
+await test("after containment passes, the verifier and isolated-run controls run on the same image and either failure refuses", (t) => {
   const repo = host(t);
   const { run, calls } = fakeDocker();
   assert.equal(go(repo, run).code, EXIT_OK);
   const control = calls.filter((call) => call[0] === "node");
-  assert.equal(control.length, 1);
+  assert.equal(control.length, 2);
   assert.match(control[0]?.[1] ?? "", /verifier-driver-smoke\.ts$/);
-  assert.equal(control[0]?.[2], "zeemrepo-sandbox:containment-smoke");
+  assert.match(control[1]?.[1] ?? "", /isolated-run-smoke\.ts$/);
+  assert.deepEqual(control.map((call) => call[2]), ["zeemrepo-sandbox:containment-smoke", "zeemrepo-sandbox:containment-smoke"]);
   const order = calls.map((call) => call.slice(0, 2).join(" "));
   assert.ok(order.lastIndexOf("docker rm") < order.findIndex((step) => step.startsWith("node ")), "the probe container is gone first");
-  const failing: Run = (command, args, options) => (command === "node" ? { status: 1, stdout: "" } : run(command, args, options));
-  const refused = go(repo, failing);
-  assert.equal(refused.code, EXIT_REFUSED);
-  assert.match(refused.err, /verifier control exited 1/);
+  for (const [script, pattern] of [["verifier-driver-smoke", /verifier control exited 1/], ["isolated-run-smoke", /isolated-run control exited 1/]] as const) {
+    const failing: Run = (command, args, options) => (command === "node" && (args[0] ?? "").includes(script) ? { status: 1, stdout: "" } : run(command, args, options));
+    const refused = go(repo, failing);
+    assert.equal(refused.code, EXIT_REFUSED);
+    assert.match(refused.err, pattern);
+  }
 });
 
 await test("missing Docker is a blocked result, never a pass", (t) => {

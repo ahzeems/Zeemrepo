@@ -246,12 +246,68 @@ calls pushes, merges, closes, bypasses a hook or names `.env` (the landing tool 
 its push is not exercised). Not exercised: the real `gh`, Docker, the
 Sandcastle loop, a real push, and GitHub's review request reaching the owner.
 
+## Isolated preparation
+
+`scripts/sandcastle/isolated-run.ts` (S14, 2026-10-19) runs the actual coordinator
+(`coordinator.ts`), its agents and the SDK's Git cleanup inside one disposable container and takes
+back only a candidate artifact. It is a preparation boundary for tests and later stages: it has no
+npm script, and the public commands do not use it until S18. Its entry is `prepareRun(request, deps)`.
+
+What the host does, in order:
+
+1. Pins the inputs: the base SHA of `baseRef` in the trusted source repository, and the control
+   checkout's `HEAD` as the guest tooling. A dirty tooling checkout, an existing output directory,
+   a task that is not a plain identifier or a base ref that names no commit refuses before Docker
+   is touched, all reasons together.
+2. Creates one container with S12's flags plus `--memory=4g --cpus=2 --pids-limit=1024`, and
+   refuses unless `docker inspect` shows no mount, privilege or credential and all three limits.
+   Missing Docker or image is `blocked`, never a pass.
+3. Copies in three files only: `git archive` of the tooling, a bundle holding exactly the pinned
+   base, and the run spec. No host Git directory, checkout, home or runtime-control socket is
+   named to Docker.
+4. In the guest, `scripts/sandcastle/guest-runner.ts` installs the tooling, starts a fresh
+   repository from the bundle on `sandcastle/run-<task>`, and runs the coordinator with the SDK's
+   `noSandbox()` provider in place of the docker provider. Agents get only the container's own
+   environment; no credential is passed (see the limits below).
+5. The run has a deadline (four hours by default) and stops on the caller's `AbortSignal`. A
+   timed-out or interrupted run is killed inside the container (`kill -KILL -1` as the guest
+   user), and the export runs anyway, so committed work is kept.
+6. The export writes the run branch as an incremental bundle on the base plus `recovery.data`:
+   other `sandcastle/` branches as patches and each worktree's uncommitted diff, cut to branch tips
+   when over 1 MiB. Each file comes out through `docker exec base64`, bounded by its S13 limit,
+   into `<out>/artifacts`; the guest log goes to `<out>/guest.log`, capped at 16 MiB. Then the
+   container is removed.
+7. A bundle goes through quarantine (next section) against the pinned identities. The result is
+   `candidate`, `no-candidate`, `refused`, `blocked` or `failed`, with `verified: false` and
+   `published: false` always. The guest's phase labels stay data; a manifest that claims
+   `verify` or `publish` is refused.
+
+Cleanup ownership: the launcher removes its container and scratch inputs on every path. The
+caller owns `<out>` (artifacts, quarantine directory, guest log) and removes it after recovery.
+
+Recovery: read `<out>/artifacts/recovery.data` (JSON, never applied to your checkout). To resume
+work, start a new isolated run; never rerun the coordinator on the host to recover.
+
+Limits (2026-10-19): the real-container path runs only in `npm run sandbox:smoke` (the CI `check`
+job), with scripted agents. No model credential reaches the guest yet, so a real-model run would
+fail at its first agent; scoping a credential into the boundary is an owner decision for S18.
+Signals reach the stage only through the `signal` option until S18 wires a command to it. The
+container has Docker's default bridge network, because the guest's `npm ci` and the coordinator's
+`npm install` hook download packages; no narrower network policy exists yet. The agents run as the
+same user that owns the guest's tooling directory, so they can rewrite the export step: its output
+is guest-controlled and the host trusts only what quarantine checks. The export's Git ignores a
+planted fsmonitor, hooks and external diff or textconv, but `git status` and `git diff` still run a
+clean filter the agents configure (inside the guest only). Docker calls go through an allowlist:
+only the subcommands and options the launcher itself uses pass, so no call can add `--env`, `-e`,
+`--env-file` or any other option. Tests:
+`node --test scripts/sandcastle/guest-runner.test.ts scripts/sandcastle/isolated-run.test.ts scripts/sandcastle/isolated-run-smoke.test.ts`.
+
 ## Candidate artifacts and quarantine
 
 The isolated workflow (audit remediation S13 to S18) returns each candidate as data, not as a
 branch in your checkout. `scripts/sandcastle/quarantine.ts` (S13, 2026-10-18) is the receiving
-side. Nothing calls it yet: `npm run sandcastle` and `npm run sandcastle:afk` still run the loop
-on the host until S14 produces artifacts and S18 switches the public commands over.
+side. The isolated preparation stage (previous section) calls it; `npm run sandcastle` and
+`npm run sandcastle:afk` still run the loop on the host until S18 switches the public commands over.
 
 An artifact is a directory holding exactly these files, each a regular, non-executable file:
 

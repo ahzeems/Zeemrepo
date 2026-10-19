@@ -20,6 +20,7 @@ evidence:
   - "VERIFIED: on 2026-10-19 claude plugin list --json printed [] and no ecc agent or skill was offered in this session, while .claude/settings.json enables ecc@ecc: enabled is not loaded on this machine."
   - "VERIFIED: on a scratch copy, claude plugin disable ecc@ecc --scope project set the entry to false and rules:check exited 0; deleting the marketplace and enabledPlugins entries made rules:check refuse with the pin message."
   - "VERIFIED: separate-context review of b4f0370: the read-only verifier reran every command on the admission page and npm run check (exit 0) and returned VERIFIED; the read-only finder reported one HIGH (the removal list missed live files; reproduced: npm test fails the pin test on a scratch copy without the marketplace entry) and three MEDIUM (permissions overstated for MCP calls, hooks_enabled does not stop hook commands, purpose and compatibility missing), all corrected on the page."
+  - "VERIFIED: a second verifier pass at 6d3e3e9 reran npm run check (exit 0), reproduced the pin-test failure after removal on a scratch copy and confirmed each corrected claim; it returned VERIFIED, noting one imprecise permissions line in this record, reworded in the commit after it, which changes only this record."
   - "VERIFIED: PR #27 (Phase 1) merged by the owner (gh pr view 27: mergedBy ahzeems, merge commit c5e9a0b); the check and guards workflows passed on it; npm run audit reports 26 commits on main, all landed by merged pull request."
   - "OWNER DECISION: for Phase 2, \"Exclude all non-TS/Python\" ECC rule sets from loading, verified by \"One claude -p run\" (2026-10-19)."
   - "VERIFIED: before Phase 2, reading scripts/changes/repo-memory-validation.ts in a session on 2026-10-19 injected the ArkTS, React Native, TypeScript and Vue rules, and reading test files injected angular/testing.md; their globs (**/*.ts, **/*.test.ts) match 80 tracked .ts files."
@@ -123,7 +124,7 @@ Excluded from this change: skill descriptions (native discovery stays), the zeem
 |---|---|---|
 | Exact upstream and revision | ECC pinned by tag only; the commit was not recorded | [[Integration admission]] records tag `v2.2.3` = `c05b2d6` and how to re-resolve it |
 | Purpose, contents, dependencies, compatibility | Not recorded for the plugin; ADR-0024 says only that it is enabled | Purpose here, agents, skills, hooks, MCP server, declared requirements (Node `>=18`, no Claude Code version) and the repository's own dependencies on it listed |
-| Permissions | Not recorded | Hooks and MCP server run with the user's permissions; deny rules and the merge hook still apply |
+| Permissions | Not recorded | Hooks and MCP server run with the user's permissions; the deny rules and the merge hook cover Bash calls only, not MCP tool calls or plugin hooks |
 | Registered, evaluated, enabled, loaded | One `enabledPlugins` flag; the plugin was enabled but not loaded on the machine checked | The four words defined and recorded separately |
 | Disable and remove | Not defined | Disable checked on a scratch copy; removal shown to fail `rules:check` and `npm test` on a scratch copy and to need its own branch; install and marketplace removal cited, not run |
 

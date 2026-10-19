@@ -41,10 +41,16 @@ repository may block or restrict the ECC plugin.
 - All 22 ECC rule sets load where their paths match, so a `.ts` read also loads the ArkTS, React
   Native, Vue and Angular testing rules ([[Context loading]]).
 - Coverage thresholds are 80% for lines, functions and branches.
-- Rebasing follows ECC's own `git-workflow` conditions: a branch only you use may be rebased, and a
-  branch others have pushed or pulled is not. Under [[ADR-0027 One integration branch per piece of work]]
-  the shared integration branch is kept current by merging `main`, so the pre-push rewrite refusal and
-  the `--force-with-lease` deny rule block nothing ECC asks for.
+- Rebasing follows ECC's own `git-workflow` conditions: a branch only you use may be rebased and
+  pushed with `--force-with-lease`, and a branch others have based work on is not. The owner lifted
+  the pre-push rewrite refusal and the `--force-with-lease` deny rule for branches other than `main`
+  (OWNER DECISION, 2026-10-19: "Allow on non-main branches"); under
+  [[ADR-0027 One integration branch per piece of work]] the shared integration branch still merges `main`.
+  The imported `manage-branch` and `resolve-conflicts` skills say so (revisions in
+  `.claude/skills/import-baseline.json` cite this decision).
+- GitHub reviews follow the owner too: agents post findings as pull request comments and never
+  submit a formal review, approving or requesting changes (OWNER DECISION, 2026-10-19: "Comments
+  only"), although ECC's `/ecc:code-review` publishes one; a deny rule refuses `gh pr review`.
 - Still to change, test first: `eslint.config.ts` measures functions without blank lines and
   comments, where ECC counts lines; the pinned compliance spec for `branch-and-merge` still expects a
   fresh branch per piece of work.

@@ -18,6 +18,9 @@ evidence:
   - "VERIFIED: npm test passes 584 tests with branch coverage about 92.5% overall (92.44% to 92.56% across runs), above the raised 80% branch threshold; lint, typecheck, evals:test, wiki:lint, skills:lint, governance:check and rules:check pass."
   - "VERIFIED: separate-context review of e0cb3a9: the read-only verifier returned VERIFIED on all six slice A criteria; ECC's code-reviewer returned WARNING with one HIGH (the precedence line had no exception for merging, while ECC's /pr command lists gh pr merge), fixed by the owner's decision below, and two MEDIUM (the rebase rule dropped ECC's own conditions; the governance claim missed plural and override forms), both fixed."
   - "OWNER DECISION: on merging, \"You merge it (Recommended)\" (2026-10-19); CLAUDE.md names merging and approving on GitHub as the one exception to ECC winning."
+  - "OWNER DECISION: on ECC's force-with-lease after a rebase, \"Allow on non-main branches\", and on ECC's /ecc:code-review publish step, \"Comments only (Recommended)\" (2026-10-19)."
+  - "VERIFIED: branch-policy.test.ts and hooks.test.ts were changed first and failed (a non-main rewrite was refused; gh pr review was not denied and --force-with-lease was), then pass after branch-policy.ts and .claude/settings.json changed; main is still refused in every form."
+  - "VERIFIED: separate-context review of PR #30 at 2ce26a2 - the verifier returned VERIFIED on all seven criteria; ECC's code-reviewer returned Approve (ready for the owner) with three MEDIUM; ECC's TypeScript reviewer two MEDIUM; ECC's Python reviewer blocked on two HIGH (an outcome check with a syntax error that could never pass; an observer error that could hide the scenario's error). Each was fixed test first or in the docs on this branch."
 ---
 
 Use evidence and owner decisions; do not invent approval.

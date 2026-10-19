@@ -32,8 +32,9 @@ A branch cannot approve its own plan. On an integration branch the owner approve
 own words, and a `docs(wiki): ` change sets `status: approved` and `approval_ref` to them, quoted and
 dated: `OWNER DECISION: "<words>" (YYYY-MM-DD)`. A plan that landed in its own pull request may
 instead cite it as `#N` or its full GitHub URL, confirmed with
-`gh pr view <N> --json state,mergedBy`. `wiki:lint` accepts only these two forms, and the field alone
-proves nothing: the quote must be the owner's.
+`gh pr view <N> --json state,mergedBy`. `wiki:lint` accepts only these two forms and checks only their shape (a non-blank quote and a real
+calendar date): it cannot tell who wrote the words. The separate review of the branch confirms each
+quoted approval against the conversation it came from.
 
 A status written by an agent is never approval.
 [[ADR-0025 Agents use a machine account and the owner approves]] records why only the owner approves and merges (superseding ADR-0008).

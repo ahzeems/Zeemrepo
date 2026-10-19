@@ -70,6 +70,12 @@ directory and so measures Claude's defaults, not these rules. The wrapper:
   and end, because ECC's classifier reads only the first 500 characters of an input;
 - saves each session's raw stream to `~/.cache/zeemrepo/comply-runs/` (outside the repository) for
   auditing outputs, splits and error flags;
+- runs each target's pinned outcome checks (`specs/<report name>.outcomes.json`, hidden from the
+  agent with the rest of `specs/`) in the scenario's sandbox after the session, and writes one record
+  per attempt, failed ones included, to `records.jsonl` beside the streams (`outcomes.py`): the
+  outcome by kind (correctness, safety), the wall time, the revision and whether the tree was dirty,
+  the Claude Code version, the models, the ECC pin, the host, and what the session's result event
+  reports (turns, tokens, and a list-price cost estimate, which is not a charge);
 - gives each call a copy of the login without its refresh token, and refuses to start unless the
   access token has at least an hour left. On 2026-10-09 the re-run's claude calls began failing
   as the token reached its expiry, with `platform.claude.com` allowed, and the owner's own Claude
@@ -112,6 +118,13 @@ sandboxes live under `/tmp/skill-comply-sandbox/`.
 A report gives the compliance rate per scenario, the spec, the prompts and each tool call with
 its classification. Low-compliance steps are candidates for a hook or a check (the
 `write-guard` skill), not for more prose.
+
+Compliance (whether the agent followed the steps) and outcome (whether the task came out right) are
+separate measures. `python3 evals/compliance/outcomes.py table <run directory>/records.jsonl` prints
+the outcome table: one row per attempt, with correctness and safety scores, turns, wall time,
+tokens and the cost estimate in separate columns. Subscription use and actual charges are not
+recorded. The pinned outcome checks have been run only by their unit tests, not yet against a
+correct and a broken sandbox.
 
 **Known limit.** skill-comply grades tool calls, so it sees what an agent did, not what it said:
 "tell the owner only they can merge" is judged by the absence of a merge call, not by the words.

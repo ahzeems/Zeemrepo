@@ -59,6 +59,23 @@ Captured 2026-10-19 on one machine with Claude Code 2.1.303. To re-check, run th
   not installed, because that file sets `overrides`, which a plugin install does not apply. Which ECC
   hooks or skills need those packages is not established.
 
+**GateGuard** (ECC's `gateguard-fact-force` hook, on by the owner's choice: OWNER DECISION,
+2026-10-19, "Leave it as is"). It is not an error: it holds an action until the agent states facts,
+then lets the same action through on retry. It holds:
+
+| Action | Hook id | The agent states |
+|---|---|---|
+| The first Bash command of a session | `pre:bash:gateguard-fact-force` | The current request in one sentence, and what the command checks or produces |
+| The first Edit or Write of each file | `pre:edit-write:gateguard-fact-force` | The file's importers or callers, the API it affects, the data shapes it reads or writes, and the owner's instruction verbatim |
+| A command it judges destructive (`rm -rf`, `git branch -D`, `git push --delete`, posting to GitHub) | `pre:bash:gateguard-fact-force` | Every file or piece of data it modifies or deletes, a one-line rollback, and the owner's instruction verbatim |
+
+Agents answer with the real facts and retry the same call. They never set `ECC_GATEGUARD`,
+`GATEGUARD_BASH_ROUTINE_DISABLED`, `GATEGUARD_EXEMPT_GLOBS` or `ECC_DISABLED_HOOKS` to get past it:
+those switches (read in the plugin's `scripts/hooks/gateguard-fact-force.js` and
+`scripts/lib/hook-flags.js`) are the owner's. GateGuard keeps its state under `~/.gateguard`, so a new
+session asks again. Captured 2026-10-19 from ECC v2.2.3; re-check with
+`grep -n "process.env" scripts/hooks/gateguard-fact-force.js` in the plugin's marketplace clone.
+
 **Install** (each machine, the owner's decision, because it turns on the hooks and the MCP server):
 `claude plugin install ecc@ecc --scope project` (code.claude.com/docs/en/plugins/install, read
 2026-10-19; not run here). Setting `hooks_enabled` to false does not stop the hook commands: Claude

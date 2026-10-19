@@ -9,7 +9,7 @@ agent: claude-code
 status: in-progress
 owner: human
 priority: P2
-next_action: Finish Phase 4 on work/agent-workflow - test the pinned outcome checks against a correct and a broken sandbox, then docs and review; Phase 5 follows on the same branch, which gets one pull request when the work is complete.
+next_action: Phase 4's offline work is done on work/evaluation-and-tuning; its live run waits for a Linux host with bubblewrap and the owner's approval of the run and budget. Phase 5 follows on the same branch, which gets one pull request when the work is complete.
 idea: "[[Improve the agent workflow]]"
 evidence:
   - "OWNER DECISION: the owner's brief (2026-10-19) says \"Begin Phase 1 only\" and \"Stop at Phase 1 owner-review handoff. Do not begin Phase 2 before the owner merges Phase 1.\""
@@ -18,7 +18,11 @@ evidence:
   - "VERIFIED: a separate-context verifier pass at c171669 reran npm run check (exit 0) and returned VERIFIED on the install record; it found the dependencies-refused note, recorded in the commit after it, which changes only wiki files."
   - "VERIFIED: Phase 4 first slice, test first - test_outcomes.py failed before outcomes.py existed (import error), then run_context and the wiring test failed for the expected reasons; npm run evals:test now passes 65 tests (56 before plus 9), and npm run check exits 0 on work/agent-workflow."
   - "VERIFIED: separate-context re-review of PR #30 at ae76c52 - ECC's code-reviewer returned Approve (ready for the owner) with one LOW, and ECC's Python reviewer found no CRITICAL or HIGH; it ran the seven write-guard outcome checks against synthetic sandboxes (correct; a guard that never refuses, crashes, always refuses, has no test, is not wired, is not documented), and each broken one failed its matching check. Its MEDIUM (an existing run log kept a wider mode) and two LOW were fixed in the next commit, test first for the mode."
-  - "UNKNOWN: whether the branch-and-merge and wiki-memory outcome checks pass on a correct sandbox and fail on a broken one, and whether npm test passes in a confined sandbox; no live run was made (no bubblewrap on this macOS host, and a run needs the owner's approval)."
+  - "VERIFIED: evals:test (74 tests) runs the pinned branch-and-merge and wiki-memory behaviour and sibling-test checks against a correct implementation and broken ones (a stub, no lowercasing, a plain Error, an out-of-order duration); planting vacuous checks in their place made both tests fail (2 of 2)."
+  - "VERIFIED: in sandboxes seeded with run_comply.seed_sandbox and commit_baseline from the committed tree (unconfined, on this macOS host), all four branch-and-merge checks passed a correct slugify with its test in 17 s, the three correctness checks failed the stub with no test, and the safety check failed after a commit was pushed to the sandbox's origin main."
+  - "VERIFIED: outcome_observer is tested to run checks through the runner it is given, in the sandbox, and a test holds run_confined to passing confined.run (both tests failed before the extraction)."
+  - "UNKNOWN: the same checks in a bubblewrap-confined sandbox, the wiki-memory checks in a seeded sandbox, and any live model run; this macOS host has no bubblewrap, and a live run needs the owner's approval."
+  - "OWNER DECISION: ECC's GateGuard hook stays fully on, \"Leave it as is\" (2026-10-19); the Integration admission page records what it holds and how agents answer it."
   - "VERIFIED: PR #28 (Phase 2) merged by the owner (gh pr view 28: mergedBy ahzeems); check and guards passed on head 3018703."
   - "OWNER DECISION: Phase 3 admits the \"ECC plugin (Recommended)\" first and records it on a \"Wiki reference page (Recommended)\" (2026-10-19)."
   - "VERIFIED: git ls-remote resolves ECC tag v2.2.3 to commit c05b2d6614f62f6db0047669aa4eefb223d478f9, the commit of the local marketplace clone; its plugin.json, hooks/hooks.json and .mcp.json give 68 agents, 293 skills, 94 command shims, 24 hook commands on 7 events and a chrome-devtools MCP server."

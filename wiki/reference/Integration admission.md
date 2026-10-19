@@ -54,7 +54,10 @@ Captured 2026-10-19 on one machine with Claude Code 2.1.303. To re-check, run th
   --json` then gave `ecc@ecc`, version 2.2.3, scope `project`, enabled, the session offered the ECC
   agents and skills, and its hooks ran (a GateGuard PreToolUse hook asked for the request and the
   command's purpose before the first Bash command, and a cost hook reported a session estimate).
-  The install rewrote `.claude/settings.json` with the same content in a different key order.
+  The install rewrote `.claude/settings.json` with the same content in a different key order. It
+  also reported a `dependencies-refused` note: the npm packages the plugin's `package.json` lists were
+  not installed, because that file sets `overrides`, which a plugin install does not apply. Which ECC
+  hooks or skills need those packages is not established.
 
 **Install** (each machine, the owner's decision, because it turns on the hooks and the MCP server):
 `claude plugin install ecc@ecc --scope project` (code.claude.com/docs/en/plugins/install, read

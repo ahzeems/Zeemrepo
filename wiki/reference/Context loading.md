@@ -1,7 +1,7 @@
 ---
 type: reference
 title: Context loading
-summary: Which repository instructions Claude Code loads into a session, which ECC rule sets are excluded and why, and how to measure what loads.
+summary: Which repository instructions Claude Code loads into a session, why every ECC rule set loads, and how to measure what loads.
 tags: [area/agents, tool/claude-code, tool/ecc, kind/overview]
 created: 2026-10-19
 updated: 2026-10-19
@@ -19,8 +19,8 @@ check that does not rely on the model.
 | Source | When it loads | In this repository |
 |---|---|---|
 | `CLAUDE.md`, and rule files without `paths:` frontmatter | At launch | `CLAUDE.md`, the 7 `.claude/rules/zeem/` files, the 10 `.claude/rules/ecc/common/` files |
-| Rule files with `paths:` frontmatter | When Claude reads, writes or edits a matching file, until compaction summarizes them away | `.claude/rules/ecc/typescript/` (`**/*.ts`, `**/*.tsx`, `**/*.js`, `**/*.jsx`), `.claude/rules/ecc/python/` (`**/*.py`, `**/*.pyi`; `fastapi.md` narrower) |
-| Rule files matched by `claudeMdExcludes` in `.claude/settings.json` | Never | The other 19 ECC sets |
+| Rule files with `paths:` frontmatter | When Claude reads, writes or edits a matching file, until compaction summarizes them away | The other 21 ECC sets. A `.ts` read loads TypeScript, ArkTS and React Native rules and Vue's hooks rule; a `*.test.ts` read adds Angular's testing rule; a `.py` read loads Python's |
+| Rule files matched by `claudeMdExcludes` in `.claude/settings.json` | Never | None ([[ADR-0026 ECC wins over the repository rules]]) |
 | Skills | Only the name and description, until a skill is invoked | `.claude/skills/`, and the ECC plugin's skills where the plugin is loaded ([[Integration admission]]) |
 
 Source for the loading rules: the Claude Code memory documentation (code.claude.com/docs/en/memory,
@@ -28,26 +28,21 @@ read 2026-10-19). It says path-scoped rules load "when Claude uses the Read, Wri
 matching file", and that `claudeMdExcludes` patterns "are matched against absolute file paths using
 glob syntax".
 
-## Why 19 ECC sets are excluded
+## Why every ECC set loads
 
 Several ECC sets declare globs that match this repository's TypeScript, although the frameworks they
 describe are not used here: ArkTS and React Native take `**/*.ts`, Vue's hooks rule takes `**/*.ts`, and
-Angular's testing rule takes test files. On 2026-10-19 a session that read `scripts/changes/repo-memory-validation.ts`
-loaded the ArkTS, React Native, TypeScript and Vue rules, and reading test files loaded Angular's testing
-rule. The rule files in those four sets whose globs match tracked files (Angular's testing rule, all of ArkTS
-and React Native, Vue's hooks rule) hold 46,814 bytes (`wc -c`). Bytes are not tokens, and no per-file token count
-was measured.
+Angular's testing rule takes test files. Those rule files hold 46,814 bytes (`wc -c`); bytes are not
+tokens, and no per-file token count was measured. Phase 2 of the agent workflow review excluded 19 sets
+on 2026-10-19. Later that day the owner made ECC the foundation that nothing may restrict and chose to
+load all ECC rules ([[ADR-0026 ECC wins over the repository rules]]), so the exclusions were removed.
 
-The owner kept every ECC rule set vendored and unchanged (2026-10-10) and chose, on 2026-10-19, to
-exclude every set except `common`, `typescript` and `python` from loading. The files stay byte-identical,
-so `rules:check` still holds them to the plugin pin. `config/ecc-rules.json` lists the loaded sets in
-`loaded`. `rules:check` refuses a set that loads without being listed there, a listed set that is
-excluded, a listed set that does not exist, an exclusion that names no vendored set, and any
-`claudeMdExcludes` entry not in the exact form `**/.claude/rules/ecc/<set>/**`, so a broader pattern
-cannot hide the rules that must load. `rules:check` reads only the tracked `.claude/settings.json`; an
-exclusion in `.claude/settings.local.json` (untracked, per machine) or in user or managed settings is
-outside what it can see. After an ECC pin bump, a new set loads
-until it is excluded or listed, and `rules:check` refuses the branch until one of the two is done.
+The files stay vendored and byte-identical, held to the plugin pin by `rules:check`.
+`config/ecc-rules.json` lists every set in `loaded`. `rules:check` refuses a set that loads without
+being listed there, a listed set that is excluded or does not exist, an exclusion that names no vendored
+set, and any `claudeMdExcludes` entry not in the exact form `**/.claude/rules/ecc/<set>/**`. It reads only
+the tracked `.claude/settings.json`; an exclusion in `.claude/settings.local.json` (untracked, per machine)
+or in user or managed settings is outside what it can see.
 
 ## Measuring
 

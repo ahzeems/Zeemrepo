@@ -1,7 +1,7 @@
 ---
 type: project
 title: Agent workflow improvement
-summary: Requirement-to-evidence assessment of the agent workflow (R1 to R9) and its five owner-gated phases; Phases 1 and 2 landed (PRs 27, 28); Phase 3 records the ECC plugin's admission.
+summary: Requirement-to-evidence assessment of the agent workflow (R1 to R9) in five phases; Phases 1 to 3 landed (PRs 27, 28, 29); Phases 4 and 5 continue on one integration branch.
 tags: [area/agents, area/planning]
 created: 2026-10-19
 updated: 2026-10-19
@@ -9,7 +9,7 @@ agent: claude-code
 status: in-progress
 owner: human
 priority: P2
-next_action: Owner reviews and merges the Phase 3 pull request, now that ECC is installed at project scope with its hooks running; Phase 4 (evaluation) branches from main only after that merge.
+next_action: Finish Phase 4 on work/agent-workflow - test the pinned outcome checks against a correct and a broken sandbox, then docs and review; Phase 5 follows on the same branch, which gets one pull request when the work is complete.
 idea: "[[Improve the agent workflow]]"
 evidence:
   - "OWNER DECISION: the owner's brief (2026-10-19) says \"Begin Phase 1 only\" and \"Stop at Phase 1 owner-review handoff. Do not begin Phase 2 before the owner merges Phase 1.\""
@@ -53,9 +53,9 @@ pinned commit, and report each step as done, refused, failed, blocked or not run
 
 ## Scope
 
-Five phases, one branch and one pull request each, each starting from main after the owner merges
-the one before: `improve/phase-1-agent-foundation`, `improve/phase-2-context-discipline`,
-`improve/phase-3-integration-admission`, `improve/phase-4-evaluation`, `improve/phase-5-tuning`.
+Five phases. Phases 1 to 3 each had their own branch and pull request (#27, #28, #29). From
+2026-10-19, Phases 4 and 5 share one integration branch, `work/agent-workflow`, with one pull request
+when the work is complete ([[ADR-0027 One integration branch per piece of work]]).
 Phase 1 audits R1 to R6 and assesses R7 to R9 only for what later phases depend on. Out of scope in
 every phase: a new harness, orchestration framework, skill library, retry or checkpoint
 infrastructure, paid or live model runs without the owner's approval, and changes to imported skills

@@ -36,14 +36,19 @@ repository may block or restrict the ECC plugin.
 
 - The `zeem` rules keep what ECC does not cover (owner-only merging on GitHub, change records, the
   wiki, evidence labels). Their "Overrides of ECC" sections are replaced by notes on how ECC applies.
-- `governance:check` refuses text that says a `zeem` rule or a repository skill wins over ECC
+- `governance:check` refuses text that ranks the `zeem` rules or a repository skill above ECC
   (claim `zeem-over-ecc`).
 - All 22 ECC rule sets load where their paths match, so a `.ts` read also loads the ArkTS, React
   Native, Vue and Angular testing rules ([[Context loading]]).
 - Coverage thresholds are 80% for lines, functions and branches.
-- Still to change, test first, because guards enforce the old rules: the pre-push branch guard and
-  the `--force-with-lease` deny rule refuse ECC's rebase-then-force-push; the runbooks and the
-  imported `manage-branch` skill say not to rebase; `eslint.config.ts` measures functions without
-  blank lines and comments. Until they change, the guard refuses what ECC allows.
-- The GitHub ruleset still refuses direct pushes to `main` and merges without the owner's approval;
-  ECC says nothing to the contrary.
+- Rebasing follows ECC's own `git-workflow` conditions: a branch only you use may be rebased, and a
+  branch others have pushed or pulled is not. Under [[ADR-0027 One integration branch per piece of work]]
+  the shared integration branch is kept current by merging `main`, so the pre-push rewrite refusal and
+  the `--force-with-lease` deny rule block nothing ECC asks for.
+- Still to change, test first: `eslint.config.ts` measures functions without blank lines and
+  comments, where ECC counts lines; the pinned compliance spec for `branch-and-merge` still expects a
+  fresh branch per piece of work.
+- Merging and approving on GitHub stay the owner's (OWNER DECISION, 2026-10-19: "You merge it"),
+  although ECC's `/pr` command lists `gh pr merge` as a next step; `CLAUDE.md` names this as the one
+  exception. The GitHub ruleset also refuses direct pushes to `main` and merges without the owner's
+  approval.

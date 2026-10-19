@@ -9,7 +9,7 @@ agent: claude-code
 status: in-progress
 owner: human
 priority: P2
-next_action: Phase 4's offline work is done on work/evaluation-and-tuning; its live run waits for a Linux host with bubblewrap and the owner's approval of the run and budget. Phase 5 follows on the same branch, which gets one pull request when the work is complete.
+next_action: Owner to provide a Linux host with bubblewrap and approve Phase 4's live run and its budget; Phase 5 is blocked until that run gives results to tune on, because it adopts only improvements the evidence supports.
 idea: "[[Improve the agent workflow]]"
 evidence:
   - "OWNER DECISION: the owner's brief (2026-10-19) says \"Begin Phase 1 only\" and \"Stop at Phase 1 owner-review handoff. Do not begin Phase 2 before the owner merges Phase 1.\""
@@ -25,6 +25,8 @@ evidence:
   - "OWNER DECISION: ECC's GateGuard hook stays fully on, \"Leave it as is\" (2026-10-19); the Integration admission page records what it holds and how agents answer it."
   - "VERIFIED: separate-context review of 4d9c47d - ECC's python-reviewer rated it ready with one HIGH (the slugify broken fixtures both failed the first case, so a check cut to that case would pass), fixed by one mutant per pinned case; cutting both checks to their first valid case now fails both tests (2 of 2). The verifier returned NOT_VERIFIED on one point: the GateGuard table named git push --delete and posting to GitHub as destructive, and classifyDestructiveCommand flags neither; the table now lists rm -rf, git branch -D and git push --force, each confirmed against the classifier."
   - "VERIFIED: the run_confined test now parses the call with ast; planting subprocess.run as the runner, with confined.run left in a comment, makes it fail."
+  - "VERIFIED: separate-context verifier at a54014b returned VERIFIED on all six criteria: npm run check exit 0; every GateGuard table example matches classifyDestructiveCommand (rm -rf, git branch -D, git push --force flagged; git push --delete and gh pr comment not); cutting each outcome check to its first case fails both fixture tests; the parsed run_confined test fails on subprocess.run with confined.run in a comment and passes a keyword reorder; eslint.config.ts is unchanged from main."
+  - "UNKNOWN: Phase 5 has no measured results to act on; the brief's tuning (context, effort settings, models, bounded retries) waits for Phase 4's live run, so nothing was adopted."
   - "INFERRED: evals/compliance/run_comply.py is 778 lines against the 800-line ceiling, so the next change there will need a split first (the confinement and runner helpers are the natural seam); recorded as discovered work, not done here."
   - "VERIFIED: PR #28 (Phase 2) merged by the owner (gh pr view 28: mergedBy ahzeems); check and guards passed on head 3018703."
   - "OWNER DECISION: Phase 3 admits the \"ECC plugin (Recommended)\" first and records it on a \"Wiki reference page (Recommended)\" (2026-10-19)."

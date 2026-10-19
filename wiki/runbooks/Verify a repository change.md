@@ -72,7 +72,7 @@ ready for the owner.
    new review.
 7. Fix findings on the branch, rerun `npm run check`, and record the reviewed SHA, the commands
    and their results, and each criterion's verdict in the work record as labelled evidence.
-   Pre-push reruns `npm run check`.
+   Pre-push reruns `npm run check`, except for the commit `npm run pr` has just checked.
 
 ## Verify
 

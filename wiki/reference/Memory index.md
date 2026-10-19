@@ -4,7 +4,7 @@ title: Memory index
 summary: Index of every memory note in the wiki, with a one-line summary each, grouped by type.
 tags: [area/wiki, kind/overview]
 created: 2026-10-09
-updated: 2026-10-10
+updated: 2026-10-19
 agent: claude-code
 status: active
 ---
@@ -50,7 +50,7 @@ One line per memory note. Add new notes here; work notes need no entry.
 
 - [[Land a change]] - Take work from a feature branch to an owner-merged pull request; nothing is ever pushed to main.
 - [[Maintain the repository wiki]] - Keep wiki explanations, work records, the Memory index and CHANGELOG.md current in the same branch as the change, and commit wiki files alone.
-- [[Verify a repository change]] - Run npm run check and the hooks, review read-only with separate reviewer subagents, and record evidence before opening a pull request.
+- [[Verify a repository change]] - Run npm run check and the hooks, commit, review the pinned commit read-only in separate reviewer subagents, and record evidence before handing the branch to the owner.
 
 ## Reference
 

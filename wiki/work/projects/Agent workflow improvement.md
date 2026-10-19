@@ -12,6 +12,8 @@ priority: P2
 next_action: Owner reviews and merges the Phase 1 pull request; Phase 2 (context discipline) branches from main only after that merge.
 idea: "[[Improve the agent workflow]]"
 evidence:
+  - "OWNER DECISION: the owner's brief (2026-10-19) says \"Begin Phase 1 only\" and \"Stop at Phase 1 owner-review handoff. Do not begin Phase 2 before the owner merges Phase 1.\""
+  - "OWNER DECISION: \"go ahead and fix it, then open the PR\" (2026-10-19), after the verifier's finding."
   - "VERIFIED: baseline is main at f0f82cdfaf974867615cbbae52d3ec5c6160e8b0 (git rev-parse HEAD and origin/main, 2026-10-19), clean tree, one worktree, no other branches and no open pull requests (gh pr list)."
   - "VERIFIED: grep -rli sandcastle over the tree (excluding node_modules and .git) returns nothing, so the earlier plan's Sandcastle files are absent and were not recreated."
   - "VERIFIED: before this branch, verifier.md returned PASS or FAIL with per-criterion VERIFIED/INFERRED/UNKNOWN labels while verify-work, which says it can run as the verifier agent, defined VERIFIED/NOT_VERIFIED/INCONCLUSIVE and met/not_met/needs_human."
@@ -43,11 +45,11 @@ without an approval quoted in the revision record.
 
 | ID | Requirement (observable outcome) | Evidence before Phase 1 | Coverage | Finding | Phase 1 change or reason for none | Verified by |
 |---|---|---|---|---|---|---|
-| R1 | A consequential task states outcome, scope, acceptance criteria and open questions; small, settled tasks stay light | Fragments only: acceptance criteria at verification time (`Verify a repository change` step 1), "small, settled" undefined (`Idea to execution`), owner questions marked awaiting input (`owner-authority.md`) | missing | optimisation candidate | First bullet of `design-principles.md` "Before writing"; a small, settled change states it in one plan line | `governance:check`, review; prose cannot prove agents comply |
+| R1 | A consequential task states outcome, scope, acceptance criteria and open questions; small, settled tasks stay light | Fragments only: acceptance criteria at verification time (`Verify a repository change` step 1), "small, settled" undefined (`Idea to execution`), owner questions marked awaiting input (`owner-authority.md`) | missing | optimisation candidate | First bullet of `design-principles.md` "Before writing"; a small, settled change states it in one plan line. "Small, settled" keeps its existing meaning and stays undefined | review only: no check covers this prose, and prose cannot prove agents comply |
 | R2 | Read implementation, tests and direct callers first; re-read changed or truncated evidence | `design-principles.md` named importers and callers, not tests or re-reads | partial | optimisation candidate | Same file: tests added, re-read rule for changed or truncated reads; no read limits | review |
 | R3 | Rules, skills, docs and checks agree; one home per rule | CLAUDE.md `check` list, CI job names and guard lists match `package.json` and the workflows; three doc statements did not match the code (evidence above; lint scope omitted `eslint.config.ts`) | partial | confirmed doc drift (code correct) | `Change records.md` window and hatch wording; Verify runbook lint scope | read against `branch-diff.ts`, `repo-memory-validation.ts`, `eslint.config.ts` |
 | R4 | Reuse patterns and seams; each change maps to a finding | `design-principles.md` "Shape of the change", `change-records.md` "Scope discipline" | covered | none | No change | n/a by design |
-| R5 | Test-first behaviour fixes; verification checks the outcome; review in a separate context on a pinned commit | `evidence-and-review.md` review rules; verifier and verify-work vocabularies disagreed; Verify runbook ordered review before commit | partial | two confirmed defects | `verifier.md` uses `verify-work` step 5's verdicts; Verify runbook commits (step 5) before review (step 6); Land a change step 6 names the review | `skills:lint`, `wiki:lint`, review |
+| R5 | Test-first behaviour fixes; verification checks the outcome; review in a separate context on a pinned commit | `evidence-and-review.md` review rules; verifier and verify-work vocabularies disagreed; Verify runbook ordered review before commit | partial | two confirmed defects | `verifier.md` uses `verify-work` step 5's verdicts; Verify runbook commits (step 5) before review (step 6); Land a change step 6 names the review | review only: `skills:lint` does not read `.claude/agents/`, and no governance claim covers the old wording |
 | R6 | Agents tell success, refusal, failure, blocked work and unknown state apart, and keep recovery state | CLI exit codes 0/1/2 (`scripts/lib/cli.ts`), verify-work verdicts, work statuses; no rule for a builder's handoff | partial | optimisation candidate | One bullet in `evidence-and-review.md` Claims, including the state left by work that stops early; no new mechanism | review |
 | R7 | Know what loads and what telemetry exists before claiming reductions | Always loaded: `CLAUDE.md`, 7 zeem and 10 ECC common rules, 38,947 bytes by `wc -c` (bytes, not tokens); 111 language rules are `paths:`-scoped; no usage telemetry in the repository | unknown | unknown | Deferred to Phase 2 | n/a |
 | R8 | Admission records source revision, purpose, dependencies, compatibility, activation, permissions, status, disabling and removal | `import-baseline.json`: source (free text), hashes, approved revisions; ECC plugin pinned by git ref only; repository skills have no entry | partial | unknown | Deferred to Phase 3 | n/a |
@@ -67,6 +69,19 @@ Each needs the owner (imported skill or guard behaviour) or more evidence first.
   mentions swarm logs; `manage-branch` pushes at branch start while `Land a change` pushes through
   `npm run pr`.
 - `Merge gate contract` cites `change-records.md` without its path.
+- `npm run pr` refuses when `gh auth status` exits 1. gh exits 1 when any stored account fails,
+  even when the active account is the machine account and `gh auth status --active` exits 0
+  (observed 2026-10-19).
+- Review placement and reviewer lists still differ: `Land a change` reviews the pushed head,
+  `evidence-and-review.md` offers ECC reviewers or `/ecc:review-pr` or finder plus verifier, and
+  `manage-branch` names branch-review and verify-work.
+- `Change records` still says the guards compare "with main" (they use the fork point), lists
+  only `- ` changelog lines (the guard also takes `* ` and indentation), and does not say a new
+  record counts as a status change. The `CHANGELOG.md` preamble says "the day it lands" where the
+  guard uses today (UTC).
+- Recording a review moves the head, and "a changed head needs a new review". This branch closes
+  that gap with a final verifier pass that confirms the last delta is record-only. No rule says
+  that is enough.
 
 ## Acceptance criteria
 

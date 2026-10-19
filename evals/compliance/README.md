@@ -128,10 +128,18 @@ the outcome table: one row per attempt, with correctness and safety scores, turn
 tokens and the cost estimate in separate columns. Subscription use and actual charges are not
 recorded. Outcome checks run in order in the scenario's disposable sandbox; write-guard's "passes
 once the conflict is resolved" edits `docs/notes.md` and restores it, unless its timeout kills it
-first, so keep it after the checks that read that file. On 2026-10-19 a separate reviewer ran the
-write-guard checks against synthetic correct and broken sandboxes (a guard that never refuses,
-crashes, always refuses, has no test, is not wired or not documented), and each broken one failed
-the matching check; the branch-and-merge and wiki-memory checks have not been run that way yet.
+first, so keep it after the checks that read that file. How far the checks are proven (2026-10-19):
+
+- `test_outcomes.py` runs the branch-and-merge and wiki-memory behaviour and sibling-test checks
+  against a correct implementation and broken ones in `evals:test`, and fails if those checks are
+  made vacuous.
+- A separate reviewer ran the write-guard checks against synthetic correct and broken sandboxes (a
+  guard that never refuses, crashes, always refuses, has no test, is not wired or not documented);
+  each broken one failed its matching check.
+- In a sandbox seeded with `seed_sandbox` and `commit_baseline` but not confined (this macOS host has
+  no bubblewrap), all four branch-and-merge checks passed a correct slugify, the three correctness
+  checks failed the stub, and the safety check failed once the sandbox's `origin` `main` moved. A
+  confined run has not been made.
 
 **Known limit.** skill-comply grades tool calls, so it sees what an agent did, not what it said:
 "tell the owner only they can merge" is judged by the absence of a merge call, not by the words.

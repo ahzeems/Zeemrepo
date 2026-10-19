@@ -1,0 +1,1 @@
+- New idea and research: a software factory with a deterministic dispatcher over the wiki kanban, modelled on Hermes Agent's functions; the owner's requirement interview, a function-to-gap map and the build inventory are recorded for review.

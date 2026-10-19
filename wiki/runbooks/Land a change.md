@@ -4,7 +4,7 @@ title: Land a change
 summary: Take work from a feature branch to an owner-merged pull request; nothing is ever pushed to main.
 tags: [area/git, area/github, kind/convention]
 created: 2026-10-09
-updated: 2026-10-10
+updated: 2026-10-19
 agent: claude-code
 status: active
 related: ["[[Change records]]"]
@@ -43,6 +43,8 @@ requests on GitHub (owner decision, 2026-10-09).
    see [[Merge gate contract]]). If `guards` fails right after
    the PR opens with "couldn't find remote ref", GitHub had not built the merge ref yet:
    re-run it. A PR that conflicts with main has no merge ref at all; merge main in first.
+   Review the pushed head in a separate context ([[Verify a repository change]] step 6) and fix
+   its findings on the branch before reporting the branch ready for the owner's review.
 7. The owner reviews, approves and merges on GitHub: **Files changed**, **Review changes**,
    **Approve**, then **Merge pull request** (merge commit or squash; rebase merging is off so
    the landing audit can match each commit to its PR). Agents push and open the pull request as

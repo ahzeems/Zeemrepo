@@ -1,10 +1,10 @@
 ---
 type: runbook
 title: Verify a repository change
-summary: Run npm run check and the hooks, review read-only with separate reviewer subagents, and record evidence before opening a pull request.
+summary: Run npm run check and the hooks, commit, review the pinned commit read-only in separate reviewer subagents, and record evidence before handing the branch to the owner.
 tags: [area/git, area/agents, area/typescript, tool/ecc]
 created: 2026-09-20
-updated: 2026-10-10
+updated: 2026-10-19
 agent: claude-code
 status: active
 related: ["[[Land a change]]", "[[Change records]]", "[[ADR-0022 Independent review means a separate reviewer context]]"]
@@ -12,8 +12,9 @@ related: ["[[Land a change]]", "[[Change records]]", "[[ADR-0022 Independent rev
 
 ## When to use
 
-After every meaningful code, tooling, configuration or documentation slice, and before
-committing or opening a pull request.
+After every meaningful code, tooling, configuration or documentation slice. Steps 1 to 4 run
+before committing; the review in step 6 runs on the pinned commit, before the branch is reported
+ready for the owner.
 
 ## Prerequisites
 
@@ -32,15 +33,16 @@ committing or opening a pull request.
 
 ## Steps
 
-1. State the acceptance criteria from the request or approved ticket as observable results.
-   Build test-first (ECC testing rule): write the failing test, then the code.
+1. Take the acceptance criteria stated at task entry (`.claude/rules/zeem/design-principles.md`,
+   "Before writing") from the request or approved ticket. Build test-first (ECC testing rule):
+   write the failing test, then the code.
 2. Update affected guidance and the owning work record, and add a `CHANGELOG.md` entry. See
    [[Change records]].
 3. Run `npm run check`. Its parts run in order and stop at the first failure:
 
    | Part | What it proves |
    |---|---|
-   | `npm run lint` | Type-aware ESLint over `scripts/**/*.ts`: no `any`, casts, non-null assertions, ts-comment suppressions or floating promises; the ECC size and nesting limits (`eslint.config.ts`). |
+   | `npm run lint` | Type-aware ESLint over `scripts/**/*.ts` and `eslint.config.ts`: no `any`, casts, non-null assertions, ts-comment suppressions or floating promises; the ECC size and nesting limits (`eslint.config.ts`). |
    | `npm run typecheck` | `tsc` with `strict`, `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`. |
    | `npm test` | `node:test` over `scripts/**/*.test.ts` with the coverage thresholds set in `package.json`. A test also fails if any script lacks a sibling `.test.ts`, since coverage cannot see an untested file. |
    | `npm run evals:test` | The compliance-eval wrapper (`evals/compliance/run_comply.py`) confines every process a compliance run starts (bubblewrap allowlist, Anthropic-only network); standard-library `unittest`, no model calls. |
@@ -59,17 +61,18 @@ committing or opening a pull request.
    ([[Documentation checkers need counterexamples]]).
    To add or change a checker, follow the `write-guard` skill
    (`.claude/skills/write-guard/SKILL.md`).
-5. Review in a separate context, as
+5. Stage only intended files, keeping wiki files in their own `docs(wiki): ` commit, and commit.
+   The git hooks refuse what [[Merge gate contract]] lists.
+6. Review the committed head SHA in a separate context, as
    [[ADR-0022 Independent review means a separate reviewer context]] defines it. Use the ECC
    reviewers (`ecc:code-reviewer`, `ecc:typescript-reviewer` for TypeScript, and
    `ecc:security-reviewer` for hooks, git, file system or credential code), and the repository's
    `.claude/agents/verifier.md` (read-only, one verdict per acceptance criterion) and
    `.claude/agents/finder.md` (findings on pinned base and head SHAs). A changed head needs a
    new review.
-6. Fix findings, rerun `npm run check`, and record the reviewed SHA, the commands and their
-   results, and each criterion's verdict in the work record as labelled evidence.
-7. Stage only intended files, keeping wiki files in their own `docs(wiki): ` commit. The git
-   hooks refuse what [[Merge gate contract]] lists, and pre-push reruns `npm run check`.
+7. Fix findings on the branch, rerun `npm run check`, and record the reviewed SHA, the commands
+   and their results, and each criterion's verdict in the work record as labelled evidence.
+   Pre-push reruns `npm run check`.
 
 ## Verify
 

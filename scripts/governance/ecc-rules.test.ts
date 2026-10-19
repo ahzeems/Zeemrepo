@@ -116,7 +116,7 @@ await test("--write records which rule sets load: every vendored set the setting
   const root = repository();
   try {
     put(root, ".claude/rules/ecc/arkts/coding-style.md", "# ArkTS\n");
-    settings(root, ["**/.claude/rules/ecc/arkts/**", "**/elsewhere/CLAUDE.md"]);
+    settings(root, ["**/.claude/rules/ecc/arkts/**"]);
     assert.equal(main(["--write"], { cwd: root, output: quiet() }), EXIT_OK);
     const manifest: unknown = JSON.parse(readFileSync(join(root, MANIFEST_PATH), "utf8"));
     assert.ok(isRecord(manifest));
@@ -158,6 +158,23 @@ await test("a manifest whose loaded list is missing, malformed or names an absen
     assert.ok(isRecord(manifest));
     put(root, MANIFEST_PATH, JSON.stringify({ ...manifest, loaded: ["common", "typescript", "rust"] }));
     assert.match(eccRulesErrors(root).join("\n"), /rust as loaded, which is no vendored rule set/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+await test("an exclusion that is not one whole ECC rule set is refused, so it cannot hide rules that must load", () => {
+  const root = repository();
+  try {
+    put(root, ".claude/rules/ecc/arkts/coding-style.md", "# ArkTS\n");
+    settings(root, ["**/.claude/rules/ecc/arkts/**"]);
+    main(["--write"], { cwd: root, output: quiet() });
+    for (const pattern of ["**/.claude/rules/**", "**/.claude/rules/ecc/**", "**/.claude/rules/ecc/common/*.md", "**/CLAUDE.md"]) {
+      settings(root, ["**/.claude/rules/ecc/arkts/**", pattern]);
+      assert.match(eccRulesErrors(root).join("\n"), /claudeMdExcludes entry .* is not one whole ECC rule set/, pattern);
+    }
+    put(root, ".claude/settings.json", JSON.stringify({ extraKnownMarketplaces: { ecc: { source: { ref: "v2.2.3" } } }, claudeMdExcludes: ["**/.claude/rules/ecc/arkts/**", 7] }));
+    assert.match(eccRulesErrors(root).join("\n"), /claudeMdExcludes entry 7 is not one whole ECC rule set/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

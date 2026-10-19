@@ -20,7 +20,8 @@ const REPOSITORY = join(import.meta.dirname, "../..");
 const USAGE = "usage: node scripts/governance/ecc-rules.ts [--write | --root <repository>]";
 
 type Manifest = { pluginRef: string; loaded: string[]; files: Record<string, string> };
-// A whole set is excluded only by this exact pattern; any other spelling leaves the set loading.
+// A whole set is excluded only by this exact pattern. Any other entry is refused: a broader one
+// could hide the common, typescript, python or zeem rules while every set still looked recorded.
 const EXCLUDED_SET = /^\*\*\/\.claude\/rules\/ecc\/([^/*]+)\/\*\*$/;
 export type Options = { cwd?: string; output?: Output };
 
@@ -51,13 +52,14 @@ function vendored(root: string): { hashes: Record<string, string>; symlinks: str
   };
 }
 
-function excludedSets(root: string): string[] {
+function excludes(root: string): { sets: string[]; others: unknown[] } {
   const settings = readJson(join(root, SETTINGS_PATH));
   const patterns: unknown[] = isRecord(settings) && Array.isArray(settings.claudeMdExcludes) ? settings.claudeMdExcludes : [];
-  return patterns.flatMap((pattern) => {
-    const set = typeof pattern === "string" ? EXCLUDED_SET.exec(pattern)?.[1] : undefined;
-    return set === undefined ? [] : [set];
-  });
+  const setOf = (pattern: unknown): string | undefined => typeof pattern === "string" ? EXCLUDED_SET.exec(pattern)?.[1] : undefined;
+  return {
+    sets: patterns.flatMap((pattern) => setOf(pattern) ?? []),
+    others: patterns.filter((pattern) => setOf(pattern) === undefined),
+  };
 }
 
 const ruleSets = (hashes: Record<string, string>): string[] =>
@@ -74,9 +76,9 @@ function readManifest(root: string): Manifest | null {
 }
 
 function loadingErrors(root: string, loaded: readonly string[], sets: readonly string[]): string[] {
-  const excluded = excludedSets(root);
-  const errors = excluded.filter((set) => !sets.includes(set))
-    .map((set) => `${SETTINGS_PATH} excludes ${RULES_DIR}/${set}/, which is no vendored rule set`);
+  const { sets: excluded, others } = excludes(root);
+  const errors = others.map((pattern) => `${SETTINGS_PATH} claudeMdExcludes entry ${JSON.stringify(pattern)} is not one whole ECC rule set ("**/${RULES_DIR}/<set>/**")`);
+  for (const set of excluded.filter((name) => !sets.includes(name))) errors.push(`${SETTINGS_PATH} excludes ${RULES_DIR}/${set}/, which is no vendored rule set`);
   for (const set of sets) {
     const loads = !excluded.includes(set);
     if (loads && !loaded.includes(set)) errors.push(`${RULES_DIR}/${set}/ loads, but ${MANIFEST_PATH} does not list it in loaded: exclude it with "**/${RULES_DIR}/${set}/**" in claudeMdExcludes, or record it`);
@@ -123,13 +125,13 @@ export function main(args: readonly string[], options: Options = {}): number {
       return EXIT_ERROR;
     }
     const { hashes } = vendored(root);
-    const excluded = excludedSets(root);
+    const excluded = excludes(root).sets;
     const manifest: Manifest = { pluginRef, loaded: ruleSets(hashes).filter((set) => !excluded.includes(set)), files: hashes };
     mkdirSync(dirname(join(root, MANIFEST_PATH)), { recursive: true });
     writeFileSync(join(root, MANIFEST_PATH), `${JSON.stringify(manifest, null, 2)}\n`);
   }
   const errors = eccRulesErrors(root).map((error) => `  x ${error}`);
-  if (errors.length > 0) errors.push("  Refresh the folders from the pinned plugin's rules/, then run: node scripts/governance/ecc-rules.ts --write");
+  if (errors.length > 0) errors.push("  After a pin bump, refresh the folders from the pinned plugin's rules/ and run: node scripts/governance/ecc-rules.ts --write. For a set that loads or an exclusion, fix claudeMdExcludes in .claude/settings.json.");
   return report(errors, `rules-check: ${RULES_DIR} matches ${MANIFEST_PATH}`, output);
 }
 

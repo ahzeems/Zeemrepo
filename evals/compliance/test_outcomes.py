@@ -1,0 +1,173 @@
+"""Tests for outcomes.py: outcome checks, run records and the results table, without calling claude."""
+
+import dataclasses
+import json
+import subprocess
+import tempfile
+import types
+import unittest
+from pathlib import Path
+
+import outcomes
+import run_comply
+
+
+def result_line(**fields: object) -> str:
+    return json.dumps({"type": "result", **fields})
+
+
+STREAM = "\n".join([
+    json.dumps({"type": "system", "subtype": "init", "model": "claude-sonnet-5-5"}),
+    json.dumps({"type": "assistant", "message": {"usage": {"input_tokens": 3}}}),
+    result_line(subtype="success", is_error=False, num_turns=4, duration_ms=12500, total_cost_usd=0.0421,
+                usage={"input_tokens": 10, "output_tokens": 200, "cache_read_input_tokens": 3000,
+                       "cache_creation_input_tokens": 500}),
+])
+
+
+class LoadChecks(unittest.TestCase):
+    def test_reads_a_pinned_list_and_a_missing_file_means_no_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "t.outcomes.json"
+            self.assertEqual(outcomes.load_checks(path), (), "no file, no checks: the outcome is unknown, not passed")
+            path.write_text(json.dumps([{"name": "tests pass", "kind": "correctness", "argv": ["npm", "test"], "exit": 0}]))
+            self.assertEqual(outcomes.load_checks(path), (outcomes.Check("tests pass", "correctness", ("npm", "test"), 0),))
+
+    def test_a_malformed_check_is_refused(self) -> None:
+        bad = [
+            [{"name": "x", "kind": "correctness", "argv": "npm test", "exit": 0}],
+            [{"name": "x", "kind": "style", "argv": ["true"], "exit": 0}],
+            [{"name": "x", "kind": "safety", "argv": [], "exit": 0}],
+            [{"name": "x", "kind": "safety", "argv": ["true"], "exit": "0"}],
+            [{"name": "", "kind": "safety", "argv": ["true"], "exit": 0}],
+            {"name": "x"},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "t.outcomes.json"
+            for document in bad:
+                path.write_text(json.dumps(document))
+                with self.assertRaises(ValueError, msg=json.dumps(document)):
+                    outcomes.load_checks(path)
+
+
+class RunChecks(unittest.TestCase):
+    def test_each_check_passes_only_on_its_expected_exit_and_a_broken_run_is_an_error(self) -> None:
+        checks = (outcomes.Check("ok", "correctness", ("true",), 0), outcomes.Check("refused", "correctness", ("false",), 0),
+                  outcomes.Check("expects one", "safety", ("false",), 1), outcomes.Check("hangs", "safety", ("sleep", "9"), 0))
+        calls: list[tuple[list[str], Path]] = []
+
+        def run(argv: list[str], *, cwd: Path, **kw: object) -> subprocess.CompletedProcess[str]:
+            calls.append((argv, cwd))
+            if argv[0] == "sleep":
+                raise subprocess.TimeoutExpired(argv, 1)
+            return subprocess.CompletedProcess(argv, 0 if argv[0] == "true" else 1, "", "")
+
+        results = outcomes.run_checks(checks, Path("/sandbox"), run)
+        self.assertEqual([r["status"] for r in results], ["passed", "failed", "passed", "error"])
+        self.assertEqual(results[1]["exit"], 1)
+        self.assertTrue(all(cwd == Path("/sandbox") for _, cwd in calls), "checks run in the scenario's sandbox")
+
+
+class SessionResult(unittest.TestCase):
+    def test_reads_turns_time_tokens_and_the_cost_estimate_from_the_result_event(self) -> None:
+        result = outcomes.session_result(STREAM)
+        self.assertEqual(result["num_turns"], 4)
+        self.assertEqual(result["duration_ms"], 12500)
+        self.assertEqual(result["tokens"], {"input": 10, "output": 200, "cache_read": 3000, "cache_creation": 500})
+        self.assertEqual(result["cost_estimate_usd"], 0.0421, "a list-price estimate, never called a charge")
+        self.assertEqual(result["model"], "claude-sonnet-5-5")
+
+    def test_a_stream_without_a_result_event_is_unknown_not_zero(self) -> None:
+        self.assertEqual(outcomes.session_result(json.dumps({"type": "assistant"}) + "\nnot json\n"), {"result": "UNKNOWN"})
+
+
+class Recorder(unittest.TestCase):
+    def test_records_every_attempt_with_its_context_outcome_and_error(self) -> None:
+        written: list[dict[str, object]] = []
+        checks = (outcomes.Check("ok", "correctness", ("true",), 0),)
+
+        def run(argv: list[str], **kw: object) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess(argv, 0, "", "")
+
+        observe = outcomes.recorder(checks, run, written.append, context={"revision": "abc"})
+        scenario = types.SimpleNamespace(id="s-neutral")
+        observe(scenario, None, "", 3.0, RuntimeError("claude exited 1"))
+        observe(scenario, Path("/box"), STREAM, 12.6, None)
+        self.assertEqual([r["attempt"] for r in written], [1, 2], "a failed attempt and its retry are both kept")
+        self.assertEqual(written[0]["error"], "claude exited 1")
+        self.assertEqual(written[0]["outcome"], [], "no sandbox, no outcome checks")
+        self.assertEqual(written[1]["outcome"][0]["status"], "passed")
+        self.assertEqual(written[1]["context"], {"revision": "abc"})
+        self.assertEqual(written[1]["elapsed_s"], 12.6)
+        self.assertEqual(written[1]["session"]["num_turns"], 4)
+
+
+class Table(unittest.TestCase):
+    def test_keeps_outcome_time_tokens_and_cost_in_separate_columns(self) -> None:
+        records = [
+            {"scenario": "s-neutral", "attempt": 1, "error": "claude exited 1", "elapsed_s": 3.0, "outcome": [],
+             "session": {"result": "UNKNOWN"}},
+            {"scenario": "s-neutral", "attempt": 2, "error": None, "elapsed_s": 12.6,
+             "outcome": [{"name": "ok", "kind": "correctness", "status": "passed"},
+                         {"name": "main", "kind": "safety", "status": "failed"}],
+             "session": outcomes.session_result(STREAM)},
+        ]
+        table = outcomes.table(records)
+        self.assertIn("| Scenario | Attempt | Run | Correctness | Safety | Turns | Wall s | Tokens in/out/cache | List-price estimate (USD) |", table)
+        self.assertIn("| s-neutral | 1 | error: claude exited 1 | none | none | UNKNOWN | 3.0 | UNKNOWN | UNKNOWN |", table)
+        self.assertIn("| s-neutral | 2 | ok | 1/1 | 0/1 | 4 | 12.6 | 10/200/3500 | 0.0421 |", table)
+        self.assertIn("not a charge", table)
+
+
+class RunContext(unittest.TestCase):
+    def test_records_revision_harness_models_plugin_pin_and_host_and_an_unreadable_value_is_unknown(self) -> None:
+        def run(argv: list[str], **kw: object) -> subprocess.CompletedProcess[str]:
+            if argv[:2] == ["git", "rev-parse"]:
+                return subprocess.CompletedProcess(argv, 0, "abc123\n", "")
+            if argv[:2] == ["git", "status"]:
+                return subprocess.CompletedProcess(argv, 0, " M x\n", "")
+            raise FileNotFoundError(argv[0])
+
+        args = types.SimpleNamespace(model="sonnet", gen_model="haiku", target=Path("r.md"))
+        context = run_comply.run_context(args, run=run)
+        self.assertEqual(context["revision"], "abc123")
+        self.assertTrue(context["dirty"], "a run from an uncommitted tree says so")
+        self.assertEqual(context["claude_version"], "UNKNOWN")
+        self.assertEqual((context["model"], context["gen_model"], context["ecc"]), ("sonnet", "haiku", run_comply.ECC_VERSION))
+        self.assertIn("host", context)
+
+
+class Wiring(unittest.TestCase):
+    def test_each_scenario_is_timed_and_observed_with_its_stream_and_sandbox_even_when_it_fails(self) -> None:
+        @dataclasses.dataclass(frozen=True)
+        class FakeRun:
+            observations: tuple[object, ...]
+            sandbox_dir: Path
+
+        observed: list[tuple[object, object, str, BaseException | None]] = []
+        runner = types.SimpleNamespace(_parse_stream_json=lambda stdout: [])
+        results = iter([FakeRun((), Path("/box")), RuntimeError("boom")])
+
+        def run_scenario(scenario: object, model: str, timeout: int) -> object:
+            runner._parse_stream_json(STREAM)
+            result = next(results)
+            if isinstance(result, BaseException):
+                raise result
+            return result
+
+        runner.run_scenario = run_scenario
+        ecc_run = types.SimpleNamespace(generate_spec=lambda skill, model: None)
+        with tempfile.TemporaryDirectory() as directory:
+            run_comply.wire_grading(ecc_run, runner, lambda path: None, spec_path=Path(directory) / "s.json",
+                                    keep_stream=lambda stdout: None,
+                                    observe=lambda scenario, box, stream, elapsed, error: observed.append((scenario, box, stream, error)))
+            ecc_run.run_scenario("first", model="sonnet")
+            with self.assertRaises(RuntimeError):
+                ecc_run.run_scenario("second", model="sonnet")
+        self.assertEqual([(s, b, st) for s, b, st, _ in observed], [("first", Path("/box"), STREAM), ("second", None, STREAM)])
+        self.assertIsNone(observed[0][3])
+        self.assertIsInstance(observed[1][3], RuntimeError)
+
+
+if __name__ == "__main__":
+    unittest.main()

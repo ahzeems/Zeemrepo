@@ -25,6 +25,7 @@ import io
 import itertools
 import json
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -36,6 +37,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 import netproxy
+import outcomes
 
 REPO = Path(__file__).resolve().parents[2]
 REPORTS = REPO / "evals" / "compliance" / "reports"
@@ -580,6 +582,24 @@ def report_name(target: Path) -> str:
     return "-".join(parts)
 
 
+def run_context(args: argparse.Namespace, run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run) -> dict[str, object]:
+    """What a result depends on, recorded with every attempt: the revision (and whether the tree was
+    dirty), the harness, the models, the ECC pin and the host. A value that cannot be read is UNKNOWN."""
+    def read(argv: list[str], cwd: Path | None = None) -> str:
+        try:
+            done = run(argv, cwd=cwd, capture_output=True, text=True, timeout=30)
+        except (OSError, subprocess.SubprocessError):
+            return "UNKNOWN"
+        return done.stdout.strip() if done.returncode == 0 else "UNKNOWN"
+
+    status = read(["git", "status", "--porcelain"], REPO)
+    return {
+        "revision": read(["git", "rev-parse", "HEAD"], REPO), "dirty": "UNKNOWN" if status == "UNKNOWN" else status != "",
+        "claude_version": read(["claude", "--version"]), "model": args.model, "gen_model": args.gen_model,
+        "ecc": ECC_VERSION, "host": f"{platform.system()} {platform.release()} {platform.machine()}",
+    }
+
+
 def require_skill_comply(path: Path) -> None:
     if not (path / "scripts" / "runner.py").is_file():
         print(f"run_comply: ECC skill-comply {ECC_VERSION} not found at {path}; update ECC_VERSION with the plugin pin.", file=sys.stderr)
@@ -623,22 +643,32 @@ def start_network(work: Path) -> tuple[netproxy.Proxy, Network]:
 
 
 def wire_grading(ecc_run: object, runner: object, parse_spec: Callable[[Path], object], *, spec_path: Path,
-                 keep_stream: Callable[[str], None]) -> None:
+                 keep_stream: Callable[[str], None], observe: outcomes.Observe) -> None:
     """Patch ECC so each session's stream is kept and its error flags read, its chained calls split and
-    long calls fitted before grading, and its spec pinned at `spec_path`."""
+    long calls fitted before grading, and its spec pinned at `spec_path`. Every scenario attempt, failed
+    or not, is passed to `observe` with its sandbox, stream and wall time, for its outcome record."""
     parse_stream_json = getattr(runner, "_parse_stream_json")
     run_scenario = getattr(runner, "run_scenario")
     succeeded: set[str] = set()
+    streams: list[str] = []
 
     def parse_and_note_successes(stdout: str) -> list[object]:
         keep_stream(stdout)
+        streams.append(stdout)
         succeeded.clear()
         succeeded.update(successful_calls(stdout))
         return parse_stream_json(stdout)
 
     def run_and_split(scenario: object, model: str) -> object:
         succeeded.clear()
-        run = run_scenario(scenario, model=model, timeout=SCENARIO_TIMEOUT)
+        streams.clear()
+        started = time.monotonic()
+        try:
+            run = run_scenario(scenario, model=model, timeout=SCENARIO_TIMEOUT)
+        except Exception as error:
+            observe(scenario, None, "".join(streams), time.monotonic() - started, error)
+            raise
+        observe(scenario, getattr(run, "sandbox_dir", None), "".join(streams), time.monotonic() - started, None)
         split = split_observations(run.observations, succeeded)
         return dataclasses.replace(run, observations=tuple(fit_for_classifier(split)))
 
@@ -719,8 +749,10 @@ def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Pa
     confine_ecc_modules(sys.modules, confined)
     install_setup(runner, confined.run, snapshot, deps)
     name = report_name(args.target)
-    wire_grading(ecc_run, runner, parse_spec, spec_path=SPECS / f"{name}.json",
-                 keep_stream=stream_keeper(STREAMS / f"{time.strftime('%Y%m%d-%H%M%S')}-{name}"))
+    run_dir = STREAMS / f"{time.strftime('%Y%m%d-%H%M%S')}-{name}"
+    observe = outcomes.recorder(outcomes.load_checks(SPECS / f"{name}.outcomes.json"), confined.run,
+                                outcomes.jsonl_writer(run_dir / "records.jsonl"), context=run_context(args))
+    wire_grading(ecc_run, runner, parse_spec, spec_path=SPECS / f"{name}.json", keep_stream=stream_keeper(run_dir), observe=observe)
     install_scenarios(ecc_run, work / "context", errors=(yaml.YAMLError, KeyError, TypeError),
                       pin_path=SPECS / f"{name}.scenarios.json", build=scenario_from)
     os.chdir(REPO)

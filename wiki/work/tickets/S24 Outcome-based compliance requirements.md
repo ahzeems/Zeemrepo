@@ -9,7 +9,7 @@ agent: opencode
 status: done
 owner: agent
 priority: P2
-next_action: Independent re-review of the new head of PR 52, then owner review; a model-backed measurement with the outcome checks needs separate owner authorization.
+next_action: None. It landed as PR 52 (4a446b6). A model-backed measurement with the outcome checks still needs separate owner authorization; it and the rest of the discovered work continue as idea notes that link this ticket.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: build
@@ -38,6 +38,8 @@ evidence:
   - "VERIFIED: test_outcome_validation ran 35 tests OK after the two controls; no behaviour changed in outcome_validation.py."
   - "UNKNOWN: npm run pr and CI at the newest head are recorded in PR 52, not here; a review of that head is pending."
   - "INFERRED: implemented by claude-code on Claude Opus 5.5 (Anthropic); the ticket's agent field names its creator and is unchanged."
+  - "VERIFIED: on 2026-10-19 gh pr view 52 reported MERGED by the code owner's account as 4a446b6, and git merge-tree --write-tree 4a446b6^ 1c6ab76 gave 4a446b6's own tree, so main received exactly the reviewed head 1c6ab76 (checked by Claude Code, Opus 5.5)."
+  - "INFERRED: per the final report of an independent verifier (a Claude Code verifier subagent on Opus 5.5, claude-opus-5-5, in a separate context), relayed by the coordinator on 2026-10-19 and not reproduced here, 1c6ab76 rated PASS."
 ---
 
 ## Goal

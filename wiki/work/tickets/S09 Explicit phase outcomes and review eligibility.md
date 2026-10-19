@@ -4,12 +4,12 @@ title: S09 Explicit phase outcomes and review eligibility
 summary: Implement the approved phase outcomes so failures cannot report success and only checked, reviewed results are eligible for integration.
 tags: [area/agents, area/typescript, area/planning]
 created: 2026-10-16
-updated: 2026-10-18
+updated: 2026-10-19
 agent: claude-code
 status: done
 owner: agent
 priority: P1
-next_action: None. It landed as PR 45 (13c3b11); S10 is now eligible. The afk landing risk is assigned to S16, the merger's post-merge commits are covered by S18 (its acceptance criterion that changed integration SHAs are independently verified), and durable retry state by S17; the rest of the discovered work continues as idea notes that link this ticket.
+next_action: None. It landed as PR 45 (13c3b11); S10 is now eligible. The afk landing risk is assigned to S27 (Afk lands only issues handed to the merger, per the owner's decision of 2026-10-19 recorded in S16), the merger's post-merge commits are covered by S18 (its acceptance criterion that changed integration SHAs are independently verified), and durable retry state by S17; the rest of the discovered work continues as idea notes that link this ticket.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: build
@@ -109,7 +109,7 @@ exits 2. The approved policy was applied as written; no new outcome needed an ow
 
 - The merger is an agent with a shell and can merge a held branch it was not handed; the
   coordinator reports only listed issues it failed to merge, and afk classifies from Git, so such a
-  merge would be announced and landed. Needs trusted merging or publication (S16 territory).
+  merge would be announced and landed. Assigned to [[S27 Afk lands only issues handed to the merger]] (OWNER DECISION, 2026-10-19, recorded in the S16 ticket: "New ticket after #50 (Recommended)").
 - The merger may commit a fix after a merge, which no reviewer sees; the run still reports the
   issue integrated. New integration SHAs need new verification (S18 acceptance: changed integration SHAs are independently verified).
 - A comment the merger posts on an issue is a phase claim made before the coordinator checks
@@ -125,5 +125,5 @@ exits 2. The approved policy was applied as written; no new outcome needed an ow
 - MEDIUM (verifier): after a loop exit 2, `afk.ts` (main, after the loop step) continues and
   lands whatever Git shows merged, so a misbehaving merger could merge a held branch it was not
   handed and afk would land it. Not a regression (exit 0 already did this); trusted publication
-  is S16.
+  landed in S16 (PR 53), and the afk fix is [[S27 Afk lands only issues handed to the merger]] (OWNER DECISION, 2026-10-19, recorded in the S16 ticket: "New ticket after #50 (Recommended)").
 

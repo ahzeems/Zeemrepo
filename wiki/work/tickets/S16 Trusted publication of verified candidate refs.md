@@ -9,7 +9,7 @@ agent: opencode
 status: done
 owner: agent
 priority: P1
-next_action: None once the owner merges its PR. S17 and S18 build on scripts/sandcastle/isolated-publication.ts; the S09 afk fix becomes a new build ticket after PR 50 merges (owner decision below).
+next_action: None. It landed as PR 53 (2a4bf7a). S17 and S18 build on scripts/sandcastle/isolated-publication.ts; the S09 afk fix is the build ticket S27 (Afk lands only issues handed to the merger), per the owner decision below.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: build
@@ -36,6 +36,8 @@ evidence:
   - "VERIFIED: npm run pr in the review-fix round: at 58f0d9b npm run check failed wiki:compliance (the runbook's updated date) and refs changed; at 33cc404 refs changed, then GitHub still reported head 83acd3d after the push, then refs changed again. 33cc404 reached origin and PR 53; CI check and guards passed there (runs 39178212650 and 39178211039)."
   - "INFERRED: relayed re-review (coordinator message, 2026-10-19): PR 53 passed at 33cc404 with one LOW, no test for a base strictly ahead of origin/main, closed by 9bef016."
   - "INFERRED: no real receipt can exist yet (no live reviewer is authorised, per S15's owner decision), so publication has run only against fake receipts, a faked gh and a local bare remote; no live publication trial was run or requested. This machine has no Docker, so npm run sandbox:smoke runs only in CI; it does not exercise publication."
+  - "VERIFIED: on 2026-10-19 gh pr view 53 reported MERGED by the code owner's account as 2a4bf7a, and git merge-tree --write-tree 2a4bf7a^ 1ddde59 gave 2a4bf7a's own tree, so main received exactly the reviewed head 1ddde59 (checked by Claude Code, Opus 5.5)."
+  - "INFERRED: per the final report of an independent verifier (a Claude Code verifier subagent on Opus 5.5, claude-opus-5-5, in a separate context), relayed by the coordinator on 2026-10-19 and not reproduced here, 1ddde59 rated PASS."
 ---
 
 ## Goal
@@ -112,7 +114,7 @@ Update the merge-gate contract and publication recovery instructions to match th
   RunResult to reach afk (`scripts/sandcastle/coordinator.ts`, which S11 is editing). Both files are
   outside S16's Allowed files, so nothing was changed here. OWNER DECISION, 2026-10-19, relayed by
   the coordinator: "New ticket after #50 (Recommended)". The afk fix becomes a new build ticket,
-  built after PR 50 merges and drafted in a separate records PR.
+  built after PR 50 merges and drafted in a separate records PR. That ticket is [[S27 Afk lands only issues handed to the merger]].
 - Isolated publication has no npm script; the public commands still land through `npm run pr`
   from the host. S18 owns the cutover.
 - A second verified candidate for a branch that already holds an earlier candidate refuses as a

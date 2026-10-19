@@ -9,7 +9,7 @@ agent: opencode
 status: done
 owner: agent
 priority: P1
-next_action: None once the owner merges PR 54; the merge of main at 3cecc3b needs an independent review.
+next_action: None. It landed as PR 54 (40aba24). The afk exit-2 wording, ambiguous dependencies, no-work later declared blocked and the waiver rewordings continue as idea notes that link this ticket.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: build
@@ -31,11 +31,13 @@ evidence:
   - "INFERRED: relayed coordinator message (2026-10-19): the re-review FAILED PR 54 at f50edf0 on a MEDIUM regression from the stale-blocked fix. An issue held in round 1 and declared blocked in round 2 had its held outcome replaced by blocked, which a later empty plan cleared, so the run ended complete with exit 0 while sandcastle/issue-2 held unreviewed work; a draining plan reported blocked instead of incomplete. Two waiver rewordings that survive the prompt test are accepted as the documented limit."
   - "VERIFIED: round-3 fix test first. Red at e52d6a0: coordinator-queue.test.ts failed 2 of 17 (both reproductions, outcome blocked or absent instead of held). Green at 1a469b0: 73 of 73 across the five schema, run-result and coordinator test files. Sixteen planted mutants, each restored, all failed tests; the overwrite reintroduced (blocked results recorded unfiltered) failed 2 of 73, and clearing every earlier outcome on a new plan failed 20 of 73."
   - "INFERRED: relayed coordinator message (2026-10-19): the re-review passed PR 54 at 43c0a6c with no new defect, and noted LOW gaps: only held was tested as kept against a later blocked declaration, and this evidence named the red commit indirectly."
-  - "VERIFIED: three tests added at the commit after 43c0a6c (failed, not-integrated and integrated issues later declared blocked). The code was already correct, so red is shown by planting: with the coordinator's worked check dropping one kind, the 43c0a6c tests failed 0 of 73 for failed, not-integrated and integrated, and the new tests fail 1 of 76 each; dropping held fails 2 of 73 and 2 of 76. Dropping eligible fails 0 of 76 and is equivalent: an eligible outcome never reaches a later round, because the same round merges it or the run stops failed. Dropping no-work also fails 0 of 76: a no-work issue a later plan declares blocked keeps no-work, and the run can complete; that choice is untested and listed under discovered work."
+  - "VERIFIED: three tests added at 8c22601 (failed, not-integrated and integrated issues later declared blocked). The code was already correct, so red is shown by planting: with the coordinator's worked check dropping one kind, the 43c0a6c tests failed 0 of 73 for failed, not-integrated and integrated, and the new tests fail 1 of 76 each; dropping held fails 2 of 73 and 2 of 76. Dropping eligible fails 0 of 76 and is equivalent: an eligible outcome never reaches a later round, because the same round merges it or the run stops failed. Dropping no-work also fails 0 of 76: a no-work issue a later plan declares blocked keeps no-work, and the run can complete; that choice is untested and listed under discovered work."
   - "OWNER DECISION: asked on 2026-10-19 how PR 54 should take in main when the pre-commit hook refused the merge commit because S11's new test plans failed typecheck without blocked lists, the owner answered 'Allow fixes in merge (Recommended)' (relayed by the coordinator, 2026-10-19): a one-time exception in which the merge commit also adds blocked: [] to five S11 test plans, with no other new lines and hooks on."
   - "VERIFIED: merge commit 3cecc3b takes origin/main 2a4bf7a (PRs 50 to 53). One conflict, in coordinator.test.ts, resolved with a line from each side: S11's base-commit line and this branch's plans. Under the exception it adds blocked: [] at review-input.test.ts:47 (two plans) and :52, and coordinator.test.ts:164 and :176; the commit message lists them. The pre-commit hook ran and passed. Before that, the hook had refused the merge without those lines, failing typecheck at review-input.test.ts(47,26) and (47,47) with TS2741."
   - "VERIFIED: at the merged tree, tsc -p tsconfig.json passed and node --test scripts/sandcastle/*.test.ts passed 459 of 459."
   - "UNKNOWN: no real model, Docker or GitHub run. The prompt test refuses known waiver phrases and requires the positive rule's wording; a waiver added elsewhere in the prompt in new words, with the rule kept, would still pass. Only a review of the prompt or a model run catches that."
+  - "VERIFIED: on 2026-10-19 gh pr view 54 reported MERGED by the code owner's account as 40aba24, and git merge-tree --write-tree 40aba24^ 2201b85 gave 40aba24's own tree, so main received exactly the reviewed head 2201b85 (checked by Claude Code, Opus 5.5)."
+  - "INFERRED: per the final report of an independent verifier (a Claude Code verifier subagent on Opus 5.5, claude-opus-5-5, in a separate context), relayed by the coordinator on 2026-10-19 and not reproduced here, 2201b85 rated PASS. That head contains the merge of main at 3cecc3b, so the review covers the commit that took the owner's one-time merge exception."
 ---
 
 ## Goal
@@ -132,14 +134,13 @@ Align the prompt, schema and runbook descriptions of eligibility. Record the imp
 
 - `scripts/sandcastle/afk.ts` (lines 344 and 351) describes any loop exit 2 as "incomplete or failed
   work". A blocked run now also exits 2, so the AFK wording should mention blocked issues. The file
-  is outside this ticket's allowed files; S27, the afk ticket, may take it.
+  is outside this ticket's allowed files; [[S27 Afk lands only issues handed to the merger]] may take it.
 - The plan has no way to say an issue's dependency is ambiguous beyond listing it as blocked; the
   ticket's human checkpoint asks for ambiguous semantics to go to the owner, which would need an
   issue comment or label the planner cannot write today.
-
 - A `no-work` issue (the implementer committed nothing) that a later plan declares blocked keeps
   `no-work`, so the run can end complete. Whether blocked should replace `no-work` is undecided and
-  untested; a mutant that lets it pass every test.
+  untested: a mutant that drops `no-work` from the coordinator's worked check passes every test.
 
 ## Implementation
 

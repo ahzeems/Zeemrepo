@@ -4,12 +4,12 @@ title: Repository audit remediation
 summary: Deliver an owner-reviewed remediation plan and independently verifiable work from the repository audit, executable across fresh LLM sessions.
 tags: [area/planning, area/agents, area/compliance]
 created: 2026-10-16
-updated: 2026-10-18
+updated: 2026-10-19
 agent: opencode
 status: in-progress
 owner: human
 priority: P1
-next_action: S11, S16 and S24 are in progress on their own branches; start S10 (parent S09, now landed) when a heavy-job slot is free, at most two heavy jobs at a time. S21 waits for the owner's approval of its baseline; S14, S17 and S18 wait for their parents.
+next_action: S14, S17, S21 and the follow-up S27 are in progress on their own branches (checked 2026-10-19); review and land them, at most two heavy jobs at a time. S18 waits on S14 and S17.
 idea: "[[Execute the repository audit remediation]]"
 evidence:
   - "OWNER DECISION: on 2026-10-16 the owner requested committed planning, a pull request and execution by another LLM in a separate terminal session."
@@ -22,6 +22,11 @@ evidence:
   - "VERIFIED: S02 landed as PR 21, merged as 5d56a42 by the code owner after an APPROVED review."
   - "VERIFIED: on 2026-10-18 gh pr list --state merged showed twelve of 26 slices landed: S01 (PR 18), S02 (PR 21), S03 (PR 25), S04 (PR 23), S05 (PR 32), S06 (PR 38, follow-up PR 42), S07 (PR 26), S08 (PR 39), S12 (PR 34, follow-up PR 40), S13 (PR 37), S19 (PR 35) and S25 (PR 36)."
   - "VERIFIED: on 2026-10-18 gh pr view showed PRs 44 to 49 merged by the code owner's account, each squash merge carrying exactly its last reviewed head, so eighteen of 26 slices have landed: the twelve above plus S20 (PR 44, 1790817), S09 (PR 45, 13c3b11), S26 (PR 46, f949e56), S23 (PR 47, 024d415), S22 (PR 48, 3905db2) and S15 (PR 49, caa99e3). When checked on 2026-10-18 after PR 49 merged, S11 was open as PR 50 (head 95d8717) and feat/s16-trusted-publication and fix/s24-compliance-outcomes had no PR yet; S10 depends only on S09 and is the one eligible ticket not started (checked by Claude Code, Opus 5.5)."
+  - "VERIFIED: on 2026-10-19 gh pr view showed PRs 50, 52, 53 and 54 merged by the code owner's account, and for each git merge-tree --write-tree <merge>^ <head> gave the merge commit's own tree, so main received exactly the reviewed head: S11 (PR 50, 6facf2a, head aff82d8), S24 (PR 52, 4a446b6, head 1c6ab76), S16 (PR 53, 2a4bf7a, head 1ddde59) and S10 (PR 54, 40aba24, head 2201b85). Twenty-two of the plan's 26 slices have landed; S14, S17, S18 and S21 remain (checked by Claude Code, Opus 5.5)."
+  - "VERIFIED: on 2026-10-19 the same check passed for the records PRs 51 (35ba4ea, head 6e0e607) and 55 (4c56101, head f346949), both merged by the code owner's account; PR 55 added S27 as a follow-up slice to S09 and S16, outside the plan's 26 (checked by Claude Code, Opus 5.5)."
+  - "OWNER DECISION: on 2026-10-19 the owner wrote \"S21 baseline approved, go ahead\" (relayed by the coordinator)."
+  - "INFERRED: the S21 PR will list the concrete inventory for the owner to review before merging, per S21's acceptance criterion \"The owner reviews the baseline inventory and the required actual approval evidence is recorded before landing it\" and the coordinator's brief of 2026-10-19."
+  - "VERIFIED: at about 10:22 UTC on 2026-10-19 local branches feat/s14-isolated-coordinator, feat/s17-durable-recovery, fix/s21-skill-provenance and fix/s27-afk-handed-issues existed in their own worktrees, with no remote branch and no open PR for any of them; S18 depends on S14 and S17 (and the landed S15 and S16) (checked by Claude Code, Opus 5.5)."
 ---
 
 ## Outcome
@@ -70,3 +75,4 @@ and let a fresh LLM implement a bounded slice without inventing decisions or rel
 - [[S01 Fixture Git containment]]: first ticket after job-spec approval; it protects later hook-run regression work.
 - [[Docker-capable containment proof is unavailable locally]]: runtime-proof environment issue for S12 and its consumers.
 - [[Inactive GitHub profile blocks unscoped PR preflight]]: remaining local publication-context issue.
+- S10, S11, S16 and S24 (PRs 54, 50, 53 and 52) record their merges and final reviews, the project record lists 22 landed slices with S14, S17, S21 and S27 in progress, S09's and S16's afk item points at [[S27 Afk lands only issues handed to the merger]], and five new idea notes carry the gaps the S10 and S16 tickets left open.

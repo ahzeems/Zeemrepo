@@ -4,12 +4,12 @@ title: S11 Non-executable branch inputs
 summary: Keep branch and ref inputs as data when preparing review diffs and logs, including Git-valid shell metacharacters.
 tags: [area/git, area/agents, area/planning]
 created: 2026-10-16
-updated: 2026-10-18
+updated: 2026-10-19
 agent: opencode
 status: done
 owner: agent
 priority: P1
-next_action: None once the owner merges this PR after independent review. The SDK's own shell use of branch names and the docker path are listed under Discovered work.
+next_action: None. It landed as PR 50 (6facf2a). The SDK's own shell use of branch names and the noSandbox global config continue as idea notes that link this ticket.
 idea: "[[Execute the repository audit remediation]]"
 project: "[[Repository audit remediation]]"
 ticket_kind: build
@@ -28,6 +28,8 @@ evidence:
   - "VERIFIED: at ab833b1 npm run check exited 0: 1259 of 1259 tests, all files at 99.08% lines and 91.48% branches (review-input.ts 100% and 100%, coordinator.ts 99.20% and 94.57%), 73 evals tests, and every lint, wiki, skills, governance, rules, compliance, changelog and memory guard. No live model call: the agent is a fake and npm run sandbox:smoke (Docker) did not run here."
   - "INFERRED: per the coordinator's relay, the independent verifier passed PR 50 at 95d8717 with one MEDIUM, that the runbook's 'any name Git accepts' overclaimed given the SDK's own shell commands, and measured 91.46% branches overall at 95d8717 (91.48% above is this agent's run at ab833b1). The runbook line now claims only the review prompt and recommends keeping shell characters out of the host branch name."
   - "INFERRED: the docker provider resolves the commit ids the same way the old prompt resolved branch names, because the sandbox worktree shares the host repository's objects and refs; this branch ran only the noSandbox provider, so the docker path is not exercised."
+  - "VERIFIED: on 2026-10-19 gh pr view 50 reported MERGED by the code owner's account as 6facf2a, and git merge-tree --write-tree 6facf2a^ aff82d8 gave 6facf2a's own tree, so main received exactly the reviewed head aff82d8 (checked by Claude Code, Opus 5.5)."
+  - "INFERRED: per the final report of an independent verifier (a Claude Code verifier subagent on Opus 5.5, claude-opus-5-5, in a separate context), relayed by the coordinator on 2026-10-19 and not reproduced here, aff82d8 rated PASS."
 ---
 
 ## Goal

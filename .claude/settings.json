@@ -37,26 +37,5 @@
         "ref": "v2.2.3"
       }
     }
-  },
-  "claudeMdExcludes": [
-    "**/.claude/rules/ecc/angular/**",
-    "**/.claude/rules/ecc/arkts/**",
-    "**/.claude/rules/ecc/cpp/**",
-    "**/.claude/rules/ecc/csharp/**",
-    "**/.claude/rules/ecc/dart/**",
-    "**/.claude/rules/ecc/fsharp/**",
-    "**/.claude/rules/ecc/golang/**",
-    "**/.claude/rules/ecc/java/**",
-    "**/.claude/rules/ecc/kotlin/**",
-    "**/.claude/rules/ecc/nuxt/**",
-    "**/.claude/rules/ecc/perl/**",
-    "**/.claude/rules/ecc/php/**",
-    "**/.claude/rules/ecc/react/**",
-    "**/.claude/rules/ecc/react-native/**",
-    "**/.claude/rules/ecc/ruby/**",
-    "**/.claude/rules/ecc/rust/**",
-    "**/.claude/rules/ecc/swift/**",
-    "**/.claude/rules/ecc/vue/**",
-    "**/.claude/rules/ecc/web/**"
-  ]
+  }
 }

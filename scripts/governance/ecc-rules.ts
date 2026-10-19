@@ -2,8 +2,8 @@
 // manifest lists, unedited, for the plugin version .claude/settings.json pins: every rule set in
 // ECC's rules/ folder, kept complete (OWNER DECISION, 2026-10-10), plus the plugin's LICENSE.
 // rules/README.md stays out, because Claude Code would load it as a rule. The manifest's loaded
-// list names the sets Claude Code loads; every other set is excluded from loading by a
-// claudeMdExcludes pattern in the settings (OWNER DECISION, 2026-10-19). After moving the pin,
+// list names the sets Claude Code loads, which is every set (OWNER DECISION, 2026-10-19: "load all
+// ECC rules"); a set left out of it must be excluded by a claudeMdExcludes pattern. After moving the pin,
 // copy the rule set folders in again and run with --write to record the new hashes and sets.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";

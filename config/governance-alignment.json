@@ -116,6 +116,11 @@
       "id": "agents-self-merge",
       "pattern": "\\bagents (merge|land) (through|via) (an? |the )?(audited )?gate\\b|\\bagents merge and push main\\b|\\bagents merge their own (branch|branches|work|changes)\\b",
       "supersededBy": "Owner decision 2026-10-09: only the owner merges, on GitHub (ADR-0008)"
+    },
+    {
+      "id": "zeem-over-ecc",
+      "pattern": "\\bzeem`? rules? wins\\b|\\bwin over the vendored ECC\\b|\\bthe repository skill\\s+wins\\b|\\boverride ECC where they disagree\\b",
+      "supersededBy": "Owner decision 2026-10-19: ECC wins everywhere (ADR-0026)"
     }
   ],
   "allowed": [

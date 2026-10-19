@@ -24,7 +24,7 @@ npm run check
 
 | Command | What it does |
 |---|---|
-| `npm run check` | Lint, types, tests (80% lines and functions, 70% branches) and the repository guards |
+| `npm run check` | Lint, types, tests (80% lines, functions and branches) and the repository guards |
 | `npm run pr` | Checks the branch, pushes it and opens or reports its pull request; never merges |
 | `npm run audit` | Confirms every commit on main since the PR-only rule landed by merged pull request |
 | `npm run worktree:guard` | Reports checkouts holding the only copy of some work |
@@ -41,8 +41,8 @@ branch must record (changelog, work record, operating docs) is `wiki/reference/C
 | `wiki/` | Shared memory: notes, decisions, lessons, runbooks and work records (`wiki-memory` skill) |
 | `.claude/skills/` | Repository skills; provenance in `import-baseline.json` |
 | `CLAUDE.md` | The constitution: three non-negotiables and where each rule lives |
-| `.claude/rules/zeem/` | This repository's rules; they override ECC where they disagree |
-| `.claude/rules/ecc/` | Every ECC rule set, vendored unchanged (without ECC's rules README, with its LICENSE) and held to the plugin pin by `npm run rules:check`; only `common`, `typescript` and `python` load, the rest are excluded in `.claude/settings.json` |
+| `.claude/rules/zeem/` | This repository's rules, added to ECC's; ECC wins where they disagree |
+| `.claude/rules/ecc/` | Every ECC rule set, vendored unchanged (without ECC's rules README, with its LICENSE) and held to the plugin pin by `npm run rules:check`; every set loads where its paths match |
 | `.claude/agents/` | No-edit review agents: `finder` (reads only) and `verifier` (also runs checks) |
 | `.github/workflows/` | `check` (the change's own checks) and `guards` (main's guards, `pull_request_target`) |
 | `CHANGELOG.md` | One entry per branch |

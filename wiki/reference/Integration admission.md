@@ -48,12 +48,13 @@ Captured 2026-10-19 on one machine with Claude Code 2.1.303. To re-check, run th
 - Enabled: yes (`enabledPlugins` `ecc@ecc: true`).
 - Evaluated: its rules were vendored and pinned, and its `skill-comply` ran the compliance baseline
   ([[Zimi migration]]). Its hooks, agents and MCP server have no recorded evaluation.
-- Loaded on the machine checked: no. `claude plugin list --json` printed `[]`, and none of its
-  agents or skills was offered in that day's sessions. The marketplace clone and a cached 2.2.3 copy
-  are on disk.
-
-So on that machine the ECC review agents the [[Verify a repository change]] runbook names were not
-available, and reviews used the repository's `finder` and `verifier`.
+- Loaded on the machine checked: no at first. `claude plugin list --json` printed `[]`, and none of
+  its agents or skills was offered, so the Phase 1 to 3 reviews used the repository's `finder` and
+  `verifier`. Later that day the owner installed it (`/plugin install ecc@ecc`); `claude plugin list
+  --json` then gave `ecc@ecc`, version 2.2.3, scope `project`, enabled, the session offered the ECC
+  agents and skills, and its hooks ran (a GateGuard PreToolUse hook asked for the request and the
+  command's purpose before the first Bash command, and a cost hook reported a session estimate).
+  The install rewrote `.claude/settings.json` with the same content in a different key order.
 
 **Install** (each machine, the owner's decision, because it turns on the hooks and the MCP server):
 `claude plugin install ecc@ecc --scope project` (code.claude.com/docs/en/plugins/install, read

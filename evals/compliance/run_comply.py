@@ -25,7 +25,6 @@ import io
 import itertools
 import json
 import os
-import platform
 import re
 import shutil
 import subprocess
@@ -277,6 +276,10 @@ def seed_sandbox(sandbox: Path, snapshot: bytes, deps: Path | None = None) -> No
 DISARMED = ["-c", "core.fsmonitor=", "-c", "core.hooksPath=/dev/null"]
 
 
+# The baseline commit's subject; the pinned outcome checks' safety step compares main with it.
+BASELINE_SUBJECT = "Zeemrepo snapshot"
+
+
 def commit_baseline(sandbox: Path, run: Callable[..., object]) -> None:
     """Commit the seeded tree as main and push it to a local origin, so the branch guards have a base."""
     def step(*args: str) -> None:
@@ -284,7 +287,7 @@ def commit_baseline(sandbox: Path, run: Callable[..., object]) -> None:
 
     step("sh", "-c", "mkdir -p .git/info && printf 'node_modules\\n' >> .git/info/exclude")
     step("git", *DISARMED, "add", "--all")
-    step("git", *DISARMED, "commit", "--quiet", "--allow-empty", "--no-verify", "-m", "Zeemrepo snapshot")
+    step("git", *DISARMED, "commit", "--quiet", "--allow-empty", "--no-verify", "-m", BASELINE_SUBJECT)
     step("git", *DISARMED, "branch", "-M", "main")
     # A real origin inside .git (never part of the tree), so npm run pr can fetch and push there.
     origin = str(sandbox.resolve() / ".git" / "origin.git")
@@ -582,24 +585,6 @@ def report_name(target: Path) -> str:
     return "-".join(parts)
 
 
-def run_context(args: argparse.Namespace, run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run) -> dict[str, object]:
-    """What a result depends on, recorded with every attempt: the revision (and whether the tree was
-    dirty), the harness, the models, the ECC pin and the host. A value that cannot be read is UNKNOWN."""
-    def read(argv: list[str], cwd: Path | None = None) -> str:
-        try:
-            done = run(argv, cwd=cwd, capture_output=True, text=True, timeout=30)
-        except (OSError, subprocess.SubprocessError):
-            return "UNKNOWN"
-        return done.stdout.strip() if done.returncode == 0 else "UNKNOWN"
-
-    status = read(["git", "status", "--porcelain"], REPO)
-    return {
-        "revision": read(["git", "rev-parse", "HEAD"], REPO), "dirty": "UNKNOWN" if status == "UNKNOWN" else status != "",
-        "claude_version": read(["claude", "--version"]), "model": args.model, "gen_model": args.gen_model,
-        "ecc": ECC_VERSION, "host": f"{platform.system()} {platform.release()} {platform.machine()}",
-    }
-
-
 def require_skill_comply(path: Path) -> None:
     if not (path / "scripts" / "runner.py").is_file():
         print(f"run_comply: ECC skill-comply {ECC_VERSION} not found at {path}; update ECC_VERSION with the plugin pin.", file=sys.stderr)
@@ -765,7 +750,8 @@ def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Pa
     install_setup(runner, confined.run, snapshot, deps)
     name = report_name(args.target)
     run_dir = STREAMS / f"{time.strftime('%Y%m%d-%H%M%S')}-{name}"
-    observe = outcome_observer(name, run_dir, confined.run, context=run_context(args))
+    context = outcomes.run_context(model=args.model, gen_model=args.gen_model, repo=REPO, ecc=ECC_VERSION, git=["git", *DISARMED])
+    observe = outcome_observer(name, run_dir, confined.run, context=context)
     wire_grading(ecc_run, runner, parse_spec, spec_path=SPECS / f"{name}.json", keep_stream=stream_keeper(run_dir), observe=observe)
     install_scenarios(ecc_run, work / "context", errors=(yaml.YAMLError, KeyError, TypeError),
                       pin_path=SPECS / f"{name}.scenarios.json", build=scenario_from)

@@ -228,20 +228,65 @@ class PinnedOutcomeChecks(unittest.TestCase):
 
 class RunContext(unittest.TestCase):
     def test_records_revision_harness_models_plugin_pin_and_host_and_an_unreadable_value_is_unknown(self) -> None:
+        calls: list[list[str]] = []
+
         def run(argv: list[str], **kw: object) -> subprocess.CompletedProcess[str]:
-            if argv[:2] == ["git", "rev-parse"]:
+            calls.append(argv)
+            if "rev-parse" in argv:
                 return subprocess.CompletedProcess(argv, 0, "abc123\n", "")
-            if argv[:2] == ["git", "status"]:
+            if "status" in argv:
                 return subprocess.CompletedProcess(argv, 0, " M x\n", "")
             raise FileNotFoundError(argv[0])
 
-        args = types.SimpleNamespace(model="sonnet", gen_model="haiku", target=Path("r.md"))
-        context = run_comply.run_context(args, run=run)
+        context = outcomes.run_context(model="sonnet", gen_model="haiku", repo=Path("/repo"), ecc="2.2.3",
+                                       git=["git", *run_comply.DISARMED], run=run)
         self.assertEqual(context["revision"], "abc123")
         self.assertTrue(context["dirty"], "a run from an uncommitted tree says so")
         self.assertEqual(context["claude_version"], "UNKNOWN")
-        self.assertEqual((context["model"], context["gen_model"], context["ecc"]), ("sonnet", "haiku", run_comply.ECC_VERSION))
+        self.assertEqual((context["model"], context["gen_model"], context["ecc"]), ("sonnet", "haiku", "2.2.3"))
         self.assertIn("host", context)
+        git_calls = [argv for argv in calls if argv[0] == "git"]
+        self.assertTrue(git_calls and all(argv[:len(run_comply.DISARMED) + 1] == ["git", *run_comply.DISARMED] for argv in git_calls),
+                        "git on the host runs with the harness's disarmed config, as the sandbox's git does")
+
+    def test_a_failing_git_status_leaves_dirty_unknown(self) -> None:
+        def run(argv: list[str], **kw: object) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess(argv, 0 if "rev-parse" in argv else 128, "abc\n" if "rev-parse" in argv else "", "")
+
+        context = outcomes.run_context(model="m", gen_model="g", repo=Path("/repo"), ecc="x", git=["git"], run=run)
+        self.assertEqual(context["dirty"], "UNKNOWN")
+
+
+class BaselineSubject(unittest.TestCase):
+    def test_every_pinned_safety_check_compares_main_with_the_baseline_subject_run_comply_commits(self) -> None:
+        for path in sorted(SPECS.glob("*.outcomes.json")):
+            safety = [check for check in outcomes.load_checks(path) if check.kind == "safety"]
+            self.assertTrue(safety, path.name)
+            for check in safety:
+                self.assertIn(f"'{run_comply.BASELINE_SUBJECT}'", check.argv[-1], f"{path.name}: one source for the subject")
+        self.assertIn("BASELINE_SUBJECT", inspect.getsource(run_comply.commit_baseline))
+
+
+class Cli(unittest.TestCase):
+    def test_a_missing_or_malformed_records_file_is_a_tool_failure_with_exit_2(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            bad = Path(directory) / "records.jsonl"
+            bad.write_text("not json\n")
+            with mock.patch("sys.stderr", new_callable=io.StringIO) as stderr:
+                self.assertEqual(outcomes.main(["table", str(Path(directory) / "missing.jsonl")]), 2)
+                self.assertEqual(outcomes.main(["table", str(bad)]), 2)
+            self.assertIn("records.jsonl", stderr.getvalue())
+
+    def test_wrong_arguments_are_exit_2(self) -> None:
+        with mock.patch("sys.stderr", new_callable=io.StringIO):
+            self.assertEqual(outcomes.main([]), 2)
+
+    def test_invalid_json_in_a_checks_file_is_refused(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "t.outcomes.json"
+            path.write_text("{not json")
+            with self.assertRaises(ValueError):
+                outcomes.load_checks(path)
 
 
 class OutcomeObserver(unittest.TestCase):

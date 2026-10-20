@@ -7,6 +7,7 @@ facts that only exist after the owner merges. `npm run changelog:guard` enforces
 ## 2026-10-20
 
 - `npm run pr` now refuses to open a pull request while any work record the branch changed is still open (not `done`, `parked` or `superseded`), naming each open record and its next action, before it runs the checks or pushes. One branch carries a piece of work to its end (ADR-0027); the agent workflow review had still landed as five pull requests across five branches. To land early on purpose, the owner parks the open work. The Land a change runbook and the `manage-branch` skill (recorded revision) describe the refusal.
+- Phase 4 of the agent workflow review, third slice (the earlier reviews' remaining LOW findings): `run_context` moves from `run_comply.py` to `outcomes.py` (764 of 800 lines again) and runs the host's git with the harness's disarmed config; the baseline commit subject is one constant, `run_comply.BASELINE_SUBJECT`, which a test holds every pinned safety check to; `outcomes.py table` exits 2, not a traceback, on a missing or malformed records file; invalid JSON in an outcome checks file has a refusing test.
 
 ## 2026-10-19
 

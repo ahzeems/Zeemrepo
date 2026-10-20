@@ -4,12 +4,12 @@ title: Agent workflow improvement
 summary: Requirement-to-evidence assessment of the agent workflow (R1 to R9) in five phases; Phases 1 to 3 landed (PRs 27, 28, 29); Phases 4 and 5 continue on one integration branch.
 tags: [area/agents, area/planning]
 created: 2026-10-19
-updated: 2026-10-19
+updated: 2026-10-20
 agent: claude-code
 status: in-progress
 owner: human
 priority: P2
-next_action: Owner to provide a Linux host with bubblewrap and approve Phase 4's live run and its budget; Phase 5 is blocked until that run gives results to tune on, because it adopts only improvements the evidence supports.
+next_action: On work/agent-workflow-phases, the single branch for all remaining phase work - split run_comply.py and fix the review leftovers; Phase 4's live run waits for a Linux host with bubblewrap and the owner's approval of the run and budget, and Phase 5 for that run's results. One pull request when every phase is done.
 idea: "[[Improve the agent workflow]]"
 evidence:
   - "OWNER DECISION: the owner's brief (2026-10-19) says \"Begin Phase 1 only\" and \"Stop at Phase 1 owner-review handoff. Do not begin Phase 2 before the owner merges Phase 1.\""
@@ -27,6 +27,8 @@ evidence:
   - "VERIFIED: the run_confined test now parses the call with ast; planting subprocess.run as the runner, with confined.run left in a comment, makes it fail."
   - "VERIFIED: separate-context verifier at a54014b returned VERIFIED on all six criteria: npm run check exit 0; every GateGuard table example matches classifyDestructiveCommand (rm -rf, git branch -D, git push --force flagged; git push --delete and gh pr comment not); cutting each outcome check to its first case fails both fixture tests; the parsed run_confined test fails on subprocess.run with confined.run in a comment and passes a keyword reorder; eslint.config.ts is unchanged from main."
   - "UNKNOWN: Phase 5 has no measured results to act on; the brief's tuning (context, effort settings, models, bounded retries) waits for Phase 4's live run, so nothing was adopted."
+  - "OWNER DECISION: \"see we are creating branch after branch, i want all the phase work in a single branch\" and \"fix this bug\" (2026-10-20); the manage-branch skill and npm run pr now refuse to land a branch whose changed work records are still open."
+  - "VERIFIED: pr-ready.test.ts was changed first - a branch whose work record is in-progress was not refused (fail) - and passes after scripts/git/pr-ready.ts gained the open-work refusal, which runs before npm run check and any push; done, parked and superseded records, and an open record that main already held, still go ahead."
   - "INFERRED: evals/compliance/run_comply.py is 778 lines against the 800-line ceiling, so the next change there will need a split first (the confinement and runner helpers are the natural seam); recorded as discovered work, not done here."
   - "VERIFIED: PR #28 (Phase 2) merged by the owner (gh pr view 28: mergedBy ahzeems); check and guards passed on head 3018703."
   - "OWNER DECISION: Phase 3 admits the \"ECC plugin (Recommended)\" first and records it on a \"Wiki reference page (Recommended)\" (2026-10-19)."

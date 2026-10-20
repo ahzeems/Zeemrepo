@@ -733,6 +733,14 @@ def confined_runner(work: Path, deps: Path, network: Network) -> ConfinedSubproc
     return ConfinedSubprocess(subprocess.run, wrap, work / "calls")
 
 
+def outcome_observer(name: str, run_dir: Path, run: Callable[..., subprocess.CompletedProcess[str]], *,
+                     context: dict[str, object], specs: Path = SPECS) -> outcomes.Observe:
+    """The target's pinned outcome checks, run through `run` (the confined runner in a real run), with
+    one record per attempt in `run_dir/records.jsonl` beside the session streams."""
+    return outcomes.recorder(outcomes.load_checks(specs / f"{name}.outcomes.json"), run,
+                             outcomes.jsonl_writer(run_dir / "records.jsonl"), context=context)
+
+
 def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Path, network: Network) -> None:
     """Isolate the environment, confine ECC's subprocesses, patch its setup, grading and generation, and run it."""
     (work / "gh").mkdir()
@@ -757,8 +765,7 @@ def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Pa
     install_setup(runner, confined.run, snapshot, deps)
     name = report_name(args.target)
     run_dir = STREAMS / f"{time.strftime('%Y%m%d-%H%M%S')}-{name}"
-    observe = outcomes.recorder(outcomes.load_checks(SPECS / f"{name}.outcomes.json"), confined.run,
-                                outcomes.jsonl_writer(run_dir / "records.jsonl"), context=run_context(args))
+    observe = outcome_observer(name, run_dir, confined.run, context=run_context(args))
     wire_grading(ecc_run, runner, parse_spec, spec_path=SPECS / f"{name}.json", keep_stream=stream_keeper(run_dir), observe=observe)
     install_scenarios(ecc_run, work / "context", errors=(yaml.YAMLError, KeyError, TypeError),
                       pin_path=SPECS / f"{name}.scenarios.json", build=scenario_from)

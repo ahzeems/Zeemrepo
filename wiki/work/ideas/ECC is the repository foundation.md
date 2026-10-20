@@ -6,11 +6,12 @@ tags: [area/agents, tool/ecc]
 created: 2026-10-19
 updated: 2026-10-19
 agent: claude-code
-status: in-progress
+status: done
 owner: human
 priority: P1
-next_action: Slice B on work/agent-workflow, test first - eslint.config.ts counts function lines as ECC does, and the pinned branch-and-merge compliance spec expects one integration branch; the branch then gets its one pull request with the rest of the work.
 evidence:
+  - "VERIFIED: PR #30 merged by the owner (gh pr view 30: mergedBy ahzeems, merge commit 7f75ad3), carrying ADR-0026, the pinned branch-and-merge spec reworded for one integration branch, and the force-push and review-comment decisions."
+  - "OWNER DECISION: on aligning eslint.config.ts with ECC's line count, which ECC's own config-protection hook refuses to let an agent edit, \"Keep the current config\" (2026-10-19); design-principles.md and ADR-0026 record the gap (under ECC's count no source function and two test functions exceed 50 lines)."
   - "OWNER DECISION: \"the ecc skill is the foundation baseline of this repo, nothing should block or restrict the ECC plugin, ECC always win, add this baseline to make sure going foward nothing blocks or restricts cc\" (2026-10-19)."
   - "OWNER DECISION: asked how far it goes, \"ECC wins everywhere\", and for the Phase 2 exclusions, \"Yes, load all ECC rules\" (2026-10-19)."
   - "VERIFIED: with claudeMdExcludes removed, rules:check refused 19 sets as loading unrecorded, then passed after node scripts/governance/ecc-rules.ts --write listed all 22 in loaded; the vendored rule files are unchanged."
@@ -44,4 +45,4 @@ change: ECC's own `git-workflow` skill never rebases a shared branch, and under
 
 ## Next step
 
-Slice B on `work/agent-workflow`; the branch then gets its one pull request with the rest of the work.
+None: done with the evidence above. The ESLint line count stays as it is by the owner's decision.

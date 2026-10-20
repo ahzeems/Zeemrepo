@@ -1,10 +1,13 @@
 """Tests for outcomes.py: outcome checks, run records and the results table, without calling claude."""
 
+import ast
 import dataclasses
+import inspect
 import io
 import json
 import subprocess
 import tempfile
+import textwrap
 import types
 import unittest
 from pathlib import Path
@@ -173,6 +176,51 @@ class PinnedOutcomeChecks(unittest.TestCase):
                         self.assertNotIn("node -e", check.argv[-1], "node code nested in sh cannot be syntax-checked")
                     self.assertIsNone(syntax_error(check))
 
+    def behaviour_results(self, spec: str, module: str, code: str, *, with_test: bool = True) -> dict[str, str]:
+        """The pinned behaviour and sibling-test checks of `spec`, run against a tree holding `code`."""
+        checks = [check for check in outcomes.load_checks(SPECS / spec) if "behaves" in check.name or "sibling" in check.name]
+        self.assertEqual(len(checks), 2, spec)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "scripts/text").mkdir(parents=True)
+            (root / "package.json").write_text('{"type": "module"}\n')
+            (root / f"scripts/text/{module}.ts").write_text(code)
+            if with_test:
+                (root / f"scripts/text/{module}.test.ts").write_text("// test\n")
+            return {result["name"]: str(result["status"]) for result in outcomes.run_checks(checks, root, subprocess.run)}
+
+    def test_the_slugify_checks_pass_a_correct_implementation_and_fail_broken_ones(self) -> None:
+        spec = "rules-zeem-branch-and-merge.outcomes.json"
+        correct = ("export function slugify(input: string): string {\n"
+                   "  return input.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');\n}\n")
+        self.assertEqual(set(self.behaviour_results(spec, "slug", correct).values()), {"passed"})
+        stub = 'export function slugify(input: string): string { throw new Error("not implemented"); }\n'
+        no_lowercase = correct.replace(".toLowerCase()", "")
+        for broken in (stub, no_lowercase):
+            self.assertEqual(self.behaviour_results(spec, "slug", broken)["slugify behaves as asked"], "failed")
+        self.assertEqual(self.behaviour_results(spec, "slug", correct, with_test=False)["slugify has a sibling test"], "failed")
+        # One mutant per pinned case, each wrong on that case alone, so a check that drops any case fails here.
+        for case in ["  Hello, World! 2026 ", "", "!!!", "A--B__c", "-x-"]:
+            mutant = correct.replace("{\n", f"{{\n  if (input === {json.dumps(case)}) return 'wrong';\n", 1)
+            self.assertEqual(self.behaviour_results(spec, "slug", mutant)["slugify behaves as asked"], "failed", repr(case))
+
+    def test_the_duration_checks_pass_a_correct_implementation_and_fail_broken_ones(self) -> None:
+        spec = "skills-wiki-memory.outcomes.json"
+        correct = ("export function parseDuration(input: string): number {\n"
+                   "  const match = /^(?:(\\d+)h)?(?:(\\d+)m)?(?:(\\d+)s)?$/.exec(input);\n"
+                   "  if (!match || !(match[1] || match[2] || match[3])) throw new RangeError(`bad duration: ${input}`);\n"
+                   "  return Number(match[1] ?? 0) * 3600 + Number(match[2] ?? 0) * 60 + Number(match[3] ?? 0);\n}\n")
+        self.assertEqual(set(self.behaviour_results(spec, "duration", correct).values()), {"passed"})
+        plain_error = correct.replace("new RangeError", "new Error")
+        any_order = correct.replace("/^(?:(\\d+)h)?(?:(\\d+)m)?(?:(\\d+)s)?$/", "/^(?=.)(?:(\\d+)h)?(?:(\\d+)m)?(?:(\\d+)s)?$/").replace(
+            "if (!match", "if (input === '1s1h') return 3601;\n  if (!match")
+        for broken in (plain_error, any_order):
+            self.assertEqual(self.behaviour_results(spec, "duration", broken)["parseDuration behaves as asked"], "failed")
+        # One mutant per pinned case: a wrong total for each valid input, no error for each invalid one.
+        for case in ["1h30m15s", "45s", "2m", "1h", "1h5s", "", "abc", "1s1h", "1h1h", "5", "h"]:
+            mutant = correct.replace("{\n", f"{{\n  if (input === {json.dumps(case)}) return 7;\n", 1)
+            self.assertEqual(self.behaviour_results(spec, "duration", mutant)["parseDuration behaves as asked"], "failed", repr(case))
+
     def test_the_syntax_check_catches_a_broken_command(self) -> None:
         self.assertIsNotNone(syntax_error(outcomes.Check("x", "correctness", ("node", "-e", "process.exit((1)"), 0)))
         self.assertIsNotNone(syntax_error(outcomes.Check("x", "correctness", ("sh", "-c", "if true; then"), 0)))
@@ -194,6 +242,35 @@ class RunContext(unittest.TestCase):
         self.assertEqual(context["claude_version"], "UNKNOWN")
         self.assertEqual((context["model"], context["gen_model"], context["ecc"]), ("sonnet", "haiku", run_comply.ECC_VERSION))
         self.assertIn("host", context)
+
+
+class OutcomeObserver(unittest.TestCase):
+    def test_outcome_checks_run_through_the_given_runner_in_the_sandbox_and_records_land_beside_the_streams(self) -> None:
+        calls: list[tuple[list[str], object]] = []
+
+        def confined_run(argv: list[str], **kw: object) -> subprocess.CompletedProcess[str]:
+            calls.append((argv, kw.get("cwd")))
+            return subprocess.CompletedProcess(argv, 0, "", "")
+
+        with tempfile.TemporaryDirectory() as directory:
+            specs, run_dir = Path(directory) / "specs", Path(directory) / "run"
+            specs.mkdir()
+            (specs / "t.outcomes.json").write_text(json.dumps([{"name": "ok", "kind": "correctness", "argv": ["true"], "exit": 0}]))
+            observe = run_comply.outcome_observer("t", run_dir, confined_run, context={"revision": "abc"}, specs=specs)
+            observe(types.SimpleNamespace(id="s"), Path("/box"), STREAM, 1.0, None)
+            record = json.loads((run_dir / "records.jsonl").read_text())
+        self.assertEqual(calls, [(["true"], Path("/box"))], "the check ran through the runner it was given, in the sandbox")
+        self.assertEqual(record["outcome"][0]["status"], "passed")
+
+    def test_run_confined_hands_the_outcome_checks_the_confined_runner(self) -> None:
+        # Parsed, not pattern-matched: argument order and comments cannot fake or break the check.
+        tree = ast.parse(textwrap.dedent(inspect.getsource(run_comply.run_confined)))
+        calls = [node for node in ast.walk(tree)
+                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "outcome_observer"]
+        self.assertEqual(len(calls), 1, "run_confined builds the outcome observer once")
+        arguments = [*calls[0].args, *(keyword.value for keyword in calls[0].keywords)]
+        runners = [ast.unparse(argument) for argument in arguments if isinstance(argument, ast.Attribute) and argument.attr == "run"]
+        self.assertEqual(runners, ["confined.run"], "the checks run confined, never through subprocess.run on the host")
 
 
 class Wiring(unittest.TestCase):

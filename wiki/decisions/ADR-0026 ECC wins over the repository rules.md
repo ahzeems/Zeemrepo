@@ -51,9 +51,9 @@ repository may block or restrict the ECC plugin.
 - GitHub reviews follow the owner too: agents post findings as pull request comments and never
   submit a formal review, approving or requesting changes (OWNER DECISION, 2026-10-19: "Comments
   only"), although ECC's `/ecc:code-review` publishes one; a deny rule refuses `gh pr review`.
-- Still to change, test first: `eslint.config.ts` measures functions without blank lines and
-  comments, where ECC counts lines; the pinned compliance spec for `branch-and-merge` still expects a
-  fresh branch per piece of work.
+- `eslint.config.ts` measures functions without blank lines and comments and exempts test files,
+  where ECC counts lines. It stays: ECC's own config-protection hook refuses edits to it, and the owner
+  kept the config (OWNER DECISION, 2026-10-19: "Keep the current config").
 - Merging and approving on GitHub stay the owner's (OWNER DECISION, 2026-10-19: "You merge it"),
   although ECC's `/pr` command lists `gh pr merge` as a next step; `CLAUDE.md` names this as the one
   exception. The GitHub ruleset also refuses direct pushes to `main` and merges without the owner's

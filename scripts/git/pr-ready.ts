@@ -4,8 +4,14 @@
 // branch is clean, contains origin/main (so the branch is the merge result) and passes
 // npm run check, then pushes the branch and opens or reports its PR. Merging is the owner's act on GitHub.
 import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
+import { parseFrontmatter } from "../lib/frontmatter.ts";
 import { environmentFor } from "../lib/git.ts";
+import { WORK_DIR } from "../lib/paths.ts";
+import { stringValue } from "../lib/record.ts";
+import { TERMINAL } from "../wiki/work-tracking.ts";
 
 // inherit streams the command's output to the terminal (npm run check can run for a minute
 // and its failure explains itself); env adds variables for that command.
@@ -41,6 +47,22 @@ function must(run: Run, command: string, args: readonly string[], options?: RunO
   return result.stdout.trim();
 }
 
+/**
+ * Work records this branch changed whose status is not terminal. One integration branch carries a
+ * piece of work to its end (ADR-0027, owner decision 2026-10-19), so a branch with open work does not
+ * land part-way; to land early on purpose, the owner parks the open work in its record.
+ */
+function openWork(run: Run): string[] {
+  const root = must(run, "git", ["rev-parse", "--show-toplevel"]);
+  const changed = must(run, "git", ["diff", "--name-only", "-z", "refs/remotes/origin/main...HEAD", "--", WORK_DIR]).split("\0");
+  return changed.filter((path) => path.endsWith(".md") && existsSync(join(root, path))).flatMap((path) => {
+    const parsed = parseFrontmatter(readFileSync(join(root, path), "utf8"));
+    if (parsed.kind !== "ok") return [`${path} has no readable status`];
+    const status = stringValue(parsed.data.status);
+    return TERMINAL.has(status) ? [] : [`${path} is ${status || "without a status"} (next: ${stringValue(parsed.data.next_action) || "none given"})`];
+  });
+}
+
 /** The branch to publish, or a refusal. */
 function readiness(run: Run): { branch: string } | { refusal: string } {
   const head = run("git", ["symbolic-ref", "--quiet", "--short", "HEAD"]);
@@ -52,6 +74,10 @@ function readiness(run: Run): { branch: string } | { refusal: string } {
   if (contains.status === 1) return { refusal: "The branch is behind main: merge origin/main into this branch (never rebase published history), then rerun." };
   if (contains.status !== 0) throw new Error("cannot compare this branch with origin/main");
   if (must(run, "git", ["rev-list", "--count", "refs/remotes/origin/main..HEAD"]) === "0") return { refusal: "The branch has no commits that are not on main; there is nothing to open a pull request for." };
+  const open = openWork(run);
+  if (open.length > 0) {
+    return { refusal: `The work on this branch is not complete: ${open.join("; ")}. One branch carries a piece of work to its end and gets one pull request then (ADR-0027). Finish it, or, to land early on purpose, the owner parks the open work in its record.` };
+  }
   if (run("npm", ["run", "check"], { inherit: true }).status !== 0) return { refusal: "npm run check failed (output above). Fix it before opening the pull request." };
   return { branch };
 }

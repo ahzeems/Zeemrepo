@@ -4,6 +4,10 @@ Every branch adds its own entry here, under a `## YYYY-MM-DD` heading dated betw
 started and the day it lands (UTC). Entries describe the change; they never cite
 facts that only exist after the owner merges. `npm run changelog:guard` enforces this.
 
+## 2026-10-20
+
+- `npm run pr` now refuses to open a pull request while any work record the branch changed is still open (not `done`, `parked` or `superseded`), naming each open record and its next action, before it runs the checks or pushes. One branch carries a piece of work to its end (ADR-0027); the agent workflow review had still landed as five pull requests across five branches. To land early on purpose, the owner parks the open work. The Land a change runbook and the `manage-branch` skill (recorded revision) describe the refusal.
+
 ## 2026-10-19
 
 - Phase 4 of the agent workflow review, second slice: `evals:test` now runs the pinned branch-and-merge and wiki-memory outcome checks against a correct implementation and broken ones, so a check that stops telling them apart fails the build; `run_comply.outcome_observer` builds the outcome recorder, and a test holds `run_confined` to handing it the confined runner, never the host's. In a seeded, unconfined sandbox the branch-and-merge checks passed a correct slugify, failed the stub, and the safety check failed once the sandbox's `main` moved. The Integration admission page records that ECC's GateGuard hook stays on by the owner's choice, what it holds (destructive commands as its classifier judges them, such as `rm -rf`, `git branch -D` and `git push --force`), and how agents answer it. Review fixes: one mutant per pinned outcome case, so a check that drops a case fails `evals:test`, and the `run_confined` test parses the call instead of matching text. `eslint.config.ts` keeps its function line count, which differs from ECC's, because ECC's config-protection hook refuses edits to it and the owner kept the config; `design-principles.md` and ADR-0026 record it.

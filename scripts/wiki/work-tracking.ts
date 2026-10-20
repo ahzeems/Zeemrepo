@@ -26,7 +26,7 @@ export type Fail = (file: string, message: string) => void;
 const TICKET_KINDS = ["build", "decision", "research", "prototype", "prerequisite"];
 const BUILD_SECTIONS = ["Goal", "Approach", "Acceptance criteria", "Out of scope"];
 const QUESTION_SECTIONS = ["Question", "Evidence", "Options", "Recommendation", "Resolution"];
-const TERMINAL = new Set(["done", "parked", "superseded"]);
+export const TERMINAL: ReadonlySet<string> = new Set(["done", "parked", "superseded"]);
 const STARTED = new Set(["in-progress", "in-review", "done"]);
 // Evidence says how a claim is known. Done work must rest on something checked or decided,
 // not on inference alone.

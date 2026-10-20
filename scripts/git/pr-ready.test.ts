@@ -153,6 +153,44 @@ await test("refusals stop before pushing", async (t) => {
   });
 });
 
+function workRecord(status: string): string {
+  return `---\ntype: idea\ntitle: Phases\nstatus: ${status}\nnext_action: Run Phase 5\n---\n\nBody.\n`;
+}
+
+// One integration branch carries a piece of work to the end (ADR-0027): a branch whose work record
+// is still open must not land part-way, which is how one initiative became five PRs.
+await test("a branch whose work record is still open is refused before checks or a push", (t) => {
+  const repo = fixture(t);
+  repo.write("wiki/work/ideas/Phases.md", workRecord("in-progress"));
+  repo.commit("docs(wiki): phases");
+  const { run, calls } = runner(repo);
+  const result = go(repo, run);
+  assert.equal(result.code, EXIT_REFUSED);
+  assert.match(result.err, /wiki\/work\/ideas\/Phases\.md is in-progress \(next: Run Phase 5\)/);
+  assert.match(result.err, /park/, "the refusal says how the owner can land early on purpose");
+  assert.ok(!calls.some((call) => call.command === "npm" || call.args[0] === "push"), "no check and no push");
+});
+
+await test("a branch whose changed work records are all done, parked or superseded goes ahead", (t) => {
+  for (const status of ["done", "parked", "superseded"]) {
+    const repo = fixture(t);
+    repo.write("wiki/work/ideas/Phases.md", workRecord(status));
+    repo.commit("docs(wiki): phases");
+    assert.equal(go(repo, runner(repo).run).code, EXIT_OK, status);
+  }
+});
+
+await test("a work record that main already holds open does not block an unrelated branch", (t) => {
+  const repo = fixture(t);
+  repo.git(["switch", "--quiet", "main"]);
+  repo.write("wiki/work/ideas/Other.md", workRecord("blocked"));
+  repo.commit("docs(wiki): other");
+  repo.git(["push", "--quiet", "origin", "main"]);
+  repo.git(["switch", "--quiet", "feat/x"]);
+  repo.git(["merge", "--quiet", "--no-edit", "main"]);
+  assert.equal(go(repo, runner(repo).run).code, EXIT_OK);
+});
+
 await test("arguments", (t) => {
   const repo = fixture(t);
   assert.equal(go(repo, runner(repo).run, ["--bogus"]).code, EXIT_ERROR);

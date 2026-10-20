@@ -680,8 +680,7 @@ class Wiring(unittest.TestCase):
         ecc_run = types.SimpleNamespace(generate_spec=lambda skill, model: generated.append(model) or spec)
         kept: list[str] = []
         with tempfile.TemporaryDirectory() as directory:
-            run_comply.wire_grading(ecc_run, runner, parse_fake, spec_path=Path(directory) / "s.json", keep_stream=kept.append,
-                                    observe=lambda *observed: None)
+            run_comply.wire_grading(ecc_run, runner, parse_fake, spec_path=Path(directory) / "s.json", keep_stream=kept.append)
             events = ecc_run.run_scenario(object(), model="sonnet").observations
             self.assertEqual(ecc_run.generate_spec("SKILL.md", model="haiku"), spec)
             self.assertEqual(ecc_run.generate_spec("SKILL.md", model="haiku"), spec)

@@ -9,7 +9,7 @@ agent: claude-code
 status: in-progress
 owner: human
 priority: P2
-next_action: On work/agent-workflow-phases, the single branch for all remaining phase work - split run_comply.py and fix the review leftovers; Phase 4's live run waits for a Linux host with bubblewrap and the owner's approval of the run and budget, and Phase 5 for that run's results. One pull request when every phase is done.
+next_action: On work/agent-workflow-phases, the single branch for all remaining phase work - Phase 4's live run waits for a Linux host with bubblewrap and the owner's approval of the run and budget, and Phase 5 for that run's results. One pull request when every phase is done.
 idea: "[[Improve the agent workflow]]"
 evidence:
   - "OWNER DECISION: the owner's brief (2026-10-19) says \"Begin Phase 1 only\" and \"Stop at Phase 1 owner-review handoff. Do not begin Phase 2 before the owner merges Phase 1.\""
@@ -29,7 +29,7 @@ evidence:
   - "UNKNOWN: Phase 5 has no measured results to act on; the brief's tuning (context, effort settings, models, bounded retries) waits for Phase 4's live run, so nothing was adopted."
   - "OWNER DECISION: \"see we are creating branch after branch, i want all the phase work in a single branch\" and \"fix this bug\" (2026-10-20); the manage-branch skill and npm run pr now refuse to land a branch whose changed work records are still open."
   - "VERIFIED: pr-ready.test.ts was changed first - a branch whose work record is in-progress was not refused (fail) - and passes after scripts/git/pr-ready.ts gained the open-work refusal, which runs before npm run check and any push; done, parked and superseded records, and an open record that main already held, still go ahead."
-  - "INFERRED: evals/compliance/run_comply.py is 778 lines against the 800-line ceiling, so the next change there will need a split first (the confinement and runner helpers are the natural seam); recorded as discovered work, not done here."
+  - "VERIFIED: the review LOW leftovers are fixed test first (each new test failed first): run_context moved to outcomes.py and runs git with run_comply.DISARMED, a failing git status leaves dirty UNKNOWN, BASELINE_SUBJECT is one constant every pinned safety check is tested against, outcomes.py table exits 2 on a missing or malformed file, and invalid checks JSON is refused; evals:test passes 79 tests and run_comply.py is 764 of 800 lines."
   - "VERIFIED: PR #28 (Phase 2) merged by the owner (gh pr view 28: mergedBy ahzeems); check and guards passed on head 3018703."
   - "OWNER DECISION: Phase 3 admits the \"ECC plugin (Recommended)\" first and records it on a \"Wiki reference page (Recommended)\" (2026-10-19)."
   - "VERIFIED: git ls-remote resolves ECC tag v2.2.3 to commit c05b2d6614f62f6db0047669aa4eefb223d478f9, the commit of the local marketplace clone; its plugin.json, hooks/hooks.json and .mcp.json give 68 agents, 293 skills, 94 command shims, 24 hook commands on 7 events and a chrome-devtools MCP server."

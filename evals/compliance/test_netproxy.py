@@ -1,5 +1,6 @@
 """Tests for netproxy.py: the host CONNECT proxy and the in-sandbox forwarder, on loopback only."""
 
+import os
 import socket
 import subprocess
 import sys
@@ -10,6 +11,7 @@ import unittest
 from pathlib import Path
 
 import netproxy
+import run_comply
 
 
 class Allowlist(unittest.TestCase):
@@ -126,7 +128,8 @@ class Tunnel(unittest.TestCase):
                 listen.bind(("127.0.0.1", 0))
                 port = listen.getsockname()[1]
                 listen.close()
-                forwarder = subprocess.Popen([sys.executable, netproxy.__file__, "forward", str(sock), str(port), "--", "sleep", "30"])
+                forwarder = subprocess.Popen([sys.executable, netproxy.__file__, "forward", str(sock), str(port), "--", "sleep", "30"],
+                                             env=run_comply.isolated_env(dict(os.environ), Path(directory) / "gh"))
                 try:
                     deadline = time.time() + 5
                     while time.time() < deadline:

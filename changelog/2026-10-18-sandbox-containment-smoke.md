@@ -1,0 +1,1 @@
+- `npm run sandbox:smoke` builds the Node 24 sandbox image (base image and Claude Code pinned) and proves the containment boundary on a Docker runner: a fake agent's planted `core.fsmonitor` fires during the real SDK cleanup inside a container with no mounts, never on the host; the required CI `check` job runs it (S12).

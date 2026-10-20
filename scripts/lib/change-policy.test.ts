@@ -55,8 +55,12 @@ await test("isWorkflowCritical", async (t) => {
     assertAll(isWorkflowCritical, false, ["wiki/lessons/A lesson.md", "docs/migration/zimi-audit.md"]);
   });
 
-  await t.test("no longer recognises other harnesses' config", () => {
-    assertAll(isWorkflowCritical, false, ["AGENTS.md", ".opencode/agents/x.md", ".agents/skills/x/SKILL.md"]);
+  await t.test("covers shared instructions and provider-specific adapters at any depth", () => {
+    assertAll(isWorkflowCritical, true, [
+      "AGENTS.md", "sub/AGENTS.md", "sub/AGENTS.override.md", "sub/GEMINI.md", "sub/opencode.jsonc",
+      ".opencode/agents/x.md", "sub/.opencode/config.json", ".agents/skills/x/SKILL.md",
+      ".codex/config.toml", "sub/.gemini/settings.json", ".cursor/rules/x.md", "sub/agents.md",
+    ]);
   });
 });
 
@@ -66,7 +70,7 @@ await test("isExempt", async (t) => {
   });
 
   await t.test("never exempts a workflow-critical path, so the two cannot overlap", () => {
-    assertAll(isExempt, false, [".githooks/pre-push", "scripts/.gitignore", ".claude/.gitignore", "config/.gitignore"]);
+    assertAll(isExempt, false, [".githooks/pre-push", "scripts/.gitignore", ".claude/.gitignore", ".opencode/.gitignore", ".agents/.gitignore", "config/.gitignore"]);
   });
 
   await t.test("does not exempt code or the changelog itself", () => {

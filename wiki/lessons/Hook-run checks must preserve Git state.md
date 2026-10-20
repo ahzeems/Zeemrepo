@@ -4,7 +4,7 @@ title: Hook-run checks must preserve Git state
 summary: A test fixture run inside a git hook moved the real branch and set core.bare; pre-push now refuses when its check changes the repository's git state.
 tags: [area/git, area/typescript, kind/pitfall]
 created: 2026-10-08
-updated: 2026-10-10
+updated: 2026-10-17
 agent: claude-code
 status: active
 related: ["[[Git hooks route child Git commands to the hooked repository]]", "[[Merge gate contract]]"]
@@ -36,8 +36,13 @@ every `GIT_*` variable, and `scripts/lib/git.ts` does the same whenever a caller
 
 The backstop is `scripts/git/git-state.ts`. `.githooks/pre-push` snapshots `HEAD`, the checked-out
 branch, `core.bare`, local and per-worktree config, every ref, the index and the working tree
+(the `git status` listing plus, since 2026-10-17, the bytes, executable bit or symlink target
+of each path it lists, because a rewrite of an already-dirty file leaves the listing unchanged;
+a directory listed as one entry, such as a nested repository or submodule, is not looked into)
 before `npm run check`, and verifies them afterwards, even when the check failed, refusing the
-push if anything moved. The snapshot holds hashes, and messages name config keys with their
+push if anything moved. It skips one key, `branch.<name>.vscode-merge-base`: the VS Code Git
+extension writes it when it first sees a branch, often during the check, and git never reads it
+(2026-10-17). The snapshot holds hashes, and messages name config keys with their
 subsections redacted, so no value or embedded token is printed. `scripts/git/git-state.test.ts`
 covers each kind of change, `scripts/git/hooks.test.ts` runs the hook itself with stub checks,
 and an end-to-end push from a linked worktree, with a check that leaked a commit, was refused
@@ -59,5 +64,6 @@ followed.
   `core.bare` in this checkout and the main one, restore them, and find the test that escaped
   before pushing again. The check detects; it cannot undo, and it does not see global config,
   hooks or the object store.
-- `npm run pr` runs the check outside any hook, so the snapshot matters only for pushes that run
-  the hook's own check.
+- `npm run pr` runs the check outside any hook and takes the same snapshot around it: a change
+  refuses before anything is pushed, even when the check failed, and it pushes the commit it
+  captured by SHA, so the hook skips its own check only for that commit.

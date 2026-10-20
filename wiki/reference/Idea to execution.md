@@ -4,7 +4,7 @@ title: Idea to execution
 summary: The path from an idea through a map, an owner-approved plan, build tickets and pull requests, with the skill and record at each step.
 tags: [area/planning, area/agents, kind/overview]
 created: 2026-09-20
-updated: 2026-10-10
+updated: 2026-10-16
 agent: claude-code
 status: active
 related: ["[[Land a change]]", "[[Verify a repository change]]"]
@@ -12,29 +12,33 @@ related: ["[[Land a change]]", "[[Verify a repository change]]"]
 
 Capture, clarify, plan, approve, ticket, build, land. Every record is a note under
 `wiki/work/`; its fields and sections are in the wiki-memory skill's `references/note-schema.md`.
-Every step of one piece of work happens on its one integration branch, which gets a single pull
-request when the work is complete ([[ADR-0027 One integration branch per piece of work]]). Small,
-settled changes skip the map and the plan.
+Small, settled changes skip the map and the plan and go straight to a branch.
+
+Every provider can follow these skills through its available tools. ECC's planner and architect
+can assist when installed; otherwise use equivalent analysis in the current harness. Native skill
+discovery and Claude authentication are not prerequisites for the workflow. See
+[[Work with any agent provider]].
 
 | Step | Skill | Record and status | Done when |
 |---|---|---|---|
 | Capture | wiki-memory | Idea in `wiki/work/ideas/`, `backlog` | Problem, desired outcome and next step are written |
 | Clarify | wayfinder, grill-plan | Map in `wiki/work/maps/`, `clarifying`, with decision tickets | No decision is left open before someone builds |
-| Plan | write-plan | Plan in `wiki/work/plans/`, `proposed` | The plan is committed on the integration branch and shown to the owner |
-| Approve | (owner) | Plan becomes `approved`, `approval_ref` set | The owner has approved it in their own words |
+| Plan | write-plan | Plan in `wiki/work/plans/`, `proposed` | The plan is committed alone and its pull request is open |
+| Approve | (owner) | Plan becomes `approved`, `approval_ref` set | The owner has merged the pull request that adds the plan |
 | Ticket | plan-tickets | Build tickets in `wiki/work/tickets/`, `plan` links the approved plan | Each ticket has one deliverable and checkable acceptance |
-| Build | ECC TDD workflow, verify-work | Ticket `in-progress`, then `in-review` | Tests pass and each criterion has a verdict |
-| Land | manage-branch, `npm run pr` | Every ticket `done` with `VERIFIED:` evidence | The owner merges the integration branch's one pull request |
+| Build | Test-first workflow (ECC when available), verify-work | Ticket `in-progress`, then `in-review` | Tests pass and each criterion has a verdict |
+| Land | manage-branch, `npm run pr` | Ticket `done` with `VERIFIED:` evidence | The owner merges the ticket's pull request |
 
-## Approval is the owner's own words
+## Approval is a merged pull request
 
-A branch cannot approve its own plan. On an integration branch the owner approves a plan in their
-own words, and a `docs(wiki): ` change sets `status: approved` and `approval_ref` to them, quoted and
-dated: `OWNER DECISION: "<words>" (YYYY-MM-DD)`. A plan that landed in its own pull request may
-instead cite it as `#N` or its full GitHub URL, confirmed with
-`gh pr view <N> --json state,mergedBy`. `wiki:lint` accepts only these two forms and checks only their shape (a non-blank quote and a real
-calendar date): it cannot tell who wrote the words. The separate review of the branch confirms each
-quoted approval against the conversation it came from.
+A branch cannot approve its own plan. The plan is approved only when the owner merges the pull
+request that adds it on GitHub. A follow-up `docs(wiki): ` change then sets `status: approved`
+and `approval_ref` to that pull request, written as `#N` or its full GitHub URL. Nothing else
+counts, and the field alone proves nothing: before cutting tickets, confirm the merge with
+
+```sh
+gh pr view <N> --json state,mergedBy
+```
 
 A status written by an agent is never approval.
 [[ADR-0025 Agents use a machine account and the owner approves]] records why only the owner approves and merges (superseding ADR-0008).
@@ -43,6 +47,5 @@ A status written by an agent is never approval.
 
 After each meaningful slice, update the owning record (status or `next_action`, plus labelled
 evidence) and any guidance the change affects. Check the slice with
-[[Verify a repository change]] and commit it to the integration branch; the branch lands once,
-through [[Land a change]], when all of its work is done. Keep links to real
+[[Verify a repository change]], then land it through [[Land a change]]. Keep links to real
 ownership and dependencies; agents find the rest by searching metadata.

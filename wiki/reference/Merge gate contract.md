@@ -4,7 +4,7 @@ title: Merge gate contract
 summary: "The merge gate is GitHub: the protect-main ruleset, the required check and guards workflows, the local backstops, and the read-only landing audit."
 tags: [area/git, area/github, kind/convention]
 created: 2026-09-20
-updated: 2026-10-19
+updated: 2026-10-18
 agent: claude-code
 status: active
 related: ["[[Land a change]]", "[[ADR-0025 Agents use a machine account and the owner approves]]"]
@@ -18,7 +18,7 @@ owner, and `.github/CODEOWNERS` names the owner alone, so only the owner's appro
 credential for the owner's account is on the machine agents use: `gh` is logged in as the
 machine account only, and the owner's account has no SSH key registered (both checked
 2026-10-10; re-check with `gh auth status` and `gh api users/<owner>/keys`). `npm run pr`
-refuses to run when `gh` is logged in as the repository owner. The Claude Code deny rules and
+refuses to run when `gh` is logged in as the repository owner or as a user named in `.github/CODEOWNERS` (read from `origin/main`; team entries are skipped). The Claude Code deny rules and
 hook below remain as defence in depth.
 
 ## Ruleset `protect-main` (default branch)
@@ -54,14 +54,14 @@ built the merge ref yet: re-run it.
 |---|---|
 | `.githooks/pre-commit` (`branch-guard.ts commit`, `wiki-compliance.ts --staged`, then lint, typecheck, `wiki:lint` and `skills:lint`) | Commits on main or a detached HEAD, a staged mix of wiki and other files, and a tree that fails those checks. It does not run the tests: `npm run check` before committing does, and pre-push runs it. |
 | `.githooks/pre-merge-commit` (`branch-guard.ts commit`) | A merge commit on main or a detached HEAD; `git merge` runs this hook instead of pre-commit. A fast-forward makes no commit and runs neither, so `git pull --ff-only` on main still works |
-| `.githooks/pre-push` (`branch-guard.ts push`) | Pushes to main and deletion of a branch not contained in `origin/main` (a rewrite of another branch is allowed, for ECC's `--force-with-lease` workflow, owner decision 2026-10-19); then runs `npm run check` and refuses if the check changed HEAD, the branch, `core.bare`, local or per-worktree git config, refs, the index or the working tree (`git-state.ts`) |
-| `.claude/settings.json` deny rules | `git push origin main`, plain force pushes (`--force`, `-f`; `--force-with-lease` is allowed), `gh pr merge`, any `gh pr review` (agents post findings as comments, owner decision 2026-10-19) and `gh api -X PUT` to the REST merge endpoint, each matched against the command text as written: an exact command, a prefix (`:*`), or for the REST endpoint a `*` wildcard for the PR number (so `gh pr review 12 --approve` and `gh api --method PUT` pass them; the hook below catches those). `scripts/git/hooks.test.ts` refuses a rule that mixes a `*` with the trailing `:*` form, which Claude Code reads as a literal prefix that never matches |
-| `scripts/claude/block-pr-merge.ts` (PreToolUse hook) | Bash commands that push to main in the common refspec forms (`HEAD:main`, `+x:main`, `refs/heads/main`, `:main`, `--all`, `--mirror`, after `-C`, `-c`, `--git-dir`, `--work-tree`, `--namespace`, quoted or not; not a destination built from a variable), and that merge or approve a PR in other spellings: `gh pr merge` behind wrappers or flags, a PUT to `pulls/<n>/merge` through `gh api`, `curl` or `wget`, the GraphQL merge and auto-merge mutations, `gh pr review --approve`, and an `APPROVE` review through the REST or GraphQL API. It joins backslash-newline continuations as bash does (with nothing between, and not inside a heredoc with a quoted delimiter; it also joins a backslash before CRLF, which bash does not, so it refuses more than bash would run), drops backslash escapes outside quotes (`gh pr me\rge`), and reads as commands a heredoc or here-string a shell reads (`bash`, `sh`, `zsh`, `dash` or `ksh`, also after `NAME=value` words or behind the wrappers the hook already knows, such as `sudo -u root`, `env FOO=1`, `nice -n 5` or `timeout 5`), what `echo` or `printf` pipes into one, and both bodies of a line with two heredocs. It does not follow process substitution, decoded input (`base64 -d \| bash`), other interpreters or a script written first and run later |
+| `.githooks/pre-push` (`branch-guard.ts push`) | Pushes to main, rewrites of a published branch, deletion of a branch not contained in `origin/main`; then runs `npm run check` and refuses if the check changed HEAD, the branch, `core.bare`, local or per-worktree git config (except VS Code's `branch.<name>.vscode-merge-base`, editor metadata git never reads), refs, the index or the working tree: what `git status` lists and, for each listed path, its bytes, executable bit or symlink target, so an already-dirty or untracked file rewritten in place is caught. Not covered: ignored files, and the contents of a directory `git status` lists as one entry (an untracked nested repository, a submodule). A listed file that cannot be read, or whose name is not valid UTF-8, stops the push, and a dirty or untracked file rewritten during the check causes a refusal. Vim and Emacs swap, backup and autosave files match `.gitignore`, so they stay outside the snapshot; another editor's temporary file written during the check still causes a refusal (`git-state.ts`) |
+| `.claude/settings.json` deny rules | `git push origin main`, force pushes, `gh pr merge`, `gh pr review --approve` and `gh api -X PUT` to the REST merge endpoint, each matched against the command text as written: an exact command, a prefix (`:*`), or for the REST endpoint a `*` wildcard for the PR number (so `gh pr review 12 --approve` and `gh api --method PUT` pass them; the hook below catches those). `scripts/git/hooks.test.ts` refuses a rule that mixes a `*` with the trailing `:*` form, which Claude Code reads as a literal prefix that never matches |
+| `scripts/claude/block-pr-merge.ts` (PreToolUse hook) | Bash commands that push to main in the common refspec forms (`HEAD:main`, `+x:main`, `refs/heads/main`, `:main`, `--all`, `--mirror`, after `-C`, `-c`, `--git-dir`, `--work-tree`, `--namespace`, quoted or not; not a destination built from a variable; with `--repo` or `--repo=<r>` every positional counts as a destination, which refuses more than git pushes, because git 2.53 still reads the first positional as the repository, checked 2026-10-18 by pushing a harmless branch name), and that merge or approve a PR in other spellings: `gh pr merge` behind wrappers or flags or as the condition of `if`, `elif`, `while` or `until`, a PUT to `pulls/<n>/merge` through `gh api`, `curl` or `wget`, the GraphQL merge and auto-merge mutations, `gh pr review --approve`, and an `APPROVE` review through the REST or GraphQL API. It joins backslash-newline continuations as bash does (with nothing between, and not inside a heredoc with a quoted delimiter; it also joins a backslash before CRLF, which bash does not, so it refuses more than bash would run), drops backslash escapes outside quotes (`gh pr me\rge`), and reads as commands a heredoc or here-string a shell reads (`bash`, `sh`, `zsh`, `dash` or `ksh`, also after `NAME=value` words or behind the wrappers the hook already knows, such as `sudo -u root`, `env FOO=1`, `nice -n 5` or `timeout 5`), what `echo` or `printf` pipes into one, both bodies of a line with two heredocs, and each `$(...)` or backtick substitution in an unquoted heredoc body (not one behind an odd run of backslashes, which escapes it; an even run such as `\\$(cmd)` still runs; and nothing in a heredoc whose delimiter is quoted). It finds heredocs line by line, indexing delimiter lines first, so an opener that is never closed does not make a long command cost quadratic time; an unclosed opener is not a heredoc, and what follows it is read as commands. It does not follow a heredoc substitution whose command holds a bracketed part of its own, such as a subshell (`$( (cmd) )`) or a `case` (`$(case x in x) cmd;; esac)`; a nested `$(cmd)` is followed), an even run of backslashes before `$(` inside double quotes outside a heredoc (`"\\$(cmd)"`), `eval` with an unquoted argument (`eval cmd`, also as an `if` condition), `coproc cmd`, a heredoc opener written inside quotes (`echo "<<'EOF'"` is read as an opener, so the lines up to the next `EOF` are taken as data), text after a heredoc opener on its own line, which is dropped with the heredoc and never judged (`cat <<EOF; cmd`, `cat <<EOF && cmd`, `cat <<EOF \| cmd`, `cat <<EOF > "$(cmd).md"`), a backtick substitution inside double quotes outside a heredoc (``echo "`cmd`"``), a delimiter the hook reads shorter than bash does (`<<"E"OF`, `<<E\OF`, `<<END-OF`, `<<EOF.`), so the hook closes the heredoc at a later line and takes the commands between as data, and an opener inside a comment (`# <<EOF`) or an arithmetic shift (`$((1<<EOF))`), which the hook reads as a heredoc, process substitution, decoded input (`base64 -d \| bash`), other interpreters or a script written first and run later (each probed against the hook's functions on 2026-10-18) |
 
 The hook is a heuristic, not a sandbox; the `protect-main` ruleset (no bypass actors) and the
 owner's review are the control. `npm run audit` asks `gh` with a 60-second timeout, so a hung `gh`
-is an error, not a stall. Pre-push skips its `npm run check` when `PR_READY_CHECKED` names the
-commit being pushed, which `npm run pr` sets after running the check itself; anyone can set it, so
+is an error, not a stall. Pre-push skips its `npm run check` when `PR_READY_CHECKED` equals the
+checkout's `HEAD` (not the commit being pushed, which it does not compare), and `npm run pr` sets it to the commit it captured before running the check itself; anyone can set it, so
 CI is what enforces the check. ECC's own plugin hooks also run in this repository (the hook
 profile is set in the owner's user settings, not here): GateGuard asks for facts before a first edit or command and before destructive commands,
 and config-protection refuses agent edits to `eslint.config.ts`, so the owner makes an edit there
@@ -71,13 +71,76 @@ config-protection read from the plugin's `scripts/hooks/config-protection.js`, v
 ## Commands
 
 - `npm run pr` (`scripts/git/pr-ready.ts`) refuses unless the branch is a named feature
-  branch, clean, contains `origin/main`, has commits of its own and passes `npm run check`.
-  It then checks `gh auth status`, refuses if `gh` is logged in as the repository owner, pushes the branch and opens or reports its pull request. It
-  never merges. `--dry-run` stops before pushing.
-- `npm run audit` (`scripts/git/landing-audit.ts`) fetches origin's main itself, so a stale
-  local ref cannot hide a direct push, and changes nothing else; a failed fetch is an error. It
-  walks main's first-parent history after the `since` commit in `config/landing-audit.json`,
-  and asks GitHub whether each commit's PR (from its merge or squash subject) merged as that
-  exact commit. Anything else is reported; a `gh` failure is an error, never a verdict.
+  branch, clean, contains origin's main, has commits of its own and passes `npm run check`.
+  It fetches `+refs/heads/main:refs/remotes/origin/main` (`MAIN_REFSPEC` in `scripts/lib/git.ts`),
+  so a narrowed `remote.origin.fetch` cannot leave the ref stale and no other remote ref changes,
+  resolves it to a commit, and checks containment, its own commits and `CODEOWNERS` against that
+  captured commit; a failed fetch, a missing main or a non-commit is an error.
+  It captures `HEAD` and the state `git-state` compares just before `npm run check` and compares
+  them after it, whether the check passed or failed; any change refuses, naming the classes that
+  changed (never a config value or file content), and nothing is pushed.
+  Before anything leaves the checkout it fixes one destination: the GitHub repository git really
+  pushes origin to. It reads every fetch and push URL (`git remote get-url --all [--push] origin`,
+  after `pushurl` and `insteadOf` rewriting) and refuses, with nothing pushed, unless there is
+  exactly one of each, because `git push origin` pushes to every push URL (every URL when no
+  `pushurl` is set). It also refuses when either URL is not a GitHub URL
+  (`https://HOST/OWNER/REPO`, `git@HOST:OWNER/REPO` or `ssh://git@HOST/OWNER/REPO`) or when the
+  two name different repositories; refusals print `HOST/OWNER/REPO`, never a URL's credentials.
+  Every `gh` call names that host (`--hostname`) or repository (`--repo HOST/OWNER/REPO`), so
+  `GH_REPO`, `GH_HOST` and gh's own choice among remotes cannot redirect the handoff.
+  It then checks `gh auth status`, refuses if `gh` is logged in as the repository owner or a code owner, pushes the captured commit by SHA
+  (`git push origin <sha>:refs/heads/<branch>`, then writes `branch.<branch>.remote` and `.merge`, which works when the fetch refspec covers only main), and hands off a pull request.
+  It lists the open pull requests whose head branch has the branch's name and ignores those from
+  a fork, including a deleted fork that GitHub reports with no source repository. With none left it creates one (`--base main --head <branch>`) and reads it back by the
+  number in the URL `gh pr create` printed. The pull request it reports, reused or created, must
+  be `OPEN`, have that URL in the destination repository, base `main`, come from the same
+  branch in the same repository (not cross-repository) and have the checked SHA as its head.
+  Any difference, or more than one open pull request from the branch, refuses and names each
+  difference; it never retargets, closes or duplicates a pull request. A failed `gh` call or an
+  answer that is not JSON, not a list or missing one of those fields is an error. GitHub can
+  still report the previous head just after a push to a branch with an open pull request
+  (observed on 2026-10-18 on both live reuses of this check, pull request 38 at 83e1551 and at
+  5ac895f; how long the lag lasts was not measured, and shortly afterwards the head was current).
+  That refuses as a stale head; rerun. A bounded retry is tracked in the S06 ticket.
+  `npm run sandcastle:afk` refuses before its loop unless origin's destination, read by the same
+  check, is `github.com/Zimfra/software_testing`. It comments on issues only with the pull request
+  this same lookup finds there: open, and exactly the landed commit into main.
+  After the push, every refusal or error, including a failed write of the branch's tracking
+  config, says the commit is already pushed to the branch. That
+  is the recovery boundary: nothing was merged or retargeted, and a rerun pushes the same commit
+  again (a no-op) and reuses a matching open pull request instead of opening another. Never
+  force-push to recover. It never merges. `--dry-run` stops before pushing.
+  Tests fake `gh`, use `.invalid` hosts, and route origin's fetches and pushes to a local bare
+  repository; their git runs with `protocol.allow=never` and only the file transport allowed,
+  so no URL can reach a network. The mismatch cases have not been tried against live GitHub.
+- `scripts/sandcastle/isolated-publication.ts` (S16) publishes a Sandcastle candidate that a
+  verification receipt binds, not the checked-out branch. It reuses `npm run pr`'s destination,
+  owner and code-owner login and pull request identity checks and the pre-push hook's branch
+  policy, pushes the candidate SHA from a quarantine repository with hooks disabled and never
+  forces. The receipt, not a control-checkout `npm run check`, is its evidence for the
+  candidate; the pull request's required `check` and `guards` stay the merge gate. Steps and
+  recovery: [[Run Sandcastle on GitHub issues]]. `npm run pr` itself is unchanged.
+- `npm run audit` (`scripts/git/landing-audit.ts`) fetches origin's main itself through the same
+  explicit refspec and reads its config and history from the commit that fetch captured, so a
+  stale or narrowed local ref cannot hide a direct push; it writes only that ref and `FETCH_HEAD`.
+  A failed fetch
+  or a missing main is an error. Freshness means origin's main at the moment of that fetch.
+  `config/landing-audit.json` names the repository (`Zimfra/software_testing`) and an exclusive
+  boundary, `since`: the inherited upstream commit immediately before this fork's first pull
+  request merge. A boundary that is not on main's first-parent history is an error. The audit
+  walks main's first-parent history after it and asks GitHub about each commit's PR (from its
+  merge or squash subject). A commit passes only when that PR is merged, merged as this exact
+  commit, targeted `main`, and was merged by a user named in `.github/CODEOWNERS` as it stood on
+  main just before that commit landed, so a later change of owner does not invalidate an earlier
+  landing and a PR cannot authorize its own merger. Anything else is reported (`no-pr`,
+  `unverified-pr`, `wrong-base`, `unauthorized-merger`); a `gh` failure or an answer missing one
+  of those fields is an error, never a verdict.
+  It does not cover history at and before the boundary, which came from the upstream repository
+  ([[Choose the landing audit history scope]]), or team entries and email addresses in
+  `CODEOWNERS`, which it skips as `npm run pr` does. Like `npm run pr`, it treats a user named on
+  any `CODEOWNERS` line as an owner of the whole repository, so a path-scoped line such as
+  `/docs/ @<helper>` would authorize that user's merges of any pull request; today the file has
+  only the `*` line. It reads only `.github/CODEOWNERS`: a `CODEOWNERS` at the root or in `docs/`,
+  which GitHub also honours, is not read, and every merge would then be reported unauthorized.
 
 Only the owner merges. Agents prepare, check, push the branch and open the pull request.

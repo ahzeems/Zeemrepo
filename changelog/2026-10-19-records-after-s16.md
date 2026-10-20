@@ -1,0 +1,1 @@
+- A new build ticket, S27, makes `npm run sandcastle:afk` land only the issues the coordinator handed the merger; three idea notes record pending owner decisions (shell characters in the host branch name, revising the lenient compliance label specs, a model-backed compliance run), and eight more carry the gaps the S11, S16 and S24 builders recorded.

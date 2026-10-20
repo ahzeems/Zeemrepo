@@ -1,0 +1,1 @@
+- The audit tickets that landed in PRs 50, 52, 53 and 54 (S11, S24, S16 and S10) record their merges and final reviews, S09's and S16's afk item points at the S27 ticket, the project record lists 22 landed slices with S14, S17, S21 and S27 in progress, two wording slips in the S10 ticket are fixed, and five new idea notes carry the gaps the S10 and S16 tickets left open.

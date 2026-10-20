@@ -1,0 +1,1 @@
+- New idea notes record the improvement loop the owner asked for (ideas, then plans, then tickets) and each gap the parallel audit batch uncovered.

@@ -1,76 +1,66 @@
 import { isExempt } from "../lib/change-policy.ts";
-import { CHANGELOG } from "../lib/paths.ts";
+import { CHANGELOG, CHANGELOG_DIR, CHANGELOG_FRAGMENT_PATTERN } from "../lib/paths.ts";
 
-// The changelog rule. Pure; the CLI lives in changelog-guard.ts. Every branch that changes
-// something that matters adds a dated entry describing it, under a heading dated between the
-// day the branch started and today (UTC). Requiring the current day's heading would force a
-// branch reviewed on one day and landed the next to be edited and re-reviewed.
-// Entries are judged by their position in the file, never by their text, so a line that
-// repeats an older entry cannot borrow that entry's date.
+// The changelog rule (ADR-0027). Pure; the CLI lives in changelog-guard.ts. Every branch that
+// changes something that matters adds its own new fragment, changelog/<YYYY-MM-DD>-<slug>.md,
+// dated between the day the branch started and today (UTC), so two open branches never edit
+// the same file. Requiring the current day would force a branch reviewed on one day and landed
+// the next to be edited and re-reviewed. Fragments on main and CHANGELOG.md are history.
 
 type Window = { from: string; to: string };
-type ChangelogInput = { changed: readonly string[]; changelog: string; addedLines: readonly number[]; window: Window };
+/** A path under changelog/ that differs from the base, with its content on the branch. */
+export type FragmentChange = { path: string; status: "added" | "modified" | "deleted"; content: string };
+type ChangelogInput = { changed: readonly string[]; fragments: readonly FragmentChange[]; baseHasFragment: boolean; window: Window };
 
 const ENTRY = /^\s*[-*]\s+\S/;
-const DATE_HEADING = /^##\s+(\d{4}-\d{2}-\d{2})\s*$/;
 const FENCE = /^\s*(```|~~~)/;
+const FRAGMENT_NAME = `${CHANGELOG_DIR}<YYYY-MM-DD>-<slug>.md`;
 // Facts that only exist after the owner merges the PR. An entry needing them would need a
-// second PR to record, which is the reconciliation debt this rule prevents (ADR-0007).
+// second PR to record, which is the reconciliation debt this rule prevents (ADR-0007, ADR-0027).
 const POST_MERGE = /merge commit|\bmerged in\b|\bcherry-pick(ed)?\b/i;
 
 function realDate(date: string): boolean {
   const parsed = new Date(`${date}T00:00:00Z`);
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
 }
-const linesOf = (text: string): string[] => text.replace(/\r\n/g, "\n").split("\n");
 
-/** For each 1-based line, the date heading it sits under; undefined outside one or in a code fence. */
-export function headingDates(changelog: string): (string | undefined)[] {
-  const dates: (string | undefined)[] = [undefined];
-  let date: string | undefined;
+/** Entry lines ("- " or "* " items) outside code fences. */
+function entryLines(content: string): string[] {
   let fenced = false;
-  for (const line of linesOf(changelog)) {
+  return content.replace(/\r\n/g, "\n").split("\n").filter((line) => {
     if (FENCE.test(line)) fenced = !fenced;
-    const heading = fenced ? null : DATE_HEADING.exec(line);
-    if (heading?.[1] !== undefined) date = realDate(heading[1]) ? heading[1] : undefined;
-    else if (!fenced && /^#{1,2}\s/.test(line)) date = undefined;
-    dates.push(fenced || FENCE.test(line) ? undefined : date);
-  }
-  return dates;
+    else if (!fenced && ENTRY.test(line)) return true;
+    return false;
+  });
 }
 
-/** 1-based numbers of entry lines ("- " or "* " items) outside code fences. */
-function entryLineNumbers(changelog: string): Set<number> {
-  const entries = new Set<number>();
-  let fenced = false;
-  linesOf(changelog).forEach((line, index) => {
-    if (FENCE.test(line)) fenced = !fenced;
-    else if (!fenced && ENTRY.test(line)) entries.add(index + 1);
-  });
-  return entries;
-}
-
-export function changelogRefusals({ changed, changelog, addedLines, window }: ChangelogInput): string[] {
-  const relevant = changed.filter((file) => file !== CHANGELOG && !isExempt(file));
-  if (relevant.length === 0) return [];
-  if (!changed.includes(CHANGELOG)) {
-    return [`This branch changes ${relevant.length} file(s) but adds no entry to ${CHANGELOG}. Record the change in this PR; no follow-up PR records it later.`];
-  }
-  const lines = linesOf(changelog);
-  const dates = headingDates(changelog);
-  const entryLines = entryLineNumbers(changelog);
-  const entries = addedLines.filter((number) => entryLines.has(number));
-  if (entries.length === 0) return [`${CHANGELOG} changed without adding an entry line. Add a "- " entry describing the change.`];
-  const inWindow = entries.filter((number) => {
-    const date = dates[number];
-    return date !== undefined && date >= window.from && date <= window.to;
-  });
-  if (inWindow.length === 0) {
-    return [`No added entry sits under a date heading between ${window.from} and ${window.to} (UTC) in ${CHANGELOG}. Put it under "## <date>" in that range.`];
-  }
+function fragmentRefusals({ path, content }: FragmentChange, window: Window): string[] {
+  if (!CHANGELOG_FRAGMENT_PATTERN.test(path)) return [`${path} is not named ${FRAGMENT_NAME}. Rename it.`];
+  const date = path.slice(CHANGELOG_DIR.length, CHANGELOG_DIR.length + 10);
+  if (!realDate(date)) return [`${path}: ${date} is not a real date.`];
+  if (date < window.from || date > window.to) return [`${path} is dated ${date}, outside ${window.from} to ${window.to} (UTC), the days this branch has existed. Rename it to a date in that range.`];
+  const entries = entryLines(content);
+  if (entries.length === 0) return [`${path} has no "- " entry. Add one describing the change.`];
   // Only entry lines are checked; surrounding prose may name the rule it describes.
-  const offender = entries.map((number) => lines[number - 1] ?? "").find((line) => POST_MERGE.test(line));
+  const offender = entries.find((line) => POST_MERGE.test(line));
   return offender === undefined ? [] : [
-    `An entry cites a post-merge fact, which cannot be known before the owner merges: ${offender.trim().slice(0, 80)}. Describe the change instead.`,
+    `${path} cites a post-merge fact, which cannot be known before the owner merges: ${offender.trim().slice(0, 80)}. Describe the change instead.`,
   ];
+}
+
+export function changelogRefusals({ changed, fragments, baseHasFragment, window }: ChangelogInput): string[] {
+  const history = fragments.filter((entry) => entry.status !== "added")
+    .map((entry) => `${entry.path} is already on main; add a new fragment instead of changing it. Fragments are history.`);
+  const added = fragments.filter((entry) => entry.status === "added");
+  const invalid = added.flatMap((entry) => fragmentRefusals(entry, window));
+  const shared = baseHasFragment && changed.includes(CHANGELOG)
+    ? [`${CHANGELOG} is history since the switch to fragments, so this branch may not change it. Record the change in a new fragment ${FRAGMENT_NAME}.`]
+    : [];
+  const relevant = changed.filter((file) => file !== CHANGELOG && !file.startsWith(CHANGELOG_DIR) && !isExempt(file));
+  const missing = relevant.length > 0 && !added.some((entry) => CHANGELOG_FRAGMENT_PATTERN.test(entry.path)) ? [
+    changed.includes(CHANGELOG)
+      ? `This branch records its change in ${CHANGELOG}; move it into a new fragment ${FRAGMENT_NAME}.`
+      : `This branch changes ${relevant.length} file(s) but adds no changelog fragment. Add a new fragment ${FRAGMENT_NAME}; no follow-up PR records it later.`,
+  ] : [];
+  return [...history, ...invalid, ...shared, ...missing];
 }

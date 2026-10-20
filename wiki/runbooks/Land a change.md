@@ -4,7 +4,7 @@ title: Land a change
 summary: Take work from a feature branch to an owner-merged pull request; nothing is ever pushed to main.
 tags: [area/git, area/github, kind/convention]
 created: 2026-10-09
-updated: 2026-10-19
+updated: 2026-10-18
 agent: claude-code
 status: active
 related: ["[[Change records]]"]
@@ -23,34 +23,34 @@ requests on GitHub (owner decision, 2026-10-09).
 
 ## Steps
 
-1. Start the piece of work's one integration branch from current main:
-   `git switch main && git pull --ff-only && git switch -c work/<topic>`. Every phase, issue and ticket
-   of that work lands on it. A parallel agent or terminal adds a worktree on its own local branch,
-   `git worktree add -b work/<topic>--<name> .worktrees/<name> work/<topic>`, and when its slice passes
-   `npm run check`, merges it back from the integration branch's checkout:
-   `git merge --no-ff work/<topic>--<name>`.
+1. Branch from current main: `git switch main && git pull --ff-only && git switch -c feat/<topic>`.
+   For parallel sessions, use a worktree under `.worktrees/` instead.
 2. Work test-first. Commit with conventional subjects. Wiki files go in their own
    `docs(wiki): ` commits. The pre-commit hook refuses commits on main and mixed wiki staging,
    and runs lint, types, wiki:lint and skills:lint; the pre-merge-commit hook refuses a merge
    commit on main.
-3. Record the change: a `CHANGELOG.md` entry, the owning work record under `wiki/work/`
+3. Record the change: a new fragment `changelog/<YYYY-MM-DD>-<slug>.md`, the owning work record under `wiki/work/`
    (status or next action, plus `VERIFIED:` evidence), and an operating document when
    workflow-critical files change. See [[Change records]].
-4. If main moved, merge it into the integration branch: `git fetch origin && git merge origin/main`.
-   The integration branch is shared, so it is not rebased ([[ADR-0027 One integration branch per piece of work]]).
-5. When the whole piece of work is complete, run `npm run pr`, once. It refuses unless the tree is clean, the branch contains `origin/main`,
-   every work record the branch changed is `done`, `parked` or `superseded` (so a branch cannot land
-   part-way through its phases; to land early on purpose, the owner parks the open work), and
-   `npm run check` passes; then it pushes the branch and opens or reports the pull
-   request. It never merges. `npm run pr -- --dry-run` checks without pushing.
+4. If main moved, merge it in: `git fetch origin && git merge origin/main`. Never rebase or
+   force-push a published branch.
+5. Run `npm run pr`. It refuses unless the tree is clean, the branch contains `origin/main`
+   and `npm run check` passes, and unless origin has one fetch URL and one push URL, both for
+   the same GitHub repository; then it pushes the branch and reuses or opens the pull request for exactly that
+   commit into main of that repository. It refuses rather than report a pull request with
+   another repository, base, source branch or head commit, and never retargets one
+   ([[Merge gate contract]] lists the checks). It never merges. `npm run pr -- --dry-run` checks
+   without pushing. If it refuses or fails after saying the commit is already pushed, fix the
+   cause and rerun it (a stray pull request from the branch is the owner's to close): the
+   push repeats as a no-op and an open pull request is reused, not duplicated. A refusal for a
+   stale head right after a push to an open pull request can mean GitHub had not caught up yet
+   (seen on both live reuses on 2026-10-18; see [[Merge gate contract]]); rerun. Never force-push to recover.
 6. Wait for both required checks. `check` runs the change's own `npm run check`. `guards`
    runs main's copy of the repository guards on `pull_request_target`, so the pull request
    can neither edit that workflow nor run its own code in it (it does read the PR's `config/`;
    see [[Merge gate contract]]). If `guards` fails right after
    the PR opens with "couldn't find remote ref", GitHub had not built the merge ref yet:
    re-run it. A PR that conflicts with main has no merge ref at all; merge main in first.
-   Review the pushed head in a separate context ([[Verify a repository change]] step 6) and fix
-   its findings on the branch before reporting the branch ready for the owner's review.
 7. The owner reviews, approves and merges on GitHub: **Files changed**, **Review changes**,
    **Approve**, then **Merge pull request** (merge commit or squash; rebase merging is off so
    the landing audit can match each commit to its PR). Agents push and open the pull request as
@@ -64,12 +64,13 @@ requests on GitHub (owner decision, 2026-10-09).
 ## Verify
 
 - `gh pr view <n> --json state,mergedBy` shows `MERGED` by the owner.
-- `npm run audit` fetches origin's main and reports every commit on it since the PR-only rule
-  as a merged pull request.
+- `npm run audit` fetches origin's main and reports every commit on it after the fork's
+  boundary commit as a pull request into main that a code owner of the time merged as that
+  commit. History inherited from upstream, at and before the boundary, is outside the audit.
 - The pre-push hook refuses `git push origin main`; the GitHub ruleset refuses it too.
 - Dependabot opens weekly pull requests for the pinned GitHub Actions and all npm
   dependencies (development ones grouped). A bot cannot write a
-  changelog entry or work record, so for pull requests GitHub reports as authored by
+  changelog fragment or work record, so for pull requests GitHub reports as authored by
   `dependabot[bot]` the change-record guards are skipped; every other check still applies and
   the owner still reviews and merges. TypeScript minor and major updates and `@types/node` major
   updates are not proposed (`.github/dependabot.yml`): `typescript-eslint` must support a

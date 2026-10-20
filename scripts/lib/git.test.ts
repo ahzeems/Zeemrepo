@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { realpathSync, rmSync } from "node:fs";
+import { realpathSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { createRepo, type RepoFixture } from "../test-support/repo-fixture.ts";
-import { GitError, git, gitLines, gitOptionsAt, gitPaths, isAncestor, mergeBase, refExists, tryGit } from "./git.ts";
+import { GitError, fetchMain, git, gitLines, gitOptionsAt, gitPaths, isAncestor, mergeBase, refExists, tryGit } from "./git.ts";
 
 function withRepo(t: { after(fn: () => void): void }): RepoFixture {
   const repo = createRepo();
@@ -194,4 +194,41 @@ await test("isAncestor", async (t) => {
 await test("gitOptionsAt names the repository only when a cwd is given", () => {
   assert.deepEqual(gitOptionsAt(undefined), {});
   assert.deepEqual(gitOptionsAt("/repo"), { cwd: "/repo" });
+});
+
+// A clone of `origin` whose fetch configuration names only another branch, as a narrowed checkout has.
+function narrowedClone(t: { after(fn: () => void): void }, origin: RepoFixture): RepoFixture {
+  const clone = withRepo(t);
+  clone.commit("clone");
+  clone.git(["remote", "add", "origin", origin.dir]);
+  clone.git(["config", "remote.origin.fetch", "+refs/heads/other:refs/remotes/origin/other"]);
+  return clone;
+}
+
+await test("fetchMain returns origin's main with a narrowed refspec and no tracking ref, and touches no other ref", (t) => {
+  const origin = withRepo(t);
+  origin.commit("first");
+  const clone = narrowedClone(t, origin);
+  const unrelated = clone.git(["rev-parse", "HEAD"]);
+  clone.git(["update-ref", "refs/remotes/origin/other", unrelated]);
+  assert.equal(refExists("refs/remotes/origin/main", gitOptionsAt(clone.dir)), false);
+  const advertised = origin.commit("second");
+  assert.equal(fetchMain(gitOptionsAt(clone.dir)), advertised);
+  assert.equal(clone.git(["rev-parse", "refs/remotes/origin/main"]), advertised);
+  assert.equal(clone.git(["rev-parse", "refs/remotes/origin/other"]), unrelated, "an unrelated remote-tracking ref is not rewritten");
+});
+
+await test("fetchMain throws for an unreachable origin and for a main that is not a commit", (t) => {
+  const origin = withRepo(t);
+  origin.commit("first");
+  const unreachable = narrowedClone(t, origin);
+  unreachable.git(["remote", "set-url", "origin", join(origin.dir, "no-such-repository")]);
+  // A leftover tracking ref, so only the failed fetch itself can stop the call.
+  unreachable.git(["update-ref", "refs/remotes/origin/main", unreachable.git(["rev-parse", "HEAD"])]);
+  assert.throws(() => fetchMain(gitOptionsAt(unreachable.dir)), GitError);
+  // update-ref refuses to point a branch at a tree, so the loose ref file is written directly.
+  const tree = origin.git(["rev-parse", "HEAD^{tree}"]);
+  writeFileSync(join(origin.dir, ".git", "refs", "heads", "main"), `${tree}\n`);
+  const clone = narrowedClone(t, origin);
+  assert.throws(() => fetchMain(gitOptionsAt(clone.dir)), GitError);
 });

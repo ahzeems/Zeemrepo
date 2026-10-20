@@ -4,7 +4,7 @@ title: Prose rules do not enforce themselves
 summary: A repository rule written only in a skill was broken by the agent that had not yet loaded the skill; only a check running in the canonical path stopped it.
 tags: [area/agents, area/docs, area/git, area/wiki, kind/pitfall]
 created: 2026-09-20
-updated: 2026-10-10
+updated: 2026-10-16
 agent: claude-code
 status: active
 related: ["[[ADR-0009 Workflow-critical Markdown is an interface]]", "[[A refused commit leaves its staging behind]]"]
@@ -40,11 +40,12 @@ was kebab-case but not that it was a known author, so `claude` accumulated besid
 `claude-code` on nine notes. The note schema gained an allowed-agent list, read by the linter
 exactly as the tag list already was.
 
-Zeemrepo keeps both. `npm run wiki:compliance` (`scripts/wiki/wiki-compliance.ts`) refuses a
+`npm run wiki:compliance` (`scripts/wiki/wiki-compliance.ts`) refuses a
 mixed commit or a wiki-only commit whose subject does not start `docs(wiki): `; it runs in
-`npm run check`, so at pre-push and in CI, and with `--staged` in pre-commit. The allowed tags
-and agents live between marker comments in the wiki-memory skill's `note-schema.md`, and
-`npm run wiki:lint` rejects any value outside them.
+`npm run check`, so at pre-push and in CI, and with `--staged` in pre-commit. Allowed tags live
+between marker comments in the wiki-memory skill's `note-schema.md`. On 2026-10-16,
+[[ADR-0026 Any provider may work under shared rules]] replaced the closed author list with
+open kebab-case identifiers so any provider can record truthful authorship.
 
 ## How to apply
 
@@ -54,4 +55,5 @@ when a skill is loaded late.
 
 Load the skill that owns a surface before writing to that surface, not before reviewing it. And
 when a check accepts a shape rather than a value (kebab-case rather than a known name), it is
-enforcing spelling, not meaning. Close the set.
+enforcing spelling, not meaning. Close the set only when membership is itself the policy;
+otherwise validate the shape and document how identifiers are chosen.

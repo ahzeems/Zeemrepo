@@ -5,7 +5,7 @@ summary: A checker proven only on valid input may accept everything; test it aga
 tags: [kind/pitfall]
 created: 2026-10-09
 updated: 2026-10-09
-agent: claude-code
+agent: future-agent
 status: active
 ---
 

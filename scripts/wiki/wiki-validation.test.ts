@@ -47,6 +47,21 @@ for (const ending of ["\n", "\r\n"]) {
   });
 }
 
+await test("accepts authors from any provider without registering them in the schema", async (t) => {
+  for (const agent of ["claude-code", "human", "opencode", "codex", "gemini-cli", "github-copilot", "future-agent-27"]) {
+    await t.test(agent, (t) => {
+      const root = fixture(t, validNote.replace("agent: claude-code", `agent: ${agent}`));
+      assert.deepEqual(validateWiki(root, { identity }).errors, []);
+    });
+  }
+});
+
+await test("a tag schema needs no author allowlist", (t) => {
+  const root = fixture(t, validNote.replace("agent: claude-code", "agent: future-agent"));
+  writeFileSync(join(root, WIKI_SCHEMA), "<!-- tags:start -->\n- `kind/convention`\n<!-- tags:end -->\n");
+  assert.deepEqual(validateWiki(root, { identity }).errors, []);
+});
+
 const invalidCases: [string, string, RegExp][] = [
   ["missing frontmatter", "Recorded facts.\n", /missing YAML frontmatter/],
   ["malformed closing delimiter", validNote.replace("\n---\n", "\n---oops\n"), /unterminated/],
@@ -66,8 +81,6 @@ const invalidCases: [string, string, RegExp][] = [
   ["memory status", validNote.replace("status: active", "status: done"), /status must be one of active/],
   ["missing replacement", validNote.replace("status: active", "status: superseded"), /superseded_by/],
   ["broken link", validNote + "\n[[Missing note]]\n", /broken wikilink/],
-  ["unrecognised agent", validNote.replace("agent: claude-code", "agent: claude"), /allowed agent/],
-  ["retired agent", validNote.replace("agent: claude-code", "agent: codex"), /allowed agent/],
   ["non-kebab agent", validNote.replace("agent: claude-code", "agent: Claude Code"), /kebab-case/],
 ];
 // Each case must fail for exactly the reason it names: a regex over all errors would also
@@ -97,6 +110,22 @@ await test("rejects a lesson missing its sections, naming each one", (context) =
     'wiki/lessons/Example note.md: missing section "## What happened"',
     'wiki/lessons/Example note.md: missing section "## How to apply"',
   ]);
+});
+
+await test("headings hidden in a comment, a fence or at the wrong level are not sections", (context) => {
+  const root = fixture(context);
+  mkdirSync(join(root, "wiki/lessons"));
+  rmSync(join(root, "wiki/reference/Example note.md"));
+  const hidden = "<!--\n## What happened\n-->\n\n```markdown\n## Fix\n```\n\n### How to apply\n";
+  writeFileSync(join(root, "wiki/lessons/Example note.md"), validNote.replace("type: reference", "type: lesson").replace("Recorded facts.", hidden));
+  assert.deepEqual(validateWiki(root, { identity }).errors, [
+    'wiki/lessons/Example note.md: missing section "## What happened"',
+    'wiki/lessons/Example note.md: missing section "## Fix"',
+    'wiki/lessons/Example note.md: missing section "## How to apply"',
+  ]);
+  const visible = hidden.replace("<!--\n## What happened\n-->", "## What happened").replace("### How to apply", "## How to apply") + "\n## Fix\n";
+  writeFileSync(join(root, "wiki/lessons/Example note.md"), validNote.replace("type: reference", "type: lesson").replace("Recorded facts.", visible));
+  assert.deepEqual(validateWiki(root, { identity }).errors, []);
 });
 
 await test("rejects misnamed decisions and sessions", (context) => {
@@ -172,12 +201,12 @@ await test("an unknown type does not skip the index check", (context) => {
   assert.match(errors, /not indexed/);
 });
 
-await test("rejects a missing Home and a schema without allowlists", (context) => {
+await test("rejects a missing Home and a schema without allowed tags", (context) => {
   const root = fixture(context);
   rmSync(join(root, "wiki/Home.md"));
   writeFileSync(join(root, WIKI_SCHEMA), "# no markers\n");
   const errors = errorsOf(root);
-  for (const expected of [/missing index/, /no allowed tags/, /no allowed agents/]) assert.match(errors, expected);
+  for (const expected of [/missing index/, /no allowed tags/]) assert.match(errors, expected);
 });
 
 await test("rejects notes absent from Home", (context) => {
@@ -281,6 +310,18 @@ await test("flags this machine's identity through the injected identity, not the
   const errors = errorsOf(root);
   assert.match(errors, /README\.md: line 1: possible this machine's hostname/);
   assert.match(errors, /README\.md: line 1: possible this machine's username/);
+});
+
+await test("flags a path that climbs out of the role-name home under role-name logins", (context) => {
+  const roleHome = "/home/" + "agent";
+  for (const user of ["agent", "node"]) {
+    const root = fixture(context);
+    writeFileSync(join(root, "README.md"), `WORKDIR ${roleHome}/workspace\nls ${roleHome}/x/../y\n`);
+    assert.deepEqual(validateWiki(root, { identity: { host: "ci", user } }).errors, [], user);
+    writeFileSync(join(root, "README.md"), `WORKDIR ${roleHome}/workspace\nls ${roleHome}/../bob/notes\n`);
+    const errors = validateWiki(root, { identity: { host: "ci", user } }).errors;
+    assert.deepEqual(errors, ["README.md: line 2: possible home path with username (use ~ or /home/<user>)"], user);
+  }
 });
 
 await test("accepts native Obsidian block lists for tags and related links", (context) => {

@@ -96,6 +96,18 @@ function assertNotOption(ref: string): void {
   if (ref.startsWith("-")) throw new Error(`"${ref}" would be read as an option, not a ref`);
 }
 
+// "git fetch origin main" updates refs/remotes/origin/main only through remote.origin.fetch, so a
+// narrowed refspec leaves it stale while the fetch succeeds. Naming the destination updates exactly
+// that ref, and nothing else, whatever the configuration says.
+export const MAIN_REFSPEC = "+refs/heads/main:refs/remotes/origin/main";
+
+/** Fetch origin's main into refs/remotes/origin/main and return the commit it now names. Throws if
+ * the fetch fails or the result is not a commit, so callers compare this id, never a leftover ref. */
+export function fetchMain(options: GitOptions = {}): string {
+  git(["fetch", "--quiet", "origin", MAIN_REFSPEC], options);
+  return git(["rev-parse", "--verify", "--quiet", "refs/remotes/origin/main^{commit}"], options);
+}
+
 export function refExists(ref: string, options: GitOptions = {}): boolean {
   assertNotOption(ref);
   return tryGit(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], options) !== null;

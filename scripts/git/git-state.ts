@@ -4,14 +4,18 @@
 // and core.bare have been lost that way). The hook snapshots this state before
 // `npm run check` and refuses the push if the check changed it. It detects; it cannot undo.
 // Covered: HEAD, the checked-out branch, core.bare, local and per-worktree config, every ref,
-// the index and the working tree. Not covered: global config, hooks, the object store.
+// the index and the working tree: what git status lists, plus the bytes, executable bit or
+// symlink target of each path it lists, so rewriting an already-dirty file is caught. A directory
+// listed as one entry (a nested repository, a submodule) is not looked into. Not covered: global config, hooks, the object store, and
+// branch.<name>.vscode-merge-base, which the VS Code Git extension writes when it sees a new
+// branch, often while the hook's check runs; git never reads it (owner decision, 2026-10-17).
 // The snapshot holds hashes, never config values, and messages redact config subsections
 // (they can hold URLs with tokens), so neither the shell variable nor stderr leaks secrets.
 //   snapshot: prints the state as one JSON line
 //   verify:   reads a snapshot on stdin and refuses if the state differs
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { closeSync, existsSync, lstatSync, openSync, readFileSync, readSync, readlinkSync, realpathSync } from "node:fs";
+import { dirname, resolve, sep } from "node:path";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
 import { GitError, git, gitOptionsAt, type GitOptions } from "../lib/git.ts";
 import { isRecord } from "../lib/record.ts";
@@ -40,15 +44,18 @@ function absentOnOne(args: readonly string[], options: GitOptions): string | nul
   }
 }
 
+const EDITOR_KEY = /^branch\..+\.vscode-merge-base$/;
+
 // `config -z` prints "key\nvalue" records separated by NUL, so values may hold newlines.
 // Entries are grouped under their redacted key and each group hashed in file order, so the
-// snapshot holds neither values nor subsections; core.bare is tracked on its own.
+// snapshot holds neither values nor subsections; core.bare is tracked on its own, and VS Code's
+// merge-base keys are skipped.
 function parseConfig(listing: string): Config {
   const groups = new Map<string, string[][]>();
   for (const entry of listing.split("\0").filter((record) => record.length > 0)) {
     const split = entry.indexOf("\n");
     const key = split === -1 ? entry : entry.slice(0, split);
-    if (key === "core.bare") continue;
+    if (key === "core.bare" || EDITOR_KEY.test(key)) continue;
     const name = redactKey(key);
     groups.set(name, [...(groups.get(name) ?? []), [key, split === -1 ? "" : entry.slice(split + 1)]]);
   }
@@ -62,11 +69,78 @@ function worktreeConfig(options: GitOptions): Config | null {
   return existsSync(path) ? parseConfig(git(["config", "--file", path, "--list", "-z"], options)) : null;
 }
 
+// Paths git status lists, porcelain v1 -z: "XY path" records, and after a rename or copy the
+// source path as its own record. Paths are relative to the top of the work tree.
+function statusPaths(listing: string): string[] {
+  const records = listing.split("\0").filter((record) => record.length > 0);
+  const paths: string[] = [];
+  for (let i = 0; i < records.length; i += 1) {
+    const record = records[i] ?? "";
+    paths.push(record.slice(3));
+    if (/^(R|C|.R|.C)/.test(record.slice(0, 2)) && i + 1 < records.length) paths.push(records[++i] ?? "");
+  }
+  return paths;
+}
+
+const CHUNK_BYTES = 1 << 20;
+
+/** sha256 of a file read in chunks, so neither memory nor Node's single-read limit caps its size. */
+export function hashFile(path: string, chunkBytes = CHUNK_BYTES): string {
+  const hash = createHash("sha256");
+  const buffer = Buffer.alloc(chunkBytes);
+  const descriptor = openSync(path, "r");
+  try {
+    for (let read = readSync(descriptor, buffer); read > 0; read = readSync(descriptor, buffer)) hash.update(buffer.subarray(0, read));
+  } finally {
+    closeSync(descriptor);
+  }
+  return hash.digest("hex");
+}
+
+const isMissing = (error: unknown): boolean =>
+  error instanceof Error && "code" in error && (error.code === "ENOENT" || error.code === "ENOTDIR");
+
+// One path's state as a digest: absent, a symlink's target text (never followed), or a file's
+// executable bit and bytes. A path whose directory resolves outside the work tree (a tracked
+// directory replaced by a link) is recorded as such and never read, and an unreadable file
+// throws, so it never passes as unchanged.
+function entryState(top: string, path: string): string {
+  const full = resolve(top, path);
+  let parent: string;
+  try {
+    parent = realpathSync(dirname(full));
+  } catch (error) {
+    if (isMissing(error)) return "absent";
+    throw error;
+  }
+  if (parent !== top && !parent.startsWith(top + sep)) return "outside";
+  const target = resolve(parent, full.slice(dirname(full).length + 1));
+  let info;
+  try {
+    info = lstatSync(target);
+  } catch (error) {
+    if (isMissing(error)) return "absent";
+    throw error;
+  }
+  if (info.isSymbolicLink()) return `link ${digest(readlinkSync(target))}`;
+  if (!info.isFile()) return info.isDirectory() ? "directory" : "other";
+  return `file ${(info.mode & 0o111) === 0 ? "-" : "x"} ${hashFile(target)}`;
+}
+
+function workingTree(options: GitOptions): string {
+  const listing = git(["status", "--porcelain=v1", "-z", "--untracked-files=all"], options);
+  // git prints names as raw bytes; one that is not UTF-8 decodes with U+FFFD and could not be
+  // read back, so it would pass as absent. Stop instead.
+  if (listing.includes("\uFFFD")) throw new Error("git-state: a path git status lists is not valid UTF-8, so its contents cannot be checked; rename it or add it to .gitignore");
+  const top = realpathSync(git(["rev-parse", "--show-toplevel"], options));
+  return digest(JSON.stringify([listing, statusPaths(listing).map((path) => entryState(top, path))]));
+}
+
 // A repository flipped to core.bare=true has no work tree for status or ls-files to read;
 // the core.bare change itself is the refusal, so those two read as "bare".
 const BARE = "bare";
 
-function readState(options: GitOptions = {}): GitState {
+export function readState(options: GitOptions = {}): GitState {
   git(["rev-parse", "--git-dir"], options);
   const bare = absentOnOne(["config", "--local", "--get", "core.bare"], options);
   const workTree = bare !== "true";
@@ -78,7 +152,7 @@ function readState(options: GitOptions = {}): GitState {
     worktreeConfig: worktreeConfig(options),
     refs: digest(git(["for-each-ref", "--format=%(refname) %(objectname)"], options)),
     index: workTree ? digest(git(["ls-files", "--stage", "-z"], options)) : BARE,
-    tree: workTree ? digest(git(["status", "--porcelain=v1", "-z", "--untracked-files=all"], options)) : BARE,
+    tree: workTree ? workingTree(options) : BARE,
   };
 }
 
@@ -114,7 +188,8 @@ function configChanges(label: string, before: Config | null, after: Config | nul
   return names.length === 0 ? [] : [`${label} changed: ${names.join(", ")}`];
 }
 
-function stateChanges(before: GitState, after: GitState): string[] {
+/** What differs between two states, each change named by its class; never a config value or file content. */
+export function stateChanges(before: GitState, after: GitState): string[] {
   const changes: string[] = [];
   if (before.head !== after.head) changes.push(`HEAD moved from ${before.head ?? "(none)"} to ${after.head ?? "(none)"}`);
   if (before.branch !== after.branch) changes.push(`the checked-out branch changed from ${before.branch ?? "(detached)"} to ${after.branch ?? "(detached)"}`);
@@ -150,7 +225,7 @@ export function main(args: readonly string[], options: Options = {}): number {
   }
   const changes = stateChanges(before, readState(gitOptions));
   for (const change of changes) output.warn(`git-state: ${change}`);
-  if (changes.length > 0) output.warn("git-state: the check changed this repository's git state. A test probably ran git here instead of in its fixture. Inspect and restore before pushing.");
+  if (changes.length > 0) output.warn("git-state: the check changed this repository's git state. A test probably ran git here instead of in its fixture, or an editor or another program changed a dirty or untracked file while the check ran. Inspect and restore before pushing.");
   return changes.length === 0 ? EXIT_OK : EXIT_REFUSED;
 }
 

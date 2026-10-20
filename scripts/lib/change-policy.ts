@@ -5,7 +5,7 @@
 // `scripts/`), and `.` matches newlines, because git paths can contain them.
 
 // Always critical: these change how work is built, checked, reviewed or landed, and
-// Claude Code loads agent config from nested directories too.
+// Harnesses can load instruction and configuration files from nested directories too.
 const CRITICAL = [
   /^\.githooks\//is,
   /^\.github\//is,
@@ -13,8 +13,11 @@ const CRITICAL = [
   // The compliance harness confines and grades agent runs; its reports are output, not process.
   /^evals\/compliance\/(?!reports\/)/is,
   /^config\//is,
-  /(^|\/)\.claude\//is,
+  /(^|\/)\.(claude|opencode|agents|codex|gemini|cursor)\//is,
   /(^|\/)claude(\.local)?\.md$/is,
+  /(^|\/)agents(\.override)?\.md$/is,
+  /(^|\/)gemini\.md$/is,
+  /(^|\/)opencode\.jsonc?$/is,
   /^readme\.md$/is,
 ];
 // Root files are tooling (package.json, .npmrc, eslint.config.js, Makefile...) unless they are

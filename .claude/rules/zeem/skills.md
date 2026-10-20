@@ -1,15 +1,18 @@
 # Skills
 
-Repository skills live in `.claude/skills/`, next to the ECC plugin's skills. The structural rules
+Repository skills live in `.claude/skills/` for every harness. The structural rules
 (`config/skill-standards.json`, provenance hashes) are listed once in `wiki/reference/Skill standards.md` and
 enforced by `npm run skills:lint`.
 
-- There is one skill library: `.claude/skills/`. No copies, projections or per-harness twins
-  (`wiki/decisions/ADR-0024 Claude Code is the only harness.md`).
+- There is one canonical skill library: `.claude/skills/`. Harness-specific entry points and adapter
+  files may refer to it; keep the method in one place (`wiki/decisions/ADR-0026 Any provider may work under shared rules.md`).
 - A skill only the user may start sets `disable-model-invocation: true` and is listed in `userOnly`; the two
   must agree. Do not invoke a user-only skill on your own initiative.
-- If a skill is denied or unavailable, stop that line of work and say so. Reading the skill's file to follow
-  it anyway does not get around a denial.
+- If native discovery is unavailable, read the canonical skill file directly. An explicit permission
+  denial still stops that line of work; reading a file does not override it. If a named tool or agent,
+  including an ECC tool or harness built-in, is unavailable, use an available equivalent that preserves
+  the method, separate contexts and tool limits, and report the substitution. Report the capability
+  as blocked when there is no equivalent.
 - Third-party skills are byte-preserved and hashed in `.claude/skills/import-baseline.json`. Change one only
   with an owner approval quoted in the revision record; never rewrite a landed entry.
 - Adapting an imported skill keeps its method. Review interface substitutions (paths, commands, tool names)
@@ -17,6 +20,8 @@ enforced by `npm run skills:lint`.
 - A skill cites only paths that exist and checks that something runs. A step that names a check nothing runs
   reports false green.
 - Agents may draft or revise skills; the owner approves by merging the PR.
+- Adapter and instruction files are workflow-critical. Register a newly introduced loader path in
+  `scripts/lib/change-policy.ts` when its existing patterns do not cover it.
 
 ## ECC
 

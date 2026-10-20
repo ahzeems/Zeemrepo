@@ -25,14 +25,14 @@ Four questions, in order. A "no" is a stop.
 1. **Is it repeated?** A one-off instruction belongs in the prompt.
 2. **Is it judgement, or a procedure a script could run?** If deterministic, write the script: more
    reliable, and free at tier 3. Most of `scripts/` is the right answer to this question.
-3. **Does something already own it?** Overlap is worse than absence. Search first with ECC
-   `skill-scout`, across this repo's skills and the installed ECC skills. Two skills that both match a
+3. **Does something already own it?** Overlap is worse than absence. Search this repo's skills and
+   the current harness's installed skills, using ECC `skill-scout` when available. Two skills that both match a
    request means one description is wrong, and the selection is then arbitrary.
-4. **Will a route select it?** Claude Code's native discovery exposes the skill through its
-   description, and other skills link to it by relative path. A skill no route names is tier-1 tax
+4. **Will a route select it?** Use the current harness's native discovery or an explicit path to
+   the canonical skill; other skills link to it by relative path. A skill no route names is tier-1 tax
    and nothing else.
 
-To draft a skill from this repo's git history, ECC `/ecc:skill-create` generates a starting point.
+To draft a skill from this repo's git history, use ECC `/ecc:skill-create` when available or inspect the history directly.
 It still has to pass every rule below.
 
 ## Which of the four shapes
@@ -40,8 +40,8 @@ It still has to pass every rule below.
 | Need | Shape | Why |
 |---|---|---|
 | Knowledge the session should hold while it works | skill | loaded into the current context, writes nothing itself |
-| Work done away from the conversation | Claude Code subagent in `.claude/agents/`, or the built-in Explore or general-purpose agent | its own context and its own tool list |
-| A prompt the user runs in the open | user-only skill (`disable-model-invocation: true`), run as a slash command | every edit lands where the user watches it |
+| Work done away from the conversation | an available subagent with an explicit brief and tool limits; `.claude/agents/` holds reusable briefs | its own context and its own tool list |
+| A prompt the user runs in the open | user-only skill (`disable-model-invocation: true`), explicitly requested by the user through their harness | every edit lands where the user watches it |
 | A deterministic check or transform | script in `scripts/`, with a test | it can fail `npm run check`; prose cannot |
 
 If it writes files, prefer the command over the agent: an agent writes inside a context nobody is
@@ -85,7 +85,7 @@ A document has no functions to assert against. Three honest kinds:
 
 Never prescribe a test nothing runs. A prevention that exists as a file and executes never is worse
 than an acknowledged gap, because it reports green. For periodic audits of the whole skill set, use
-ECC `skill-stocktake`.
+ECC `skill-stocktake` when available, or a documented inventory review with the current tools.
 
 ## Retiring what it replaces
 

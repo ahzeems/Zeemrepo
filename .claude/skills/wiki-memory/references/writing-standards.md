@@ -31,6 +31,21 @@ If a command from the session contained one of these, replace the value with a p
 JWTs, and home paths on Linux, macOS and Windows. It is a net, not a guarantee. You are responsible for reading
 what you wrote.
 
+One Linux home is exempt: `/home/agent`, the home of the Sandcastle sandbox user, whose name is a role and
+identifies no person. A path passes only while it stays inside that home; steps such as `x/../y`, `./` and `//`
+are fine. A path in which a `..` climbs above `/home/agent` at any step is flagged, even if it later climbs
+back in, because it names whatever it passed through. Every other home is flagged whatever the login running
+the scan is, including look-alikes such as `agentsmith`, `agent-smith` or `Agent`.
+
+The scan reads each line with quotes and backslashes removed, because the shell joins them into one word, so
+`agent"smith"` counts as `agentsmith`. This fails closed outside shell text: an apostrophe or a backslash escape
+(such as `\n` or `\b`) right after the role home reads as a look-alike and is flagged; write the path without it.
+Whitespace, `,`, `:`, `;`, `&`, `|`, `<`, `>`, brackets, braces, parentheses and backticks end a path. A `#`
+straight after `..` does not: the shell reads `..#x` as a name. The scan does not follow a path continued onto
+the next line with a trailing backslash, any shell expansion next to the home (a variable such as `$x`, a
+command substitution such as `$(echo ..)`, or a default such as `${HOME:-/home/agent}/../<user>`), or a home
+written with a doubled slash after `/home`. Read those yourself.
+
 ## Links as memory
 
 Keep Home and overview pages focused on repository operation, skills, workflow, and memory.

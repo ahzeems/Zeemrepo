@@ -4,25 +4,22 @@
 // by deleting that file, so there is no switch to delete.
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, readMode, runCli, type Output } from "../lib/cli.ts";
 import { git, gitLines, gitOptionsAt, gitPaths, mergeBase, refExists, type GitOptions } from "../lib/git.ts";
-import { commitViolations, isConflictResolution, stagedMix, type Commit, type Violation } from "./wiki-compliance-validation.ts";
+import { REMERGE, commitViolations, isConflictResolution, stagedMix, type Commit, type Violation } from "./wiki-compliance-validation.ts";
+import { historyFindings, readNoteChanges, type HistoryResult } from "./wiki-history.ts";
 
 export type Options = { cwd?: string; output?: Output };
 
 const USAGE = `Usage: node scripts/wiki/wiki-compliance.ts [--json | --staged]
 Refuses a branch whose commits mix wiki/ with other files, or whose wiki-only commits lack a
-"docs(wiki): " subject. --staged checks the index instead, for pre-commit.
-Exit: 0 compliant, 1 refused, 2 the check could not run.`;
+"docs(wiki): " subject. It also compares each wiki note at the branch's base with HEAD and
+refuses a changed created or agent, an edit that leaves updated behind, and a decision or
+session body, rename or deletion after its day other than supersession. --staged checks the
+index instead, for pre-commit, and judges neither subjects nor history.
+Exit: 0 compliant, 1 refused, 2 the check could not run or the history could not be verified.`;
 const SPLIT_ADVICE = "Commit the wiki/ files alone and the rest separately; to move a file across the boundary, add it in one commit and delete it in the next.";
 
 // --no-renames: a rename is otherwise reported only at its destination, so moving a note out
 // of wiki/ would hide the wiki side of a mixed commit.
-// A merge is judged only on what its author changed by hand: --remerge-diff compares the
-// merge with git's own automatic merge of its parents, so a clean merge of main lists
-// nothing, while conflict resolutions and changes slipped in during a merge are listed.
-// (--cc is not enough: it lists files whose hunks came from both sides even when git merged
-// them cleanly.) Requires git 2.36 or later; an older git fails the check as an error (exit 2).
-// The conflict style is pinned so a user's diff3 setting cannot add base lines to "the sides".
-const REMERGE = ["-c", "merge.conflictStyle=merge", "show", "--remerge-diff"];
 
 function readCommit(sha: string, options: GitOptions): Commit {
   const parents = git(["rev-list", "--parents", "-n", "1", sha], options).split(" ").length - 1;
@@ -33,8 +30,7 @@ function readCommit(sha: string, options: GitOptions): Commit {
   return { sha, subject, files, resolutionOnly: isConflictResolution(git([...REMERGE, "--format=", sha], options)) };
 }
 
-function branchCommits(options: GitOptions): Commit[] {
-  const base = mergeBase(options);
+function branchCommits(base: string, options: GitOptions): Commit[] {
   return gitLines(["rev-list", `${base}..HEAD`], options).map((sha) => readCommit(sha, options));
 }
 
@@ -62,18 +58,42 @@ function reportViolations(violations: readonly Violation[], output: Output): voi
   if (kinds.has("subject")) output.warn('wiki-compliance: reword each wiki-only commit so its subject begins "docs(wiki): " (a revert of one becomes "docs(wiki): revert ..."), and give a code commit a subject other than docs(wiki).');
 }
 
+const HISTORY_ADVICE = "wiki-compliance: created and agent never change, updated changes on every later edit, and a decision or session is not edited, renamed or deleted after its day. Write a new note and mark the old one superseded with superseded_by.";
+
+function reportHistory(history: HistoryResult, output: Output): void {
+  for (const finding of history.violations) output.warn(`  x [${finding.kind}] ${finding.path}: ${finding.detail}`);
+  for (const finding of history.unverified) output.warn(`  ? [unverified] ${finding.path}: ${finding.detail}`);
+  if (history.violations.length > 0) output.warn(HISTORY_ADVICE);
+  if (history.unverified.length > 0) output.warn("wiki-compliance: the wiki history could not be verified; that is an error, not a pass.");
+}
+
+// A shallow clone may lack the base commit's notes or the commits that date an edit, so a
+// missing history is an error rather than an empty one.
+const SHALLOW = "the repository is shallow, so the wiki history cannot be verified; fetch the full history (fetch-depth: 0)";
+
 function checkHistory(options: GitOptions, output: Output, json: boolean): number {
-  if (mergeBase(options) === git(["rev-parse", "HEAD"], options) && !json) {
+  if (git(["rev-parse", "--is-shallow-repository"], options) === "true") {
+    if (json) output.write(JSON.stringify({ compliant: false, error: SHALLOW }));
+    else output.warn(`wiki-compliance: ${SHALLOW}`);
+    return EXIT_ERROR;
+  }
+  const base = mergeBase(options);
+  if (base === git(["rev-parse", "HEAD"], options) && !json) {
     // On main itself, or a branch with no commits yet: say so rather than report "0 commits".
     output.write("wiki-compliance: HEAD is the base; there are no branch commits to inspect");
     return EXIT_OK;
   }
-  const commits = branchCommits(options);
+  const commits = branchCommits(base, options);
   const violations = commitViolations(commits);
-  const compliant = violations.length === 0;
-  if (json) output.write(JSON.stringify({ compliant, inspected: commits.length, violations }));
-  else if (compliant) output.write(`wiki-compliance: ${commits.length} commit(s) on this branch keep wiki and other files apart`);
-  else reportViolations(violations, output);
+  const history = historyFindings(readNoteChanges(base, options));
+  const compliant = violations.length === 0 && history.violations.length === 0 && history.unverified.length === 0;
+  if (json) output.write(JSON.stringify({ compliant, inspected: commits.length, violations, history }));
+  else if (compliant) output.write(`wiki-compliance: ${commits.length} commit(s) on this branch keep wiki and other files apart and keep wiki history`);
+  else {
+    if (violations.length > 0) reportViolations(violations, output);
+    reportHistory(history, output);
+  }
+  if (history.unverified.length > 0) return EXIT_ERROR;
   return compliant ? EXIT_OK : EXIT_REFUSED;
 }
 

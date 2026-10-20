@@ -15,16 +15,18 @@ One line per memory note. Add new notes here; work notes need no entry.
 
 - [[ADR-0001 Wiki is an Obsidian vault in the repository]] - Project memory is an Obsidian vault in wiki/ inside the repo, as plain Markdown with typed folders, YAML frontmatter and an enforced tag list.
 - [[ADR-0005 Work records live in the shared vault]] - Track idea-to-execution work as linked, typed records under wiki/work/, alongside durable agent memory, readable by Obsidian Properties and Bases.
-- [[ADR-0007 Changelog entries carry no post-merge facts]] - Entries record the change in their own PR and never cite a merge commit, removing the closeout PR.
+- [[ADR-0007 Changelog entries carry no post-merge facts]] - Superseded by ADR-0027. Entries record the change in their own PR and never cite a merge commit, removing the closeout PR.
 - [[ADR-0008 Owner merges pull requests on GitHub]] - Superseded by ADR-0025. Nothing is pushed to main; every change lands by pull request, and only the owner merges on GitHub.
 - [[ADR-0009 Workflow-critical Markdown is an interface]] - Documents that declare how work is landed, reviewed, and verified are part of the interface; drift between them and the code is a Blocker and is checked mechanically.
 - [[ADR-0011 The vault is the interface, Obsidian is optional]] - The repository wiki is the source of truth for documentation and memory; no editor is part of the architecture, and the Windows UNC route failed validation.
 - [[ADR-0021 Authority comes from an identified checkout]] - Instructions, skills and the vault come from a checkout the agent has identified (path, worktree, branch, HEAD, clean state); parallel sessions use separate worktrees.
 - [[ADR-0022 Independent review means a separate reviewer context]] - A review is independent when a separate reviewer context inspects pinned sources and runs its own checks; the reviewer's model and who launched it do not decide independence.
-- [[ADR-0024 Claude Code is the only harness]] - Zeemrepo targets Claude Code alone, with the pinned ECC plugin, rules in CLAUDE.md and .claude/rules/, and native user-only skills.
+- [[ADR-0024 Claude Code is the only harness]] - Superseded by ADR-0026; records the earlier harness restriction and ECC integration.
 - [[ADR-0025 Agents use a machine account and the owner approves]] - Agents push and open PRs as a machine account that cannot approve its own work; code-owner review is on and no owner credential is on the agents' machine, so only the owner's approval counts.
 - [[ADR-0026 ECC wins over the repository rules]] - ECC is the foundation: where a zeem rule, a repository skill or a wiki page disagrees with ECC, ECC wins, every ECC rule set loads, and nothing in the repository may block the plugin.
+- [[ADR-0026 Any provider may work under shared rules]] - Any harness or model provider may author and verify work with truthful attribution, one canonical skill library and the shared checks.
 - [[ADR-0027 One integration branch per piece of work]] - A piece of work, however many phases, issues or tickets, lives on one integration branch with one pull request at the end; parallel agents merge local worktree branches into it.
+- [[ADR-0027 Changelog entries are per-branch fragment files]] - Each branch records its change in its own dated file under changelog/; CHANGELOG.md keeps the history before the switch, so concurrent branches never conflict on it.
 - [[ADR-0028 Outcome is the measure of record for compliance evals]] - Outcome scores are the compliance evals' measure of record; the skill-comply compliance rate is a strict secondary signal read with its known limits, and ECC's grader and the pinned specs are unchanged.
 
 ## Lessons
@@ -52,8 +54,12 @@ One line per memory note. Add new notes here; work notes need no entry.
 ## Runbooks
 
 - [[Land a change]] - Take work from a feature branch to an owner-merged pull request; nothing is ever pushed to main.
-- [[Maintain the repository wiki]] - Keep wiki explanations, work records, the Memory index and CHANGELOG.md current in the same branch as the change, and commit wiki files alone.
-- [[Verify a repository change]] - Run npm run check and the hooks, commit, review the pinned commit read-only in separate reviewer subagents, and record evidence before handing the branch to the owner.
+- [[Maintain the repository wiki]] - Keep wiki explanations, work records, the Memory index and the changelog current in the same branch as the change, and commit wiki files alone.
+- [[Run Sandcastle on GitHub issues]] - Run npm run sandcastle so Docker-sandboxed Claude agents plan, implement, review and merge issues labelled Sandcastle onto your branch, without pushing or closing anything.
+- [[Verify a repository change]] - Run npm run check and the hooks, review read-only with separate reviewer subagents, and record evidence before opening a pull request.
+- [[Work with any agent provider]] - Load canonical instructions and skills with available tools, attribute notes correctly and arrange independent review in the current harness.
+- [[Resume repository audit remediation]] - Resume the committed map, plan and tickets in a fresh LLM session, checking decisions, approval, dependencies and verification before proceeding.
+- [[Resume software factory planning]] - Continue software factory planning in a fresh session: check PRs 64 and 65, refresh the gap facts, and work one map decision at a time with no build work.
 
 ## Reference
 
@@ -63,5 +69,10 @@ One line per memory note. Add new notes here; work notes need no entry.
 - [[Integration admission]] - Each admitted external plugin or tool (imported skills stay in import-baseline.json), with its exact revision, what it adds, its permissions, its registered, evaluated, enabled and loaded status, and how to disable and remove it.
 - [[Merge gate contract]] - The merge gate is GitHub: the protect-main ruleset, the required check and guards workflows, the local backstops, and the read-only landing audit.
 - [[Skill standards]] - What npm run skills:lint enforces on .claude/skills (limits, user-only list, provenance hashes, citations, em dashes) and what stays convention.
+- [[Repository audit findings 2026-10-16]] - Audit baseline, 22 findings, source citations and verification limits for the remediation plan.
+- [[Audit remediation verification approach]] - Real-Git, coordinator, container, validator and evaluation controls included in the approved implementation plan.
 
 ## Sessions
+
+- [[2026-10-16 Provider-neutral authoring]] - The owner requested provider-neutral authoring, and tests reproduced the authoring barriers before their removal.
+- [[2026-10-19 Software factory planning]] - The software factory requirement, Hermes-based gap research and decision map were recorded across PRs 64 and 65, with no build work.

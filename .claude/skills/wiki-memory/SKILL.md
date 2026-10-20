@@ -59,6 +59,6 @@ Follow `references/session-to-wiki.md` step by step. The short form:
 
 ## Reference files, load only when needed
 
-- `references/note-schema.md`: frontmatter fields, note and work types, the allowed tag and agent lists.
+- `references/note-schema.md`: frontmatter fields, note and work types, allowed tags and author identifiers.
 - `references/writing-standards.md`: style rules and the redaction checklist.
 - `references/session-to-wiki.md`: the full recipe for turning a session into notes, with a worked example.

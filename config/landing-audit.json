@@ -1,5 +1,5 @@
 {
-  "note": "landing-audit checks every first-parent commit on main after this one. It is the last commit made before the PR-only rule (owner decision, 2026-10-09); everything after it must be a merged pull request.",
-  "since": "916259b01c8ecf6f2a17f2e120e4ed408b0a9479",
-  "repo": "ahzeems/Zeemrepo"
+  "note": "landing-audit checks every first-parent commit on main after this one, in this fork only. It is the inherited upstream commit immediately before the fork's first pull request merge (bf3e407, PR #2); it and everything before it came from upstream and are outside the audit (owner decision 2026-10-16, wiki ticket 'Choose the landing audit history scope').",
+  "since": "f9c1b9d3853226fe8a1a3181703f884106393ad0",
+  "repo": "Zimfra/software_testing"
 }

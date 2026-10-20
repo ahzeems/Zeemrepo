@@ -3,6 +3,13 @@ import { test } from "node:test";
 import { EXIT_OK, type Output } from "../lib/cli.ts";
 import { HOOK_BLOCK, isPrMerge, isPushingToMain, main } from "./block-pr-merge.ts";
 
+const run = (input: string): { code: number; err: string } => {
+  const err: string[] = [];
+  const output: Output = { write: () => undefined, warn: (line) => err.push(line) };
+  return { code: main([], { stdin: input, output }), err: err.join("\n") };
+};
+const runBash = (command: string): { code: number; err: string } => run(JSON.stringify({ tool_name: "Bash", tool_input: { command } }));
+
 await test("ordinary work stays allowed", () => {
   for (const command of [
     "git status", "git push --set-upstream origin feat/x", "git merge origin/main", "npm run pr", "npm run check",
@@ -61,12 +68,59 @@ await test("the shell's own joining and heredoc rules decide what runs", () => {
   ]) assert.equal(isPrMerge(command), false, command);
 });
 
-await test("a long command is judged in well under the hook's time, not quadratically", () => {
-  for (const command of ["\n".repeat(100_000), " \n".repeat(50_000), "echo a | bash\n".repeat(7_000), "a=b|".repeat(25_000), "a=b;".repeat(25_000), "a|".repeat(50_000)]) {
-    const started = performance.now();
-    isPrMerge(command);
-    isPushingToMain(command);
-    assert.ok(performance.now() - started < 2_000, `${JSON.stringify(command.slice(0, 20))}... took ${Math.round(performance.now() - started)} ms`);
+// A wall-clock bound flakes on a loaded machine, so this compares growth instead: four times the
+// input takes about four times as long when judging is linear and sixteen times when it is
+// quadratic, so the threshold sits between them, with room for load. The two sizes run in turn, so a
+// change in load hits both, and each keeps its fastest of five runs. A pair too fast to measure
+// passes, and a pair over the threshold is measured again: a quadratic exceeds it every time, a
+// burst of load rarely three times running.
+const judge = (command: string): number => {
+  const started = performance.now();
+  isPrMerge(command);
+  isPushingToMain(command);
+  return performance.now() - started;
+};
+const RUNS = 5;
+const ATTEMPTS = 3;
+const SIZE_FACTOR = 4;
+const MAX_GROWTH = 8;
+const MEASURABLE_MS = 50;
+
+function growth(small: string, large: string): { smallMs: number; largeMs: number; grows: boolean } {
+  let smallMs = Infinity;
+  let largeMs = Infinity;
+  for (let run = 0; run < RUNS; run++) {
+    smallMs = Math.min(smallMs, judge(small));
+    largeMs = Math.min(largeMs, judge(large));
+  }
+  return { smallMs, largeMs, grows: largeMs >= MEASURABLE_MS && largeMs / smallMs >= MAX_GROWTH };
+}
+
+await test("a long command is judged in linear time, not quadratically", () => {
+  const inputs: Array<[(size: number) => string, number]> = [
+    [(size) => "\n".repeat(size), 12_500], [(size) => " \n".repeat(size), 6_250], [(size) => "echo a | bash\n".repeat(size), 1_000],
+    [(size) => "a=b|".repeat(size), 3_000], [(size) => "a=b;".repeat(size), 3_000], [(size) => "a|".repeat(size), 6_250],
+    [(size) => "if ".repeat(size), 6_250], [(size) => `cat <<EOF\n${"$(x) ".repeat(size)}\nEOF`, 2_500],
+    [(size) => `cat <<EOF\n${"`".repeat(size)}\nEOF`, 6_250], [(size) => `cat <<EOF\n${"$(".repeat(size)}\nEOF`, 6_250],
+    [(size) => "cat <<A\nA\n".repeat(size), 2_000], [(size) => `git push --repo=origin ${"x ".repeat(size)}`, 6_250],
+    [(size) => "cat <<EOF\n".repeat(size), 500], [(size) => "bash <<EOF\n".repeat(size), 500],
+  ];
+  for (const [make, size] of inputs) {
+    const [small, large] = [make(size), make(SIZE_FACTOR * size)];
+    let result = growth(small, large);
+    for (let attempt = 1; attempt < ATTEMPTS && result.grows; attempt++) result = growth(small, large);
+    const label = `${JSON.stringify(make(1))}: ${Math.round(result.smallMs)} ms at ${size}, ${Math.round(result.largeMs)} ms at ${SIZE_FACTOR * size}`;
+    assert.ok(!result.grows, label);
+  }
+});
+
+await test("the heredoc scanner closes, skips and keeps lines as bash does", () => {
+  for (const command of [
+    "cat <<EOF\nEOF\ngh pr merge 5\nEOF", "gh pr merge 5\ncat <<EOF\nx\nEOF", "cat <<<EOF\ngh pr merge 5\nEOF",
+    "cat <<EOF\ncat <<X\nEOF\ngh pr merge 5\nX", "cat <<EOF\nx\ngh pr merge 5",
+  ]) assert.equal(runBash(command).code, HOOK_BLOCK, command);
+  for (const command of ["cat <<-EOF\n\tgh pr merge is the owner's act\n\tEOF", "cat <<EOF\nx\nEOF\ncat <<EOF\ngh pr merge notes\nEOF"]) {
+    assert.equal(runBash(command).code, EXIT_OK, command);
   }
 });
 
@@ -121,11 +175,6 @@ await test("a push whose destination is main is blocked; other pushes are not", 
 });
 
 await test("the hook blocks a merge with exit 2 and a reason, and passes everything else", () => {
-  const run = (input: string): { code: number; err: string } => {
-    const err: string[] = [];
-    const output: Output = { write: () => undefined, warn: (line) => err.push(line) };
-    return { code: main([], { stdin: input, output }), err: err.join("\n") };
-  };
   const blocked = run(JSON.stringify({ tool_name: "Bash", tool_input: { command: "gh pr merge 7" } }));
   assert.equal(blocked.code, HOOK_BLOCK);
   assert.match(blocked.err, /only the owner merges/i);
@@ -135,4 +184,62 @@ await test("the hook blocks a merge with exit 2 and a reason, and passes everyth
   const push = run(JSON.stringify({ tool_name: "Bash", tool_input: { command: "git push origin HEAD:main" } }));
   assert.equal(push.code, HOOK_BLOCK);
   assert.match(push.err, /never pushed to main/i);
+});
+
+// Audit A22 (2026-10-16): forms the hook's own functions allowed before S25.
+await test("a merge in a conditional's command position is refused at the hook boundary", () => {
+  for (const command of [
+    "if gh pr merge 5; then :; fi", "while gh pr merge 5; do :; done", "until gh pr merge 5; do :; done",
+    "if true; then :; elif gh pr merge 5; then :; fi", "if ! gh pr merge 5; then :; fi", "if sudo gh pr merge 5; then :; fi",
+    "if gh pr review 5 --approve; then :; fi", "if git push origin main; then :; fi",
+  ]) {
+    const result = runBash(command);
+    assert.equal(result.code, HOOK_BLOCK, command);
+    assert.match(result.err, /only the owner merges|never pushed to main/i, command);
+  }
+  for (const command of [
+    "if git diff --quiet; then echo clean; fi", "while read -r line; do echo \"$line\"; done < notes.txt",
+    "until gh pr checks 5; do sleep 10; done", "if gh pr view 5 --json state; then :; fi", "grep -n if docs/x.md",
+    "git commit -m 'never write: if gh pr merge 5; then :; fi'", "echo while gh pr merge 5",
+  ]) assert.equal(runBash(command).code, EXIT_OK, command);
+});
+
+await test("a command substitution in an unquoted heredoc is refused; quoted or escaped heredoc data passes", () => {
+  for (const command of [
+    "cat <<EOF\n$(gh pr merge 5)\nEOF", "cat <<EOF > f\nnote $(gh pr merge 5)\nEOF", "cat <<EOF\n`gh pr merge 5`\nEOF",
+    "cat <<-EOF\n\tx $(gh pr merge 5)\n\tEOF", "cat <<EOF\n'$(gh pr merge 5)'\nEOF", "git commit -F - <<EOF\nfix $(gh pr merge 5)\nEOF",
+    "cat <<EOF\n\"`gh pr review 5 --approve`\"\nEOF", "cat <<EOF\n$(git push origin main)\nEOF", "cat <<EOF\n$(sudo gh pr merge 5)\nEOF",
+    "cat <<EOF\n\\\\$(gh pr merge 5)\nEOF", "cat <<EOF\n\\\\`gh pr merge 5`\nEOF", "cat <<EOF\n\\\\\\\\$(gh pr merge 5)\nEOF",
+  ]) {
+    const result = runBash(command);
+    assert.equal(result.code, HOOK_BLOCK, command);
+    assert.match(result.err, /only the owner merges|never pushed to main/i, command);
+  }
+  for (const command of [
+    "cat <<'EOF'\n$(gh pr merge 5)\nEOF", "cat <<\"EOF\"\n`gh pr merge 5`\nEOF", "cat <<EOF\n\\$(gh pr merge 5)\nEOF",
+    "cat <<EOF\n\\`gh pr merge 5\\`\nEOF", "cat <<EOF > notes.md\ngh pr merge is the owner's act\nEOF",
+    "cat <<EOF\nbuilt $(date -u +%F) by $(git rev-parse --short HEAD)\nEOF", "git commit -F - <<'EOT'\nfix: block $(gh pr merge 5)\nEOT",
+    "cat <<EOF\n$(git push origin feat/x)\nEOF", "cat <<EOF\n\\\\\\$(gh pr merge 5)\nEOF", "cat <<EOF\n\\\\\\`gh pr merge 5\\`\nEOF",
+    "cat <<EOF > 'notes $(gh pr merge 5).md'\nbody\nEOF",
+  ]) assert.equal(runBash(command).code, EXIT_OK, command);
+});
+
+// git 2.53 reads the first positional as the repository even when --repo is given (probed
+// 2026-10-18 with a harmless branch name). The hook cannot tell which one the author meant, so with
+// --repo every positional is judged as a possible destination; that refuses more than git pushes.
+await test("a push with an explicit --repo option is judged on every destination it names", () => {
+  for (const command of [
+    "git push --repo=origin main", "git push --repo origin main", "git push --repo=origin HEAD:main", "git push --repo origin HEAD:main",
+    "git push --repo=origin +HEAD:refs/heads/main", "git push --repo=origin origin main", "git push --repo origin origin HEAD:main",
+    "git push origin main --repo=origin", "git push -u --repo=origin feat/x:main",
+  ]) {
+    const result = runBash(command);
+    assert.equal(result.code, HOOK_BLOCK, command);
+    assert.match(result.err, /never pushed to main/i, command);
+  }
+  for (const command of [
+    "git push --repo=origin feat/x", "git push --repo origin feat/x", "git push --repo=origin main:feat/x", "git push --repo=main feat/x",
+    "git push --repo main feat/x", "git push --repo=origin origin feat/x", "git push -o main --repo=origin feat/x",
+    "git push main feat/x",
+  ]) assert.equal(runBash(command).code, EXIT_OK, command);
 });

@@ -50,8 +50,10 @@ partial, behaviour no line asked for, lines that look implemented but are wrong,
 definition of done: code, dependency declarations, documentation and work-record state in the same PR.
 
 Each brief carries: do not start other agents, do not edit or commit, state which model you are,
-under 400 words. Run both axes in parallel as two read-only Claude Code Agent calls: the
-`ecc:code-reviewer` agent for standards, and a read-only `Explore` or general-purpose agent for spec.
+under 400 words. Run both axes in parallel in two read-only reviewer contexts available in the
+current harness: a code reviewer for standards and an explore or general-purpose reviewer for spec.
+Use `ecc:code-reviewer` when available; otherwise give an available reviewer the standards brief.
+Name the actual harness and model and disclose substitutions; an equivalent review is not an ECC run.
 If delegation is unavailable, report the limitation; run in sequence only with owner agreement
 and say in the report that they shared one context.
 

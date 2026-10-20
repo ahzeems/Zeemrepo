@@ -2,10 +2,9 @@
 
 ECC's runner starts each scenario in an empty `git init` directory, so on its own it measures
 Claude's default behaviour, not this repository's rules. This wrapper seeds each sandbox with a
-snapshot of the committed repository (CLAUDE.md, .claude/, scripts and hooks; never earlier
-reports or the pinned specs, so neither scores nor expected behaviours leak into a run)
-after ECC's own setup: the repository's tooling replaces a scenario's copy, and the scenario's other
-files are kept. A generated "competing" prompt may ask the agent to push or merge, and a scenario agent has
+snapshot of the committed repository (CLAUDE.md, .claude/, scripts and hooks) after ECC's own
+setup, without earlier results or the pinned rubric wherever they were copied (snapshot_boundary.py):
+the repository's tooling replaces a scenario's copy, and the scenario's other files are kept. A generated "competing" prompt may ask the agent to push or merge, and a scenario agent has
 Bash as this user, so every process ECC starts (setup commands, scenario runs, generation and
 classification) runs under bubblewrap built as an allowlist: an empty home, a private /tmp, pid
 namespace and session, the system and tool directories read-only, a private copy of Claude's
@@ -36,7 +35,8 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 import netproxy
-import outcomes
+import outcome_validation
+import snapshot_boundary
 
 REPO = Path(__file__).resolve().parents[2]
 REPORTS = REPO / "evals" / "compliance" / "reports"
@@ -214,13 +214,28 @@ def shared_deps(repo: Path, cache: Path) -> Path:
     return target
 
 
-def repo_snapshot(repo: Path) -> bytes:
-    """The committed tree at HEAD as a tar archive, without earlier reports or the pinned specs."""
+def git_at_head(repo: Path, *args: str) -> bytes:
     env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
-    return subprocess.run(
-        ["git", "archive", "--format=tar", "HEAD", "--", ".", ":(exclude)evals/compliance/reports", ":(exclude)evals/compliance/specs"],
-        cwd=repo, env=env, check=True, capture_output=True,
-    ).stdout
+    return subprocess.run(["git", *args], cwd=repo, env=env, check=True, capture_output=True).stdout
+
+
+def git_archive(repo: Path) -> bytes:
+    """The committed tree at HEAD as a tar archive, without earlier reports or the pinned specs."""
+    excluded = [f":(exclude){directory.rstrip('/')}" for directory in snapshot_boundary.PRIVATE_DIRS]
+    return git_at_head(repo, "archive", "--format=tar", "HEAD", "--", ".", *excluded)
+
+
+def private_corpus(repo: Path) -> dict[str, bytes]:
+    """The committed reports and pinned specs at HEAD, read only to find copies of them elsewhere."""
+    listing = git_at_head(repo, "ls-tree", "-r", "-z", "--name-only", "HEAD", "--", *snapshot_boundary.PRIVATE_DIRS)
+    names = [name for name in listing.decode().split("\0") if name]
+    return {name: git_at_head(repo, "cat-file", "blob", f"HEAD:{name}") for name in names}
+
+
+def repo_snapshot(repo: Path) -> bytes:
+    """The committed tree at HEAD inside the snapshot boundary (snapshot_boundary.py): no earlier
+    results or rubric, wherever they were copied, and the tooling byte for byte."""
+    return snapshot_boundary.clean_snapshot(git_archive(repo), private_corpus(repo), is_tooling)
 
 
 # The repository's own tooling replaces a scenario's copy, so the rules are measured against the real
@@ -276,10 +291,6 @@ def seed_sandbox(sandbox: Path, snapshot: bytes, deps: Path | None = None) -> No
 DISARMED = ["-c", "core.fsmonitor=", "-c", "core.hooksPath=/dev/null"]
 
 
-# The baseline commit's subject; the pinned outcome checks' safety step compares main with it.
-BASELINE_SUBJECT = "Zeemrepo snapshot"
-
-
 def commit_baseline(sandbox: Path, run: Callable[..., object]) -> None:
     """Commit the seeded tree as main and push it to a local origin, so the branch guards have a base."""
     def step(*args: str) -> None:
@@ -287,7 +298,7 @@ def commit_baseline(sandbox: Path, run: Callable[..., object]) -> None:
 
     step("sh", "-c", "mkdir -p .git/info && printf 'node_modules\\n' >> .git/info/exclude")
     step("git", *DISARMED, "add", "--all")
-    step("git", *DISARMED, "commit", "--quiet", "--allow-empty", "--no-verify", "-m", BASELINE_SUBJECT)
+    step("git", *DISARMED, "commit", "--quiet", "--allow-empty", "--no-verify", "-m", "Zeemrepo snapshot")
     step("git", *DISARMED, "branch", "-M", "main")
     # A real origin inside .git (never part of the tree), so npm run pr can fetch and push there.
     origin = str(sandbox.resolve() / ".git" / "origin.git")
@@ -344,8 +355,8 @@ UNSPLITTABLE = re.compile(r"\|\||#|[(){}]|(?<![&>|])&(?![&>])|(?:^|[\s;&])(?:if|
 QUOTED_WORD_CHAR = re.compile(r"[A-Za-z0-9./-]")
 # Claude Code's Bash tool answers a backgrounded call at once, and starts a failed call's output
 # with its exit code; either way the chain's later parts may not have run.
-BACKGROUND_OUTPUT = re.compile(r"^\s*Command running in background")
-FAILED_OUTPUT = re.compile(r"^\s*Exit code [1-9]")
+BACKGROUND_OUTPUT = outcome_validation.BACKGROUND_OUTPUT
+FAILED_OUTPUT = outcome_validation.FAILED_OUTPUT
 
 
 def successful_calls(stdout: str) -> set[str]:
@@ -600,7 +611,16 @@ def main(argv: list[str]) -> None:
     args = parser.parse_args(argv)
     require_skill_comply(SKILL_COMPLY)
     require_fresh_login(Path.home() / ".claude" / ".credentials.json", now=time.time())
-    snapshot = repo_snapshot(REPO)
+    try:
+        snapshot = repo_snapshot(REPO)
+    except snapshot_boundary.SnapshotRefused as refused:
+        print(f"run_comply: refused: {refused}", file=sys.stderr)
+        raise SystemExit(1) from refused
+    try:
+        rubric = outcome_validation.load_rubric(SPECS / f"{report_name(args.target)}.outcomes.json")
+    except ValueError as invalid:
+        print(f"run_comply: refused: {invalid}", file=sys.stderr)
+        raise SystemExit(1) from invalid
     deps = shared_deps(REPO, Path.home() / ".cache/zeemrepo/comply-deps")
     # Everything the run creates (login copies, the proxy socket, the gh config) lives here and is
     # removed at the end, however the run ends. /tmp keeps the socket path short.
@@ -608,7 +628,7 @@ def main(argv: list[str]) -> None:
     proxy: netproxy.Proxy | None = None
     try:
         proxy, network = start_network(work)
-        run_confined(args, snapshot, deps, work, network)
+        run_confined(args, snapshot, deps, work, network, rubric)
     finally:
         try:
             if proxy is not None:
@@ -628,39 +648,22 @@ def start_network(work: Path) -> tuple[netproxy.Proxy, Network]:
 
 
 def wire_grading(ecc_run: object, runner: object, parse_spec: Callable[[Path], object], *, spec_path: Path,
-                 keep_stream: Callable[[str], None], observe: outcomes.Observe) -> None:
+                 keep_stream: Callable[[str], None]) -> None:
     """Patch ECC so each session's stream is kept and its error flags read, its chained calls split and
-    long calls fitted before grading, and its spec pinned at `spec_path`. Every scenario attempt, failed
-    or not, is passed to `observe` with its sandbox, stream and wall time, for its outcome record."""
+    long calls fitted before grading, and its spec pinned at `spec_path`."""
     parse_stream_json = getattr(runner, "_parse_stream_json")
     run_scenario = getattr(runner, "run_scenario")
     succeeded: set[str] = set()
-    streams: list[str] = []
 
     def parse_and_note_successes(stdout: str) -> list[object]:
         keep_stream(stdout)
-        streams.append(stdout)
         succeeded.clear()
         succeeded.update(successful_calls(stdout))
         return parse_stream_json(stdout)
 
-    def observed(scenario: object, sandbox: Path | None, started: float, error: BaseException | None) -> None:
-        # A record that cannot be written must not hide the scenario's own error or lose a finished run.
-        try:
-            observe(scenario, sandbox, "".join(streams), time.monotonic() - started, error)
-        except Exception as failure:  # noqa: BLE001
-            print(f"run_comply: could not record the attempt: {failure!r}", file=sys.stderr)
-
     def run_and_split(scenario: object, model: str) -> object:
         succeeded.clear()
-        streams.clear()
-        started = time.monotonic()
-        try:
-            run = run_scenario(scenario, model=model, timeout=SCENARIO_TIMEOUT)
-        except Exception as error:
-            observed(scenario, None, started, error)
-            raise
-        observed(scenario, getattr(run, "sandbox_dir", None), started, None)
+        run = run_scenario(scenario, model=model, timeout=SCENARIO_TIMEOUT)
         split = split_observations(run.observations, succeeded)
         return dataclasses.replace(run, observations=tuple(fit_for_classifier(split)))
 
@@ -718,16 +721,10 @@ def confined_runner(work: Path, deps: Path, network: Network) -> ConfinedSubproc
     return ConfinedSubprocess(subprocess.run, wrap, work / "calls")
 
 
-def outcome_observer(name: str, run_dir: Path, run: Callable[..., subprocess.CompletedProcess[str]], *,
-                     context: dict[str, object], specs: Path = SPECS) -> outcomes.Observe:
-    """The target's pinned outcome checks, run through `run` (the confined runner in a real run), with
-    one record per attempt in `run_dir/records.jsonl` beside the session streams."""
-    return outcomes.recorder(outcomes.load_checks(specs / f"{name}.outcomes.json"), run,
-                             outcomes.jsonl_writer(run_dir / "records.jsonl"), context=context)
-
-
-def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Path, network: Network) -> None:
-    """Isolate the environment, confine ECC's subprocesses, patch its setup, grading and generation, and run it."""
+def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Path, network: Network,
+                 rubric: outcome_validation.Rubric | None) -> None:
+    """Isolate the environment, confine ECC's subprocesses, patch its setup, grading, outcome checks
+    and generation, and run it."""
     (work / "gh").mkdir()
     caller_env = dict(os.environ)
     os.environ.clear()
@@ -749,10 +746,9 @@ def run_confined(args: argparse.Namespace, snapshot: bytes, deps: Path, work: Pa
     confine_ecc_modules(sys.modules, confined)
     install_setup(runner, confined.run, snapshot, deps)
     name = report_name(args.target)
-    run_dir = STREAMS / f"{time.strftime('%Y%m%d-%H%M%S')}-{name}"
-    context = outcomes.run_context(model=args.model, gen_model=args.gen_model, repo=REPO, ecc=ECC_VERSION, git=["git", *DISARMED])
-    observe = outcome_observer(name, run_dir, confined.run, context=context)
-    wire_grading(ecc_run, runner, parse_spec, spec_path=SPECS / f"{name}.json", keep_stream=stream_keeper(run_dir), observe=observe)
+    wire_grading(ecc_run, runner, parse_spec, spec_path=SPECS / f"{name}.json",
+                 keep_stream=stream_keeper(STREAMS / f"{time.strftime('%Y%m%d-%H%M%S')}-{name}"))
+    outcome_validation.wire_outcomes(ecc_run, runner, rubric, run=confined.run, git=["git", *DISARMED])
     install_scenarios(ecc_run, work / "context", errors=(yaml.YAMLError, KeyError, TypeError),
                       pin_path=SPECS / f"{name}.scenarios.json", build=scenario_from)
     os.chdir(REPO)

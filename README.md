@@ -1,7 +1,8 @@
 # Zeemrepo
 
-A Claude-Code-only repository for agent governance, compliance and evaluation work, with every
-rule enforced by a check and reviewed by [ECC](https://github.com/affaan-m/ECC).
+A provider-neutral repository for agent governance, compliance and evaluation work, with shared
+rules, automated checks and independent review. It includes [ECC](https://github.com/affaan-m/ECC)
+engineering rules and an optional Claude Code plugin integration.
 
 ## Rules that never bend
 
@@ -22,9 +23,13 @@ npm run check
 
 ## Working here
 
+Start at `AGENTS.md` or `CLAUDE.md` with any agent harness or model provider. The runbook
+`wiki/runbooks/Work with any agent provider.md` covers skill loading, author attribution and
+review when ECC is unavailable.
+
 | Command | What it does |
 |---|---|
-| `npm run check` | Lint, types, tests (80% lines, functions and branches) and the repository guards |
+| `npm run check` | Lint, types, tests (80% lines and functions, 70% branches) and the repository guards |
 | `npm run pr` | Checks the branch, pushes it and opens or reports its pull request; never merges |
 | `npm run audit` | Confirms every commit on main since the PR-only rule landed by merged pull request |
 | `npm run worktree:guard` | Reports checkouts holding the only copy of some work |
@@ -40,17 +45,22 @@ branch must record (changelog, work record, operating docs) is `wiki/reference/C
 | `config/` | Guard configuration: governance claims, skill standards, landing audit |
 | `wiki/` | Shared memory: notes, decisions, lessons, runbooks and work records (`wiki-memory` skill) |
 | `.claude/skills/` | Repository skills; provenance in `import-baseline.json` |
-| `CLAUDE.md` | The constitution: three non-negotiables and where each rule lives |
-| `.claude/rules/zeem/` | This repository's rules, added to ECC's; ECC wins where they disagree |
-| `.claude/rules/ecc/` | Every ECC rule set, vendored unchanged (without ECC's rules README, with its LICENSE) and held to the plugin pin by `npm run rules:check`; every set loads where its paths match |
+| `AGENTS.md`, `CLAUDE.md` | Shared instruction entry point and constitution for every harness |
+| `.claude/rules/zeem/` | This repository's rules; they override ECC where they disagree |
+| `.claude/rules/ecc/` | Every ECC rule set, vendored unchanged (without ECC's rules README, with its LICENSE) and held to the plugin pin by `npm run rules:check` |
 | `.claude/agents/` | No-edit review agents: `finder` (reads only) and `verifier` (also runs checks) |
 | `.github/workflows/` | `check` (the change's own checks) and `guards` (main's guards, `pull_request_target`) |
-| `CHANGELOG.md` | One entry per branch |
+| `changelog/` | One dated fragment per branch: the changelog since ADR-0027 |
+| `CHANGELOG.md` | The changelog before the switch to fragments, kept as written |
 
 ## ECC
 
-The ECC plugin (`ecc@ecc`) is enabled for this project only, pinned to the `v2.2.3` release tag
+For Claude Code, the ECC plugin (`ecc@ecc`) is enabled for this project only, pinned to the `v2.2.3` release tag
 in `.claude/settings.json`. To update: change that `ref`, then run
 `claude plugin marketplace update ecc` and `claude plugin update ecc@ecc --scope project`, and
 refresh `.claude/rules/ecc/` from the same checkout. Do not also run ECC's `install.sh`, or its
 hooks run twice.
+
+Other harnesses use the same rules and skills with their own tools. Sandcastle and the live
+compliance-evaluation runner are Claude Code integrations; their runtime requirements are
+documented in their runbook and `evals/compliance/README.md`.

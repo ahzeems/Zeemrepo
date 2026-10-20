@@ -1,0 +1,1 @@
+- `npm run pr` captures `HEAD` and the git state before `npm run check`, refuses before pushing if the check changed either (whether it passed or failed), and pushes the captured commit by SHA (S05).

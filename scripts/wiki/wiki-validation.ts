@@ -20,7 +20,6 @@ type Vault = {
   root: string;
   wikiDir: string;
   tags: ReadonlySet<string>;
-  agents: ReadonlySet<string>;
   titles: ReadonlySet<string>;
   indexed: ReadonlySet<string>;
   seen: Map<string, string>;
@@ -46,18 +45,16 @@ function validDate(value: string): boolean {
 
 const toPosix = (path: string): string => path.split(sep).join("/");
 
-function loadAllowlists(root: string, fail: Fail): { tags: ReadonlySet<string>; agents: ReadonlySet<string> } {
+function loadTags(root: string, fail: Fail): ReadonlySet<string> {
   const schemaPath = join(root, WIKI_SCHEMA);
   if (!existsSync(schemaPath)) {
-    fail(schemaPath, "note schema is missing; the tag and agent allowlists live there");
-    return { tags: new Set(), agents: new Set() };
+    fail(schemaPath, "note schema is missing; the tag allowlist lives there");
+    return new Set();
   }
   const schema = readFileSync(schemaPath, "utf8");
   const tags = allowedList(schema, "tags");
-  const agents = allowedList(schema, "agents");
   if (tags.size === 0) fail(schemaPath, "no allowed tags found between tags:start and tags:end markers");
-  if (agents.size === 0) fail(schemaPath, "no allowed agents found between agents:start and agents:end markers");
-  return { tags, agents };
+  return tags;
 }
 
 // Every name a wikilink may use for a note or Bases file: title, file name, and vault path.
@@ -115,7 +112,6 @@ function checkFields(vault: Vault, file: string, name: string, data: Readonly<Re
   if (data.status === "superseded" && !SINGLE_WIKILINK.test(stringValue(data.superseded_by))) fail("superseded notes need a wikilink in superseded_by");
   const agent = stringValue(data.agent);
   if (!KEBAB.test(agent)) fail("agent must be a kebab-case short name");
-  else if (!vault.agents.has(agent)) fail("agent is not in the allowed agent list in note-schema.md");
   if (!isStringArray(data.tags) || data.tags.length === 0) fail("tags must be a nonempty list of strings");
   else for (const tag of data.tags) if (!vault.tags.has(tag)) fail("tag is not in the allowed list in note-schema.md");
   if (data.related !== undefined && (!isStringArray(data.related) || !data.related.every((link) => SINGLE_WIKILINK.test(link)))) {
@@ -216,13 +212,13 @@ export function validateWiki(root: string, options: ValidateOptions = {}): WikiV
   const fail: Fail = (file, message) => errors.push(`${toPosix(relative(root, file))}: ${message}`);
   const wikiDir = join(root, WIKI_DIR);
   const home = join(wikiDir, "Home.md");
-  const { tags, agents } = loadAllowlists(root, fail);
+  const tags = loadTags(root, fail);
   const { notes, templates, bases } = vaultFiles(wikiDir, home, fail);
   for (const template of templates) checkTemplate(fail, template);
   const titles = knownTitles(wikiDir, notes, bases, fail);
   const indexed = indexedTitles(wikiDir);
   if (!existsSync(home)) fail(home, "missing index");
-  const vault: Vault = { root, wikiDir, tags, agents, titles, indexed, seen: new Map(), fail };
+  const vault: Vault = { root, wikiDir, tags, titles, indexed, seen: new Map(), fail };
   const records = notes.flatMap((file) => checkNote(vault, file) ?? []);
   validateWork(records, fail);
   const homeLinks = wikilinks(readRegular(home) ?? "");

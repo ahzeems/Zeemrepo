@@ -89,7 +89,7 @@ Fix every error. Do not commit with a failing lint.
 
 ## 9. Commit
 
-Stage only wiki files. If the tag or agent list changed, commit `.claude/skills/wiki-memory/references/note-schema.md` first, on its own; `npm run wiki:compliance` refuses a commit that mixes `wiki/` with any other path.
+Stage only wiki files. If the tag list changed, commit `.claude/skills/wiki-memory/references/note-schema.md` first, on its own; `npm run wiki:compliance` refuses a commit that mixes `wiki/` with any other path. Author identifiers need no registration.
 
 ```bash
 git add .claude/skills/wiki-memory/references/note-schema.md   # only when the list changed

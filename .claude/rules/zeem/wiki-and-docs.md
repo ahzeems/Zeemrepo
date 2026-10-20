@@ -13,7 +13,8 @@ apply everywhere.
   a real trade-off.
 - A diagram never shows a proposed, failed or unobserved path as a working edge. Every arrow traces to a cited
   source.
-- Tags and allowed agents change in a commit of their own, before the note that uses them.
+- Allowed tags change in a commit of their own, before the note that uses them. Author identifiers
+  are open to every provider and need no registration; use the actual authoring agent or harness.
 
 ## Who holds what
 
@@ -22,7 +23,7 @@ apply everywhere.
 | Constitution: the rules agents follow | `CLAUDE.md` and `.claude/rules/zeem/` |
 | Map: where things are | `wiki/Home.md` and `wiki/reference/Memory index.md` |
 | Status: what is in flight | `wiki/work/` |
-| History: why and what changed | `wiki/decisions/` and `CHANGELOG.md` |
+| History: why and what changed | `wiki/decisions/`, `changelog/` and, before the switch to fragments, `CHANGELOG.md` |
 
 ## Writing
 

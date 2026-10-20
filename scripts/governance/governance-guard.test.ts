@@ -39,6 +39,7 @@ await test("the broken fixture reports the stale claim with its location", () =>
   const result = run(["--root", join(fixtures, "broken/governance-guard")]);
   assert.equal(result.code, EXIT_REFUSED);
   assert.match(result.err, /README\.md:3 \[self-merge-gate\]/);
+  assert.match(result.err, /README\.md:6 \[single-harness-policy\]/);
 });
 
 await test("every text file is scanned unless excluded with a reason, at any depth and in dot folders", (t) => {

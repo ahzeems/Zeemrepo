@@ -4,7 +4,7 @@ title: Git hooks route child Git commands to the hooked repository
 summary: Tests that spawn git inherit a hook's GIT_DIR and GIT_INDEX_FILE, so under a hook their fixture commands act on the real repository.
 tags: [area/git, area/typescript, kind/pitfall]
 created: 2026-10-06
-updated: 2026-10-10
+updated: 2026-10-17
 agent: claude-code
 status: active
 related: ["[[A refused commit leaves its staging behind]]"]
@@ -49,6 +49,18 @@ In Zeemrepo this is built into the shared helpers:
   `cwd`. Without a `cwd` it keeps the hook's repository on purpose and drops only the variables
   that inject config or rewrite history. `scripts/lib/git.test.ts` covers this in "an explicit
   cwd wins over an inherited GIT_DIR (hook environment)".
+- `scripts/git/pr-ready.ts`'s `spawnRunner`, which runs git, node, npm and gh for `npm run pr`
+  and the Sandcastle AFK wrapper, applies the same rule to every command it starts. Until
+  2026-10-17 it always used the no-`cwd` rule, so with an explicit `cwd` an inherited `GIT_DIR`
+  won: in a test with routing pointed at a decoy, `git rev-parse --show-toplevel` run in the
+  selected fixture printed the decoy (audit finding A03). Now git, and git launched by node or
+  npm, resolves the selected checkout and the decoy stays byte-identical
+  (`scripts/git/pr-ready.test.ts`). Both production callers pass no `cwd`, so under a hook they
+  still act on the hooked repository, with its index, and the same tests show that an injected
+  graft file, replace-ref base or `GIT_NO_REPLACE_OBJECTS` does not change what git reads. An
+  explicit `cwd` drops every `GIT_` variable, including `GIT_ASKPASS`, `GIT_SSH_COMMAND` and
+  `GIT_TERMINAL_PROMPT`, so a future caller that pushes from an explicit `cwd` must supply its
+  own credentials helper.
 
 `scripts/toolchain/fixture-env.test.ts` now reads the syntax tree of all test code and fails any
 `child_process` call that does not pass `env: cleanGitEnv`, and the pre-push hook refuses a push

@@ -4,9 +4,10 @@ title: ADR-0024 Claude Code is the only harness
 summary: Zeemrepo targets Claude Code alone, with the pinned ECC plugin, rules in CLAUDE.md and .claude/rules/, and native user-only skills.
 tags: [area/agents, tool/claude-code, tool/ecc, kind/architecture]
 created: 2026-10-09
-updated: 2026-10-09
+updated: 2026-10-16
 agent: claude-code
-status: active
+status: superseded
+superseded_by: "[[ADR-0026 Any provider may work under shared rules]]"
 related: ["[[ADR-0008 Owner merges pull requests on GitHub]]", "[[Skill standards]]"]
 ---
 

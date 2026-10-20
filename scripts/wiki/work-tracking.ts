@@ -162,7 +162,8 @@ function checkWorkRecord(graph: Graph, record: WorkRecord): void {
     if (map && map.data.status !== "done") graph.fail(record.file, "a plan cannot depend on an unresolved map");
   }
   if (type === "map" && record.data.status === "done") {
-    const open = graph.records.some((ticket) => ticket.data.map === `[[${record.title}]]` && !TERMINAL.has(stringValue(ticket.data.status)));
+    const open = graph.records.some((ticket) => ticket.data.type === "ticket"
+      && ticket.data.map === `[[${record.title}]]` && !TERMINAL.has(stringValue(ticket.data.status)));
     if (open) graph.fail(record.file, "a completed map still has open tickets");
   }
   if (type === "issue") checkIssue(graph, record);

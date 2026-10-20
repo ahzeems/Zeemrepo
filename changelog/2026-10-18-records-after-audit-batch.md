@@ -1,0 +1,1 @@
+- The audit tickets that landed in the parallel batch (S06, S08, S12, S13, S19 and S25) record their merges, final reviews and the owner's confirmation of S13's limits, and seven new idea notes carry the gaps those reviews left open.

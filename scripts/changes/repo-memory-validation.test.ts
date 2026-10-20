@@ -11,7 +11,7 @@ const good = record({ ...before, status: "in-progress", evidence: ["VERIFIED: ol
 const refuse = (changed: string[], records: RecordChange[], docLines: string[] = []): string => memoryRefusals({ changed, records, addedOperatingDocLines: docLines }).join("\n");
 
 await test("a branch with only exempt or changelog changes needs no record", () => {
-  assert.equal(refuse([CHANGELOG, "package-lock.json", "wiki/sessions/2026-10-09 A.md"], []), "");
+  assert.equal(refuse([CHANGELOG, "changelog/2026-10-09-a.md", "package-lock.json", "wiki/sessions/2026-10-09 A.md"], []), "");
 });
 
 await test("a record with new labelled evidence and a changed status passes", () => {
@@ -83,5 +83,6 @@ await test("a workflow-critical change needs an operating document or a reasoned
   }
   await t.test("the changelog is not an operating document", () => {
     assert.match(refuse(["scripts/lib/git.ts", CHANGELOG, PATH], [good]), /workflow-critical/);
+    assert.match(refuse(["scripts/lib/git.ts", "changelog/2026-10-09-a.md", PATH], [good]), /workflow-critical/);
   });
 });

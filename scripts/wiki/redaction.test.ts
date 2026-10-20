@@ -60,12 +60,146 @@ await test("findSensitive leaves allowed placeholders and public addresses alone
 });
 
 await test("a service account is not redacted as a personal identifier", () => {
-  for (const account of ["node", "root", "ubuntu", "deploy", "www-data", "runner"]) {
+  for (const account of ["node", "root", "ubuntu", "deploy", "www-data", "runner", "agent"]) {
     assert.equal(isPersonalAccount(account), false, account);
   }
   assert.equal(isPersonalAccount("alice"), true);
   assert.equal(isPersonalAccount("bob"), false, "names under four characters are too common to match");
   assert.equal(redactionChecks({ host: "ci", user: "node" }).some((check) => /machine/.test(check.name)), false);
+  const hasLoginCheck = (user: string): boolean =>
+    redactionChecks({ host: "ci", user }).some((check) => check.name === "this machine's username");
+  assert.equal(hasLoginCheck("agent"), false);
+  assert.equal(hasLoginCheck("AGENT"), false);
+  assert.equal(hasLoginCheck("alice"), true);
+});
+
+await test("the role-name home agent is allowed, and every other home path is flagged for every login", () => {
+  for (const user of ["agent", "node", "alice"]) {
+    const flagged = (text: string): string[] =>
+      findSensitive(text, redactionChecks({ host: "ci", user })).map((finding) => finding.name);
+    assert.deepEqual(flagged("WORKDIR /home/" + "agent/workspace"), [], user);
+    assert.deepEqual(flagged("PATH=/home/" + "agent/.local/bin"), [], user);
+    assert.match(flagged("see /home/" + "agentsmith/x").join(), /home path/, user);
+    assert.match(flagged("see /home/" + "agent-smith/x").join(), /home path/, user);
+    assert.match(flagged("see /home/" + "alice/x").join(), /home path/, user);
+    assert.match(flagged("see /home/" + "agent.evil/x").join(), /home path/, user);
+    assert.match(flagged("see /home/" + "Agent/x").join(), /home path/, user);
+    assert.deepEqual(flagged("cd /home/" + "agent"), [], user);
+    assert.deepEqual(flagged("/home/<user>/workspace"), [], user);
+  }
+  const agentChecks = redactionChecks({ host: "ci", user: "agent" });
+  assert.deepEqual(findSensitive("agent: claude-code", agentChecks), []);
+});
+
+await test("the role-name home does not hide this machine's own login behind a traversal", () => {
+  const checks = redactionChecks({ host: "ci", user: "alice" });
+  const names = findSensitive("ls /home/" + "agent/../alice/notes", checks).map((finding) => finding.name);
+  assert.ok(names.includes("this machine's username"), names.join());
+});
+
+// Two role-name logins, where no login check can catch a name, and one personal login.
+const RUNTIME_LOGINS = ["agent", "node", "alice"];
+const homePathFindings = (text: string, user: string): string[] =>
+  findSensitive(text, redactionChecks({ host: "ci", user })).map((finding) => finding.name)
+    .filter((name) => /home path/.test(name));
+const roleHome = "/home/" + "agent";
+
+await test("a path that climbs out of the role-name home is flagged for every login", () => {
+  const escaping = [
+    `ls ${roleHome}/../bob/notes`,
+    `ls ${roleHome}/../carol`,
+    `cd ${roleHome}/..`,
+    `cd ${roleHome}/../`,
+    `ls ${roleHome}/sub/../../bob`,
+    `ls ${roleHome}/a/b/../../../bob`,
+    `ls ${roleHome}/./../bob`,
+    `ls ${roleHome}//../bob`,
+    `ls ${roleHome}/"../bob"`,
+    `ls '${roleHome}/../bob'`,
+    `ls ${roleHome}/../bob/../agent/x`,
+    `PATH=${roleHome}/bin:${roleHome}/../bob/bin`,
+    `see (${roleHome}/../bob).`,
+    `ls x${roleHome}/../bob`,
+    `ls ${roleHome}/x ${roleHome}/../bob`,
+    `ls ${roleHome}/'..'/bob`,
+    `ls ${roleHome}/\\.\\./bob`,
+    `ls /var${roleHome}/../bob`,
+    `ls /srv${roleHome}/x/../../bob`,
+    `cd ${roleHome}/..&&ls`,
+    `cd ${roleHome}/..&`,
+    `cd ${roleHome}/.. && ls`,
+    `see ${roleHome}/.. and so on`,
+    `see ${roleHome}/.., then x`,
+    `see (${roleHome}/..) here`,
+  ];
+  for (const user of RUNTIME_LOGINS) {
+    for (const text of escaping) assert.deepEqual(homePathFindings(text, user), ["home path with username (use ~ or /home/<user>)"], `${user}: ${text}`);
+  }
+});
+
+await test("look-alike and other homes are flagged for every login", () => {
+  for (const user of RUNTIME_LOGINS) {
+    for (const home of ["agentsmith", "agent-smith", "agent.evil", "agent_x", "Agent", "AGENT", "agent.", "bob", "carol"]) {
+      assert.equal(homePathFindings(`see /home/${home}/x`, user).length, 1, `${user}: ${home}`);
+    }
+  }
+});
+
+await test("quotes and backslashes do not hide a look-alike home", () => {
+  const joined = [
+    `ls ${roleHome}"smith"/x`,
+    `ls ${roleHome}'smith'/x`,
+    `ls ${roleHome}\\smith/x`,
+    `ls ${roleHome}\\..\\bob`,
+  ];
+  for (const user of RUNTIME_LOGINS) {
+    for (const text of joined) assert.deepEqual(homePathFindings(text, user), ["home path with username (use ~ or /home/<user>)"], `${user}: ${text}`);
+  }
+});
+
+await test("an apostrophe or a backslash escape after the role-name home fails closed as a look-alike", () => {
+  for (const user of RUNTIME_LOGINS) {
+    for (const text of [`the ${roleHome}'s files`, `"${roleHome}\\n"`, `printf '${roleHome}\\n'`, `match ${roleHome}\\b`]) {
+      assert.deepEqual(homePathFindings(text, user), ["home path with username (use ~ or /home/<user>)"], `${user}: ${text}`);
+    }
+  }
+});
+
+await test("a path that stays inside the role-name home passes for every login", () => {
+  const inside = [
+    `cd ${roleHome}`,
+    `cd ${roleHome}/`,
+    `WORKDIR ${roleHome}/workspace`,
+    `PATH=${roleHome}/.local/bin:/usr/bin`,
+    `ls ${roleHome}/x/../y`,
+    `ls ${roleHome}/a/b/../../c`,
+    `ls ${roleHome}/x/..`,
+    `ls ${roleHome}/./x`,
+    `ls ${roleHome}/.`,
+    `ls ${roleHome}//x`,
+    `ls ${roleHome}/...`,
+    `ls "${roleHome}/workspace"`,
+    `cd ${roleHome} && cd ..`,
+    `see (${roleHome}/x/../y).`,
+    "ls /home/<user>/../x",
+    `ls ${roleHome}/agent/..`,
+  ];
+  for (const user of RUNTIME_LOGINS) {
+    for (const text of inside) assert.deepEqual(homePathFindings(text, user), [], `${user}: ${text}`);
+  }
+});
+
+await test("the role-home check keeps the other checks and does not echo the path", () => {
+  const checks = redactionChecks({ host: "ci", user: "agent" });
+  const findings = findSensitive(`ls ${roleHome}/../bob token ${"ghp_" + "x".repeat(30)}`, checks);
+  assert.deepEqual(findings.map((finding) => finding.name).sort(), ["GitHub token", "home path with username (use ~ or /home/<user>)"]);
+  assert.ok(!JSON.stringify(findings).includes("bob"));
+});
+
+await test("a long run of role-home paths is scanned in linear time", () => {
+  const started = performance.now();
+  findSensitive(`${roleHome}/x`.repeat(15_000) + "/..".repeat(15_000), redactionChecks({ host: "ci", user: "agent" }));
+  assert.ok(performance.now() - started < 2000, "scan of a long role-home line took over 2 seconds");
 });
 
 await test("a generic hostname is not checked, and a user with no passwd entry is not an error", () => {

@@ -21,12 +21,32 @@
       "reason": "Migration history: the audit and stocktake quote the replaced rules on purpose."
     },
     {
+      "glob": "wiki/work/ideas/Migrate Zimi into Zeemrepo.md",
+      "reason": "Completed migration record describes the harness policy that applied when the work was done."
+    },
+    {
       "glob": ".claude/skills/import-baseline.json",
       "reason": "Append-only provenance record: it must name the source paths the skills came from, and landed entries cannot change."
     },
     {
       "glob": "CHANGELOG.md",
       "reason": "History: entries describe what changed, including rules that were retired."
+    },
+    {
+      "glob": "changelog/**",
+      "reason": "History: each fragment records one branch's change as it was written (ADR-0027)."
+    },
+    {
+      "glob": "wiki/work/plans/Per-branch changelog fragments plan.md",
+      "reason": "Plan of the switch to fragments: it describes the CHANGELOG.md entry rule it replaces and the one transition entry."
+    },
+    {
+      "glob": "wiki/work/tickets/Recognise changelog fragments as documentation.md",
+      "reason": "Work record of slice 1 of the switch, which landed while a CHANGELOG.md entry was still the rule."
+    },
+    {
+      "glob": "wiki/work/tickets/Switch the changelog to per-branch fragments.md",
+      "reason": "Work record of the switch itself: it names the CHANGELOG.md entry rule it retires and the transition entry."
     },
     {
       "glob": "scripts/**/*.test.ts",
@@ -58,29 +78,14 @@
       "supersededBy": "Wiki commits use docs(wiki):"
     },
     {
-      "id": "codex-branch-prefix",
-      "pattern": "\\bcodex/",
-      "supersededBy": "Claude Code only (zimi-audit rule 10)"
-    },
-    {
-      "id": "agents-md-config",
-      "pattern": "\\bAGENTS\\.md\\b",
-      "supersededBy": "Claude Code only; CLAUDE.md and .claude/"
+      "id": "single-harness-policy",
+      "pattern": "Claude[ -]Code[ -]only|\\bClaude Code (?:is the only harness|only|alone)\\b|\\bonly Claude Code\\b",
+      "supersededBy": "ADR-0026: any provider or harness may work under the shared repository rules"
     },
     {
       "id": "intent-md",
       "pattern": "\\bINTENT\\.md\\b",
-      "supersededBy": "Claude Code only; CLAUDE.md and .claude/rules (plan)"
-    },
-    {
-      "id": "agents-skills-dir",
-      "pattern": "\\.agents/skills",
-      "supersededBy": "Skills live in .claude/skills"
-    },
-    {
-      "id": "opencode-config",
-      "pattern": "opencode\\.json|\\.opencode/",
-      "supersededBy": "Claude Code only"
+      "supersededBy": "Shared rules live in CLAUDE.md and .claude/rules, with AGENTS.md as an entry point"
     },
     {
       "id": "today-only-changelog",
@@ -118,22 +123,30 @@
       "supersededBy": "Owner decision 2026-10-09: only the owner merges, on GitHub (ADR-0008)"
     },
     {
-      "id": "zeem-over-ecc",
-      "pattern": "\\bzeem`? rules? (wins?|override[sd]?)\\b|\\bwin over the vendored ECC\\b|\\brepository skills?\\s+wins?\\b|\\boverride ECC where they disagree\\b|#+ Overrides of ECC\\b",
-      "supersededBy": "Owner decision 2026-10-19: ECC wins everywhere (ADR-0026)"
-    },
-    {
-      "id": "branch-per-piece",
-      "pattern": "\\bstart each piece of work on a fresh branch\\b|\\bthe owner merges the ticket's pull request\\b",
-      "supersededBy": "Owner decision 2026-10-19: one integration branch per piece of work, one pull request when it is complete (ADR-0027)"
-    },
-    {
-      "id": "plan-approval-by-merge",
-      "pattern": "\\bapproved (only )?when the owner merges\\b|\\bthe plan must have an owner-approved merge\\b",
-      "supersededBy": "Owner decision 2026-10-19: a plan is approved by the owner's quoted words or a merged pull request (ADR-0027)"
+      "id": "changelog-md-entry",
+      "pattern": "`?CHANGELOG\\.md`?\\s+(?:file\\s+)?entr(?:y|ies)\\b|\\bentr(?:y|ies)\\b[^.`]{0,40}?\\b(?:in|to|into)\\s+(?:the\\s+)?`?CHANGELOG\\.md|\\brecord(?:s|ed)?\\s+(?:the|its|each|every)\\s+change\\s+in\\s+`?CHANGELOG\\.md",
+      "supersededBy": "ADR-0027: each branch adds its own fragment, changelog/<YYYY-MM-DD>-<slug>.md; CHANGELOG.md is history"
     }
   ],
   "allowed": [
+    {
+      "path": "wiki/work/tickets/Establish a feasible isolated Sandcastle handoff.md",
+      "contains": "https://github.com/mattpocock/sandcastle/blob/e99f832f26dc9d245c019a9ddd19fa5dee792427/docs/adr/0015-no-sandbox-in-run-and-create-sandbox.md",
+      "reason": "Primary-source citation to the pinned SDK's ADR; it does not prescribe a decision-note location in this repository.",
+      "claims": ["docs-work-paths"]
+    },
+    {
+      "path": "wiki/work/ideas/Allow any agent provider to work in the repository.md",
+      "contains": "lets change the only claude code to any providor - remove these blocks",
+      "reason": "Verbatim owner instruction replacing the restriction; it authorizes the skill interface revisions.",
+      "claims": ["single-harness-policy"]
+    },
+    {
+      "path": "wiki/reference/Memory index.md",
+      "contains": "[[ADR-0024 Claude Code is the only harness]]",
+      "reason": "Indexes the superseded decision by its original title so its historical record remains discoverable.",
+      "claims": ["single-harness-policy"]
+    },
     {
       "path": "wiki/decisions/ADR-0021 Authority comes from an identified checkout.md",
       "contains": "ADR-0021 The bare root is storage, authority comes from an identified checkout.md",
@@ -197,6 +210,54 @@
       "claims": [
         "docs-work-paths"
       ]
+    },
+    {
+      "path": "wiki/decisions/ADR-0027 Changelog entries are per-branch fragment files.md",
+      "contains": "The change-records rule requires every branch to record itself with a `CHANGELOG.md` entry",
+      "reason": "Decision body: it states the rule it replaces and the one transition, as written on its day.",
+      "claims": ["changelog-md-entry"]
+    },
+    {
+      "path": "wiki/decisions/ADR-0027 Changelog entries are per-branch fragment files.md",
+      "contains": "the switching pull request itself still adds a dated `CHANGELOG.md` entry",
+      "reason": "Decision body: it states the rule it replaces and the one transition, as written on its day.",
+      "claims": ["changelog-md-entry"]
+    },
+    {
+      "path": "wiki/decisions/ADR-0027 Changelog entries are per-branch fragment files.md",
+      "contains": "Every live text that requires a `CHANGELOG.md` entry",
+      "reason": "Decision body: it states the rule it replaces and the one transition, as written on its day.",
+      "claims": ["changelog-md-entry"]
+    },
+    {
+      "path": "wiki/work/ideas/First real Sandcastle run and the wrapper probe fix.md",
+      "contains": "changelog-guard refused a branch without a CHANGELOG.md entry",
+      "reason": "Evidence recorded on its day, when a CHANGELOG.md entry was the rule.",
+      "claims": ["changelog-md-entry"]
+    },
+    {
+      "path": "wiki/work/ideas/Changelog entries cannot conflict between branches.md",
+      "contains": "requires every branch to add an entry under a date heading in `CHANGELOG.md`",
+      "reason": "The idea's Problem section describes the rule the switch to fragments replaces.",
+      "claims": ["changelog-md-entry"]
+    },
+    {
+      "path": "wiki/decisions/ADR-0026 ECC wins over the repository rules.md",
+      "contains": "[[ADR-0024 Claude Code is the only harness]]",
+      "reason": "Links the superseded decision ADR-0024 by its original title to keep its historical record discoverable; ADR-0026 'Any provider may work under shared rules' supersedes the single-harness policy (MergeFork reconciliation).",
+      "claims": ["single-harness-policy"]
+    },
+    {
+      "path": "wiki/reference/Context loading.md",
+      "contains": "[[ADR-0024 Claude Code is the only harness]]",
+      "reason": "Links the superseded decision ADR-0024 by its original title to keep its historical record discoverable; ADR-0026 'Any provider may work under shared rules' supersedes the single-harness policy (MergeFork reconciliation).",
+      "claims": ["single-harness-policy"]
+    },
+    {
+      "path": "wiki/reference/Integration admission.md",
+      "contains": "[[ADR-0024 Claude Code is the only harness]]",
+      "reason": "Links the superseded decision ADR-0024 by its original title to keep its historical record discoverable; ADR-0026 'Any provider may work under shared rules' supersedes the single-harness policy (MergeFork reconciliation).",
+      "claims": ["single-harness-policy"]
     }
   ]
 }

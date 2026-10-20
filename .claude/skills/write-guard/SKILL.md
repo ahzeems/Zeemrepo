@@ -29,7 +29,11 @@ prose is the usual gap ([Prose rules do not enforce themselves](<../../../wiki/l
   `scripts/toolchain/fixture-env.test.ts` enforces it for direct calls, renamed or destructured
   spawners and namespace imports. It does not follow a spawner passed to another function, stored
   in an object, assigned after its declaration or read through a computed property (`cp["spawn"]`),
-  so keep spawning inside the test-support helpers. It matters because the pre-push hook runs the tests
+  so keep spawning inside the test-support helpers. Python test code in `evals/compliance/` follows
+  the same rule with `env=` built by `run_comply.isolated_env`; `evals/compliance/test_fixture_env.py`
+  enforces it and keeps decoy-repository controls for the harness setup. It also refuses a spawner
+  function passed as a value or stored, and an env written into or emptied after it was built. Its
+  docstring lists the forms it does not follow, such as a spawning module passed around as a value. It matters because the pre-push hook runs the tests
   with `GIT_DIR` set when pushed from a worktree
   ([Hook-run checks must preserve Git state](<../../../wiki/lessons/Hook-run checks must preserve Git state.md>)).
 

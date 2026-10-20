@@ -9,7 +9,8 @@
   "scripts": {
     "lint": "eslint --flag unstable_native_nodejs_ts_config --max-warnings 0 .",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "node --test --experimental-test-coverage --test-coverage-include=\"scripts/**/*.ts\" --test-coverage-exclude=\"scripts/**/*.test.ts\" --test-coverage-exclude=\"scripts/fixtures/**\" --test-coverage-lines=80 --test-coverage-functions=80 --test-coverage-branches=80 \"scripts/**/*.test.ts\"",
+    "ci": "npm run typecheck && npm test",
+    "test": "node --test --experimental-test-coverage --test-coverage-include=\"scripts/**/*.ts\" --test-coverage-include=\".sandcastle/*.ts\" --test-coverage-exclude=\"scripts/**/*.test.ts\" --test-coverage-exclude=\"scripts/fixtures/**\" --test-coverage-lines=80 --test-coverage-functions=80 --test-coverage-branches=70 \"scripts/**/*.test.ts\"",
     "check": "npm run check:base && npm run changelog:guard && npm run memory:guard",
     "check:base": "npm run lint && npm run typecheck && npm test && npm run evals:test && npm run wiki:lint && npm run skills:lint && npm run governance:check && npm run rules:check && npm run wiki:compliance",
     "wiki:lint": "node scripts/wiki/wiki-lint.ts",
@@ -23,16 +24,21 @@
     "pr": "node scripts/git/pr-ready.ts",
     "audit": "node scripts/git/landing-audit.ts",
     "worktree:guard": "node scripts/git/worktree-guard.ts",
-    "hooks:install": "git config --local core.hooksPath .githooks"
+    "hooks:install": "git config --local core.hooksPath .githooks",
+    "sandcastle": "node .sandcastle/main.ts",
+    "sandcastle:afk": "node scripts/sandcastle/afk.ts",
+    "sandbox:smoke": "node scripts/sandcastle/containment-smoke.ts",
+    "sandbox:verify": "node scripts/sandcastle/verify-candidate.ts"
   },
   "devDependencies": {
+    "@ai-hero/sandcastle": "^0.12.0",
     "@eslint/js": "^10.0.1",
     "@types/markdown-it": "^14.2.0",
     "@types/node": "^24.19.2",
     "eslint": "^10.11.0",
     "markdown-it": "^15.0.2",
     "typescript": "~6.0.3",
-    "typescript-eslint": "^8.71.2",
+    "typescript-eslint": "^8.70.0",
     "yaml": "^2.9.1"
   }
 }

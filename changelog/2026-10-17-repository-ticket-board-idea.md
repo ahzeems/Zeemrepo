@@ -1,0 +1,1 @@
+- New idea: the repository's own tickets, shown as a kanban board of parallel initiatives, become Sandcastle's work source in place of GitHub issues; a research note proposes a read-only first slice and the offline evals that would prove it.

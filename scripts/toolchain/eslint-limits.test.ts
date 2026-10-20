@@ -24,6 +24,15 @@ async function sizeViolations(source: string, filePath: string): Promise<string[
     message.ruleId !== null && SIZE_RULES.has(message.ruleId) ? [message.ruleId] : []);
 }
 
+// The size-rule settings the real config resolves for a path; {} when no config applies to it.
+async function sizeRuleSettings(filePath: string): Promise<Record<string, unknown>> {
+  const config: unknown = await eslint.calculateConfigForFile(filePath);
+  if (typeof config !== "object" || config === null || !("rules" in config)) return {};
+  const { rules } = config;
+  if (typeof rules !== "object" || rules === null) return {};
+  return Object.fromEntries(Object.entries(rules).filter(([name]) => SIZE_RULES.has(name)));
+}
+
 const SOURCE_PATH = "eslint.config.ts";
 const TEST_PATH = "scripts/toolchain/eslint-limits.test.ts";
 
@@ -60,6 +69,14 @@ await test("eslint size limits", async (t) => {
 
   await t.test("rejects a source file over the line ceiling", async () => {
     assert.deepEqual(await sizeViolations(fileOfLines(MAX_FILE_LINES + 1), SOURCE_PATH), ["max-lines"]);
+  });
+
+  // Resolved from the config rather than linted from text: with CI=true typescript-eslint builds
+  // one program and reads a file already in it from disk, ignoring the text passed to lintText.
+  await t.test("applies the source rules to the Sandcastle entry point", async () => {
+    const source = await sizeRuleSettings(SOURCE_PATH);
+    assert.equal(Object.keys(source).length, SIZE_RULES.size);
+    assert.deepEqual(await sizeRuleSettings(".sandcastle/main.ts"), source);
   });
 
   await t.test("accepts the maximum nesting depth and rejects one more", async () => {

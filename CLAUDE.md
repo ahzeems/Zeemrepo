@@ -1,16 +1,16 @@
 # Zeemrepo
 
-A Claude Code workspace for agent governance: rules, compliance checks and a typed wiki. Claude Code is the only
-harness, with the ECC plugin (`ecc@ecc`, pinned in `.claude/settings.json`).
+A workspace for agent governance: rules, compliance checks and a typed wiki. Any agent harness and model
+provider may work here under the same rules. `AGENTS.md` points to this shared constitution.
 
 ## Non-negotiable
 
-- **Nothing is pushed to `main`.** Each piece of work lives on one integration branch until it is complete,
-  then gets one pull request through `npm run pr`. Only the owner approves and merges on GitHub; never merge
-  or approve a pull request, even where an ECC command suggests `gh pr merge`.
-- **Test first.** ECC's TDD workflow is mandatory.
-- **Every branch records itself:** a `CHANGELOG.md` entry, an updated work record under `wiki/work/`, and an
-  operating doc when workflow-critical files change. `npm run check` refuses a branch without them.
+- **Nothing is pushed to `main`.** Work on a branch, finish with `npm run pr`, and leave merging to the owner on
+  GitHub. Never merge or approve a pull request.
+- **Test first.** Reproduce the failure, write a failing test, then implement and run the checks. Use ECC's TDD
+  workflow when available, or the same method with the current harness's tools.
+- **Every branch records itself:** a new changelog fragment, `changelog/<YYYY-MM-DD>-<slug>.md`, an updated work record
+  under `wiki/work/`, and an operating doc when workflow-critical files change. `npm run check` refuses a branch without them.
 
 ## Where the rules live
 
@@ -27,20 +27,29 @@ Each rule has one home. Read the file before acting in its area.
 | Skills | `.claude/rules/zeem/skills.md` |
 | General engineering (vendored ECC) | `.claude/rules/ecc/` |
 
-ECC is this repository's foundation. Where a `zeem` rule, a repository skill or a wiki page disagrees
-with an ECC rule or skill, ECC wins; fix the other text (OWNER DECISION, 2026-10-19: "ECC wins
-everywhere"). The `zeem` rules add what ECC does not cover, and nothing in the repository may block or
-restrict the ECC plugin. The one exception is GitHub reviews and merges: only the owner approves,
-requests changes or merges, and agents post review findings as pull request comments (OWNER DECISION,
-2026-10-19: "You merge it", "Comments only"), even where an ECC command such as `/pr` or
-`/ecc:code-review` would merge or submit a review.
+Where a `zeem` rule disagrees with an ECC rule, a skill (ECC or repository) or a wiki page, the `zeem`
+rule wins; fix the other text or record why it stays. A `zeem` file that overrides
+ECC says so under "Overrides of ECC".
+
+## Harnesses and providers
+
+- Use the tools and credentials of the current harness. General planning, authoring and verification do not
+  require Claude Code, its login or the ECC plugin. The integration for Claude Code pins `ecc@ecc` in
+  `.claude/settings.json`; the vendored ECC engineering rules apply to every agent.
+- Keep one canonical skill library in `.claude/skills/`. When native discovery is unavailable, read the
+  relevant skill file and follow its method. Use available equivalent reviewer contexts and report substitutions.
+- Attribute new notes to the actual authoring harness or agent with a kebab-case `agent` value. Any provider
+  is accepted; record model and provider details in review evidence. See
+  `wiki/runbooks/Work with any agent provider.md` and ADR-0026.
 
 ## Working here
 
 - Node from `.nvmrc`; `npm ci`, then `npm run hooks:install` once per checkout.
 - `npm run check` runs everything CI runs: lint, typecheck, tests with coverage, `evals:test`, `wiki:lint`, `skills:lint`,
-  `governance:check`, `rules:check`, `wiki:compliance`, `changelog:guard`, `memory:guard`.
+  `governance:check`, `rules:check`, `wiki:compliance`, `changelog:guard`, `memory:guard`. The one exception is
+  `npm run sandbox:smoke`, the real container control, which needs Docker and runs in the required CI `check` job.
 - Scripts are TypeScript run directly by Node, under `scripts/<area>/`, each with a sibling `*.test.ts`. The one
   exception is the compliance harness in `evals/compliance/` (Python, because ECC's skill-comply is), tested by `evals:test`.
 - The wiki starts at `wiki/Home.md`. Load the `wiki-memory` skill before writing under `wiki/`.
-- Reviewers: the ECC review agents, plus `.claude/agents/finder.md` and `.claude/agents/verifier.md`.
+- Reviewers: available independent contexts following `.claude/agents/finder.md` and
+  `.claude/agents/verifier.md`, or the ECC review agents when installed.

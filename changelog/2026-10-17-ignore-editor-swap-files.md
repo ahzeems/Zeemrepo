@@ -1,0 +1,1 @@
+- `.gitignore` ignores Vim and Emacs swap, backup and autosave files, so saving a file during the pre-push check no longer makes `git-state` refuse the push; a test pins each pattern.

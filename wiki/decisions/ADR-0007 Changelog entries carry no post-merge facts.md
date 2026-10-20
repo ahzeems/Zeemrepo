@@ -4,9 +4,10 @@ title: ADR-0007 Changelog entries carry no post-merge facts
 summary: Entries record the change in their own PR and never cite a merge commit, removing the closeout PR.
 tags: [area/docs, area/git, area/agents, kind/architecture]
 created: 2026-09-20
-updated: 2026-10-09
+updated: 2026-10-17
 agent: claude-code
-status: active
+status: superseded
+superseded_by: "[[ADR-0027 Changelog entries are per-branch fragment files]]"
 related: ["[[ADR-0008 Owner merges pull requests on GitHub]]", "[[Change records]]"]
 ---
 

@@ -16,7 +16,6 @@ type Context = { standards: SkillStandards; used: Set<string>; errors: string[] 
 const SKILLS_DIR = ".claude/skills";
 const KEYS = new Set(["name", "description", "disable-model-invocation"]);
 const EM_DASH = "\u2014";
-const OTHER_HARNESS = /(^|\/)(openai\.ya?ml|opencode[^/]*)$/i;
 
 function decode(target: string): string | null {
   try {
@@ -84,13 +83,12 @@ function checkBudgets(skill: Skill, context: Context, fail: (message: string) =>
   if (extra.length > 0) fail(`frontmatter carries ${extra.join(", ")}; the contract is name, description and disable-model-invocation`);
 }
 
-// Avoid em dashes (owner decision); Codex and OpenCode configuration has no reader here.
+// Avoid em dashes (owner decision), including Markdown supplied with harness adapters.
 // Every file is checked, dot folders and node_modules included, and links are reported
 // rather than followed, so nothing in a skill escapes these checks.
 const ROOT_FILES = new Set(["import-baseline.json", "THIRD-PARTY-NOTICES.md"]);
 
 function checkFile(file: string, path: string, errors: string[]): void {
-  if (OTHER_HARNESS.test(path)) errors.push(`${path}: Codex and OpenCode files are not used; delete it`);
   if (!/\.md$/i.test(file)) return;
   readFileSync(file, "utf8").split("\n").forEach((line, index) => {
     if (line.includes(EM_DASH)) errors.push(`${path}: line ${index + 1}: em dash; use a comma, colon, parentheses or a new sentence`);

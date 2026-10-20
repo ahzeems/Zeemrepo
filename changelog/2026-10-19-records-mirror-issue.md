@@ -1,0 +1,1 @@
+- A new issue note records the snapshot.ubuntu.com 500, 502 and 503 errors that failed 4 of 74 CI sandbox image builds on 2026-10-19, with the evidence, the options considered and the owner's decision to keep it pending; two new idea notes carry the low findings from the review of PR 62's S14 image-name check.

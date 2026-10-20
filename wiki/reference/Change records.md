@@ -4,7 +4,7 @@ title: Change records
 summary: What every branch must record before it lands, which guard checks it, and how to satisfy each.
 tags: [area/git, kind/convention]
 created: 2026-10-09
-updated: 2026-10-17
+updated: 2026-10-20
 agent: claude-code
 status: active
 ---

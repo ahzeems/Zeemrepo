@@ -4,7 +4,7 @@ title: Merge gate contract
 summary: "The merge gate is GitHub: the protect-main ruleset, the required check and guards workflows, the local backstops, and the read-only landing audit."
 tags: [area/git, area/github, kind/convention]
 created: 2026-09-20
-updated: 2026-10-18
+updated: 2026-10-20
 agent: claude-code
 status: active
 related: ["[[Land a change]]", "[[ADR-0025 Agents use a machine account and the owner approves]]"]

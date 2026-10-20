@@ -4,7 +4,7 @@ title: Verify a repository change
 summary: Run npm run check and the hooks, review read-only with separate reviewer subagents, and record evidence before opening a pull request.
 tags: [area/git, area/agents, area/typescript, tool/ecc]
 created: 2026-09-20
-updated: 2026-10-18
+updated: 2026-10-20
 agent: claude-code
 status: active
 related: ["[[Land a change]]", "[[Change records]]", "[[ADR-0022 Independent review means a separate reviewer context]]"]

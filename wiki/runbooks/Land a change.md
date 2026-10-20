@@ -4,7 +4,7 @@ title: Land a change
 summary: Take work from a feature branch to an owner-merged pull request; nothing is ever pushed to main.
 tags: [area/git, area/github, kind/convention]
 created: 2026-10-09
-updated: 2026-10-18
+updated: 2026-10-20
 agent: claude-code
 status: active
 related: ["[[Change records]]"]

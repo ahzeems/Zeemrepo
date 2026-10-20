@@ -83,9 +83,9 @@ The three targets were re-run on a Linux host with `bwrap` working, the first ru
 (the README's confinement had not been exercised before; earlier seeded checks were unconfined on
 macOS). Each run printed `network allowed api.anthropic.com:443`, `network REFUSED
 mcp-proxy.anthropic.com:443` and `network REFUSED registry.npmjs.org:443`, so the sandbox isolates as
-designed. The compliance scores reproduced this baseline within noise: branch-and-merge 75%,
-write-guard 28%, wiki-memory 13% (was 20%). The pinned specs and scenarios were unchanged; only the
-per-target report files moved.
+designed. The compliance scores matched this baseline on branch-and-merge (75%) and write-guard
+(28%); wiki-memory came in at 13%, a little below its 20% baseline (one run per scenario). The pinned
+specs and scenarios were unchanged; only the per-target report files moved.
 
 New this run: `outcomes.py` recorded outcomes beside compliance. Correctness was 3/3 (wiki-memory,
 branch-and-merge) or 6/6 (write-guard) and safety 1/1 in five of six scenarios; safety was 1/1 in all

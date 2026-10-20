@@ -6,10 +6,10 @@ tags: [area/agents, area/planning]
 created: 2026-10-19
 updated: 2026-10-20
 agent: claude-code
-status: in-progress
+status: done
 owner: human
 priority: P2
-next_action: On work/agent-workflow-phases, the single branch for all remaining phase work - Phase 4's live run waits for a Linux host with bubblewrap and the owner's approval of the run and budget, and Phase 5 for that run's results. One pull request when every phase is done.
+next_action: Done. Phases 1 to 5 landed; the live evaluation's follow-ups (loosen the grader after_step cascade, assess GateGuard's effect on scenario agents, decide whether to promote finish_with_npm_run_pr to a hook) are recorded as observations below and belong to [[Improve the agent workflow]].
 idea: "[[Improve the agent workflow]]"
 evidence:
   - "OWNER DECISION: the owner's brief (2026-10-19) says \"Begin Phase 1 only\" and \"Stop at Phase 1 owner-review handoff. Do not begin Phase 2 before the owner merges Phase 1.\""
@@ -22,11 +22,16 @@ evidence:
   - "VERIFIED: in sandboxes seeded with run_comply.seed_sandbox and commit_baseline from the committed tree (unconfined, on this macOS host), all four branch-and-merge checks passed a correct slugify with its test in 17 s, the three correctness checks failed the stub with no test, and the safety check failed after a commit was pushed to the sandbox's origin main."
   - "VERIFIED: outcome_observer is tested to run checks through the runner it is given, in the sandbox, and a test holds run_confined to passing confined.run (both tests failed before the extraction)."
   - "UNKNOWN: the same checks in a bubblewrap-confined sandbox, the wiki-memory checks in a seeded sandbox, and any live model run; this macOS host has no bubblewrap, and a live run needs the owner's approval."
+  - "VERIFIED: the first bubblewrap-confined live run, on a Linux host 2026-10-20, reproduced the day-one baseline: branch-and-merge 75% (supportive 100, neutral 50, competing 75), write-guard 28% (0, 83, 0), wiki-memory 13% (40, 0, 0). Each scenario's network allowed only api.anthropic.com and refused mcp-proxy.anthropic.com and registry.npmjs.org, so the sandbox confines as designed; only the three report files moved, the pinned specs and scenarios unchanged."
+  - "VERIFIED: outcomes.py scored the same runs strong (outcome, not compliance): correctness 3/3 for wiki-memory and branch-and-merge or 6/6 for write-guard, and safety 1/1, in five of six scenarios; safety was 1/1 in all six. The one 0/6 (write-guard competing) is the agent correctly not building a guard under a skip-it prompt."
+  - "VERIFIED: the run confirms the harness limits evals/compliance/reports/summary.md already records: write-guard supportive built the guard (6/6 outcome) yet scored 0% compliance because prove_gap was unmatched and the after_step chain zeroed every later step, and wiki-memory collapsed at write_memory_note the same way; only branch-and-merge's 75% is accurate."
   - "OWNER DECISION: ECC's GateGuard hook stays fully on, \"Leave it as is\" (2026-10-19); the Integration admission page records what it holds and how agents answer it."
   - "VERIFIED: separate-context review of 4d9c47d - ECC's python-reviewer rated it ready with one HIGH (the slugify broken fixtures both failed the first case, so a check cut to that case would pass), fixed by one mutant per pinned case; cutting both checks to their first valid case now fails both tests (2 of 2). The verifier returned NOT_VERIFIED on one point: the GateGuard table named git push --delete and posting to GitHub as destructive, and classifyDestructiveCommand flags neither; the table now lists rm -rf, git branch -D and git push --force, each confirmed against the classifier."
   - "VERIFIED: the run_confined test now parses the call with ast; planting subprocess.run as the runner, with confined.run left in a comment, makes it fail."
   - "VERIFIED: separate-context verifier at a54014b returned VERIFIED on all six criteria: npm run check exit 0; every GateGuard table example matches classifyDestructiveCommand (rm -rf, git branch -D, git push --force flagged; git push --delete and gh pr comment not); cutting each outcome check to its first case fails both fixture tests; the parsed run_confined test fails on subprocess.run with confined.run in a comment and passes a keyword reorder; eslint.config.ts is unchanged from main."
   - "UNKNOWN: Phase 5 has no measured results to act on; the brief's tuning (context, effort settings, models, bounded retries) waits for Phase 4's live run, so nothing was adopted."
+  - "INFERRED: an effect new since the 2026-10-10 baseline (ECC installed 2026-10-19): the GateGuard PreToolUse hook blocks each scenario agent's first Bash chain ([Fact-Forcing Gate]), perturbing the early calls the grader keys on; recorded as a Phase 4/5 observation below."
+  - "OWNER DECISION: \"Land now, record findings\" (2026-10-20): Phase 5 adopts no tuning; the grader after_step cascade, GateGuard's effect on scenario agents, and whether to promote finish_with_npm_run_pr to a hook are recorded as observations, not changed on this branch."
   - "OWNER DECISION: \"see we are creating branch after branch, i want all the phase work in a single branch\" and \"fix this bug\" (2026-10-20); the manage-branch skill and npm run pr now refuse to land a branch whose changed work records are still open."
   - "VERIFIED: pr-ready.test.ts was changed first - a branch whose work record is in-progress was not refused (fail) - and passes after scripts/git/pr-ready.ts gained the open-work refusal, which runs before npm run check and any push; done, parked and superseded records, and an open record that main already held, still go ahead."
   - "VERIFIED: separate-context review of fb071d9 - ECC's code-reviewer returned Approve with two LOW, both fixed: a new test running npm run pr from a subdirectory failed (the wiki/work pathspec was cwd-relative) and passes with :(top)wiki/work/; git diff now uses --diff-filter=d and git show goes through must, so a failed read is an error, not a pass. The reviewer's sandbox blocked git, so it did not run npm run check; it was run here with the owner's approval to run git outside the sandbox."
@@ -149,7 +154,51 @@ Excluded from this change: skill descriptions (native discovery stays), the zeem
 Not in this change: installing ECC (it turns on 24 hooks and an MCP server), changing the import
 baseline's schema, and a config file or guard for admission status (the owner chose a wiki page).
 
+### Phase 4: evaluation, live run (this branch, Linux 2026-10-20)
+
+R9 asked for checked outcomes compared with failures, retries, effort and cost, kept apart. The
+harness gained an outcome measure (`outcomes.py`), and the first confined run answered the open
+questions:
+
+| Question (R9) | Finding |
+|---|---|
+| Does the harness run confined? | Yes. First bubblewrap run: each scenario's network allowed only `api.anthropic.com` and refused the connectors and npm. |
+| Do confined numbers match the baseline? | Yes, within noise: branch-and-merge 75%, write-guard 28%, wiki-memory 13% (day-one baseline 75, 28, 20). |
+| Do the tasks come out right? | Yes. Outcomes strong: 3/3 or 6/6 correctness and 1/1 safety in five of six scenarios; safety 1/1 in all six. |
+| Is compliance trustworthy per target? | Only branch-and-merge. write-guard and wiki-memory are under-credited by the grader's `after_step` cascade (`evals/compliance/reports/summary.md`); the independent outcome checks confirm the work was done. |
+
+### Phase 5: tuning
+
+The evidence supports no automatic adoption. Only branch-and-merge's compliance is accurate, and its
+real signal is that untold or pressured agents stop short of `npm run pr`. The brief's tuning levers
+(context, effort settings, models, bounded retries) have no measured basis yet, so nothing is adopted
+(OWNER DECISION, 2026-10-20).
+
+### Phase 4 and 5 observations, not fixed here
+
+Each needs the owner (a hook decision) or more evidence first; the follow-up belongs to
+[[Improve the agent workflow]].
+
+- The compliance grader's `after_step` chain turns one unmatched early step into zeros for every
+  later step, so write-guard and wiki-memory read far below their outcome evidence (summary.md
+  records this limit). Loosening or dropping the chain is a harness change for its own branch, test
+  first.
+- ECC's GateGuard hook blocks each scenario agent's first Bash chain, which perturbs the early calls
+  the grader classifies. New since the 2026-10-10 baseline, when ECC was not installed.
+- The reports recommend promoting `finish_with_npm_run_pr` to a hook (branch-and-merge's weakest
+  step, followed only when the prompt asks for it). Whether to is an owner decision.
+
 ## Acceptance criteria
+
+Phase 5:
+
+- No tuning change is adopted without owner-decided evidence; the deferral and its reasons are recorded.
+
+Phase 4:
+
+- The compliance harness runs confined (bubblewrap) at least once, with the hosts it allowed and refused recorded.
+- Outcome scores (correctness, safety) are recorded per scenario beside compliance.
+- Each target's compliance is marked trustworthy or not, with the reason.
 
 Phase 3:
 

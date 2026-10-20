@@ -1,0 +1,1 @@
+- New proposed plan to make the ECC plugin the foundation of the repository: four slices that retire the repository's overrides of ECC and anything that turns ECC off, with three questions left to the owner, including which merge and approve controls stay. Nothing is built yet.

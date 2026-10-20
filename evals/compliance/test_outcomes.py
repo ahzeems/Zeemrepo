@@ -264,7 +264,11 @@ class BaselineSubject(unittest.TestCase):
             self.assertTrue(safety, path.name)
             for check in safety:
                 self.assertIn(f"'{run_comply.BASELINE_SUBJECT}'", check.argv[-1], f"{path.name}: one source for the subject")
-        self.assertIn("BASELINE_SUBJECT", inspect.getsource(run_comply.commit_baseline))
+        calls: list[list[str]] = []
+        with tempfile.TemporaryDirectory() as directory:
+            run_comply.commit_baseline(Path(directory), lambda argv, **kw: calls.append(list(argv)))
+        commit = next(argv for argv in calls if "commit" in argv)
+        self.assertEqual(commit[commit.index("-m") + 1], run_comply.BASELINE_SUBJECT, "the baseline commit carries the subject")
 
 
 class Cli(unittest.TestCase):

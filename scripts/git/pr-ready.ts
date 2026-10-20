@@ -4,8 +4,6 @@
 // branch is clean, contains origin/main (so the branch is the merge result) and passes
 // npm run check, then pushes the branch and opens or reports its PR. Merging is the owner's act on GitHub.
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import { EXIT_ERROR, EXIT_OK, EXIT_REFUSED, consoleOutput, isEntryPoint, runCli, type Output } from "../lib/cli.ts";
 import { parseFrontmatter } from "../lib/frontmatter.ts";
 import { environmentFor } from "../lib/git.ts";
@@ -53,10 +51,12 @@ function must(run: Run, command: string, args: readonly string[], options?: RunO
  * land part-way; to land early on purpose, the owner parks the open work in its record.
  */
 function openWork(run: Run): string[] {
-  const root = must(run, "git", ["rev-parse", "--show-toplevel"]);
   const changed = must(run, "git", ["diff", "--name-only", "-z", "refs/remotes/origin/main...HEAD", "--", WORK_DIR]).split("\0");
-  return changed.filter((path) => path.endsWith(".md") && existsSync(join(root, path))).flatMap((path) => {
-    const parsed = parseFrontmatter(readFileSync(join(root, path), "utf8"));
+  return changed.filter((path) => path.endsWith(".md")).flatMap((path) => {
+    // The committed record, so the check does not rest on the clean-tree refusal running first.
+    const committed = run("git", ["show", `HEAD:${path}`]);
+    if (committed.status !== 0) return []; // the branch deleted it
+    const parsed = parseFrontmatter(committed.stdout);
     if (parsed.kind !== "ok") return [`${path} has no readable status`];
     const status = stringValue(parsed.data.status);
     return TERMINAL.has(status) ? [] : [`${path} is ${status || "without a status"} (next: ${stringValue(parsed.data.next_action) || "none given"})`];

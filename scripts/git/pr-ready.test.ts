@@ -180,6 +180,33 @@ await test("a branch whose changed work records are all done, parked or supersed
   }
 });
 
+await test("an open record whose path has a space, or whose frontmatter cannot be read, is refused", (t) => {
+  for (const [path, text, pattern] of [
+    ["wiki/work/ideas/Improve the workflow.md", workRecord("blocked"), /Improve the workflow\.md is blocked/],
+    ["wiki/work/ideas/Broken.md", "---\nstatus: [unclosed\n---\n", /Broken\.md has no readable status/],
+  ] as const) {
+    const repo = fixture(t);
+    repo.write(path, text);
+    repo.commit("docs(wiki): record");
+    const result = go(repo, runner(repo).run);
+    assert.equal(result.code, EXIT_REFUSED, path);
+    assert.match(result.err, pattern);
+  }
+});
+
+await test("a work record the branch deleted does not block it", (t) => {
+  const repo = fixture(t);
+  repo.git(["switch", "--quiet", "main"]);
+  repo.write("wiki/work/ideas/Old.md", workRecord("in-progress"));
+  repo.commit("docs(wiki): old");
+  repo.git(["push", "--quiet", "origin", "main"]);
+  repo.git(["switch", "--quiet", "feat/x"]);
+  repo.git(["merge", "--quiet", "--no-edit", "main"]);
+  repo.git(["rm", "--quiet", "wiki/work/ideas/Old.md"]);
+  repo.commit("docs(wiki): retire old");
+  assert.equal(go(repo, runner(repo).run).code, EXIT_OK);
+});
+
 await test("a work record that main already holds open does not block an unrelated branch", (t) => {
   const repo = fixture(t);
   repo.git(["switch", "--quiet", "main"]);

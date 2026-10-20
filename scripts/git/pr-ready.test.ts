@@ -153,6 +153,90 @@ await test("refusals stop before pushing", async (t) => {
   });
 });
 
+function workRecord(status: string): string {
+  return `---\ntype: idea\ntitle: Phases\nstatus: ${status}\nnext_action: Run Phase 5\n---\n\nBody.\n`;
+}
+
+// One integration branch carries a piece of work to the end (ADR-0027): a branch whose work record
+// is still open must not land part-way, which is how one initiative became five PRs.
+await test("a branch whose work record is still open is refused before checks or a push", (t) => {
+  const repo = fixture(t);
+  repo.write("wiki/work/ideas/Phases.md", workRecord("in-progress"));
+  repo.commit("docs(wiki): phases");
+  const { run, calls } = runner(repo);
+  const result = go(repo, run);
+  assert.equal(result.code, EXIT_REFUSED);
+  assert.match(result.err, /wiki\/work\/ideas\/Phases\.md is in-progress \(next: Run Phase 5\)/);
+  assert.match(result.err, /park/, "the refusal says how the owner can land early on purpose");
+  assert.ok(!calls.some((call) => call.command === "npm" || call.args[0] === "push"), "no check and no push");
+});
+
+await test("a branch whose changed work records are all done, parked or superseded goes ahead", (t) => {
+  for (const status of ["done", "parked", "superseded"]) {
+    const repo = fixture(t);
+    repo.write("wiki/work/ideas/Phases.md", workRecord(status));
+    repo.commit("docs(wiki): phases");
+    assert.equal(go(repo, runner(repo).run).code, EXIT_OK, status);
+  }
+});
+
+await test("an open record whose path has a space, or whose frontmatter cannot be read, is refused", (t) => {
+  for (const [path, text, pattern] of [
+    ["wiki/work/ideas/Improve the workflow.md", workRecord("blocked"), /Improve the workflow\.md is blocked/],
+    ["wiki/work/ideas/Broken.md", "---\nstatus: [unclosed\n---\n", /Broken\.md has no readable status/],
+  ] as const) {
+    const repo = fixture(t);
+    repo.write(path, text);
+    repo.commit("docs(wiki): record");
+    const result = go(repo, runner(repo).run);
+    assert.equal(result.code, EXIT_REFUSED, path);
+    assert.match(result.err, pattern);
+  }
+});
+
+await test("an open record is refused when npm run pr runs from a subdirectory", (t) => {
+  const repo = fixture(t);
+  repo.write("wiki/work/ideas/Phases.md", workRecord("in-progress"));
+  repo.write("scripts/x.ts", "export {};\n");
+  repo.commit("docs(wiki): phases");
+  const sub = join(repo.dir, "scripts");
+  const fake = runner(repo).run;
+  // git runs where npm run pr was started, as the real runner does; npm and gh stay faked.
+  const run: Run = (command, args, options) => {
+    if (command !== "git") return fake(command, args, options);
+    const result = spawnSync("git", args, { cwd: sub, env: cleanGitEnv, encoding: "utf8" });
+    return { status: result.status, stdout: result.stdout };
+  };
+  const err: string[] = [];
+  const code = main([], { cwd: sub, output: { write: () => undefined, warn: (line) => err.push(line) }, run });
+  assert.equal(code, EXIT_REFUSED);
+  assert.match(err.join("\n"), /Phases\.md is in-progress/);
+});
+
+await test("a work record the branch deleted does not block it", (t) => {
+  const repo = fixture(t);
+  repo.git(["switch", "--quiet", "main"]);
+  repo.write("wiki/work/ideas/Old.md", workRecord("in-progress"));
+  repo.commit("docs(wiki): old");
+  repo.git(["push", "--quiet", "origin", "main"]);
+  repo.git(["switch", "--quiet", "feat/x"]);
+  repo.git(["merge", "--quiet", "--no-edit", "main"]);
+  repo.git(["rm", "--quiet", "wiki/work/ideas/Old.md"]);
+  repo.commit("docs(wiki): retire old");
+  assert.equal(go(repo, runner(repo).run).code, EXIT_OK);
+});
+
+await test("a work record that main already holds open does not block an unrelated branch", (t) => {
+  const repo = fixture(t);
+  repo.git(["switch", "--quiet", "main"]);
+  repo.write("wiki/work/ideas/Other.md", workRecord("blocked"));
+  repo.commit("docs(wiki): other");
+  repo.git(["push", "--quiet", "origin", "main"]);
+  repo.git(["switch", "--quiet", "feat/x"]);
+  repo.git(["merge", "--quiet", "--no-edit", "main"]);
+  assert.equal(go(repo, runner(repo).run).code, EXIT_OK);
+});
+
 await test("arguments", (t) => {
   const repo = fixture(t);
   assert.equal(go(repo, runner(repo).run, ["--bogus"]).code, EXIT_ERROR);

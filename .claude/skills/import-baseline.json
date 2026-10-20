@@ -93,6 +93,14 @@
             "quote": "everything should be assigned to a singal branch which can be updated until the work is completed, only then a PR will be required"
           },
           "reason": "Single integration branch: a piece of work uses one work/<topic> branch for all its phases and tickets, parallel agents merge local worktree branches into it, and the pull request opens once when the work is complete. A branch only you use may be rebased and pushed with --force-with-lease; the shared integration branch is not; formal PR reviews are never submitted."
+        },
+        {
+          "sha256": "04dd358efa721d3e8c36a8d116fa9656a63f8e55a9f4e7a19c41d0e4cb8d3dcf",
+          "approval": {
+            "record": "wiki/work/projects/Agent workflow improvement.md",
+            "quote": "i want all the phase work in a single branch"
+          },
+          "reason": "npm run pr refuses a branch whose changed work records are still open, so one branch carries a piece of work to its end; the skill lists that refusal."
         }
       ]
     },

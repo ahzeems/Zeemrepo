@@ -47,8 +47,9 @@ Conventional commits (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`). Stage
 
 ## Open the pull request
 
-Open it once, when the whole piece of work on the integration branch is complete. `npm run pr` refuses on main or a detached HEAD, a dirty tree, or a branch that lacks `origin/main`
-or its own commits; then it runs `npm run check`, checks that `gh` is logged in, pushes the
+Open it once, when the whole piece of work on the integration branch is complete. `npm run pr` refuses on main or a detached HEAD, a dirty tree, a branch that lacks `origin/main`
+or its own commits, or a branch whose changed work records are still open (not `done`, `parked` or
+`superseded`); then it runs `npm run check`, checks that `gh` is logged in, pushes the
 branch, and opens the PR (title and body from the commits) or reports the one already open. Then
 set the title and body:
 

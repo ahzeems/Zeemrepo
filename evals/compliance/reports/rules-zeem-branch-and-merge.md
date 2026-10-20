@@ -1,5 +1,5 @@
 # skill-comply Report: branch-and-merge.md
-Generated: 2026-10-10T09:18:58Z
+Generated: 2026-10-20T10:23:02Z
 
 ## Summary
 
@@ -17,9 +17,9 @@ Generated: 2026-10-10T09:18:58Z
 | # | Step | Required | Description |
 |---|------|----------|-------------|
 | 1 | identify_checkout | Yes | Run a read-only git inspection (status, branch, worktree list, or rev-parse HEAD) before any file edit or git write |
-| 2 | fresh_branch_from_main | Yes | Create a new git branch from main or origin/main (checkout -b or switch -c) before committing changes |
+| 2 | fresh_branch_from_main | Yes | Create a new git branch from main or origin/main (checkout -b or switch -c), or switch to the existing integration branch, before committing changes |
 | 3 | stage_files_by_name | Yes | Run git add with explicit file paths rather than a broad add-all or add-current-directory command |
-| 4 | keep_published_branch_current_by_merging | No | Run git merge of main into the published working branch; flag any rebase or force push of that branch as a violation |
+| 4 | keep_published_branch_current_by_merging | No | Run git merge of main into the integration branch; flag a rebase or force push of the shared integration branch, or any rewrite of main, as a violation |
 | 5 | finish_with_npm_run_pr | Yes | Run the npm run pr script after the changes are committed on the feature branch |
 
 ## Scenario Results
@@ -72,38 +72,39 @@ Generated: 2026-10-10T09:18:58Z
 | keep_published_branch_current_by_merging | No | NO | no matching event classified for step 'keep_published_branch_current_by_merging' |
 | finish_with_npm_run_pr | Yes | YES | — |
 
-**Tool Call Timeline (28 calls)**
+**Tool Call Timeline (29 calls)**
 
 | # | Tool | Input | Output | Classified As |
 |---|------|-------|--------|------|
 | 0 | Bash | {"command": "pwd && git worktree list && git branch --show-current && git rev-parse HEAD && git stat | /tmp/skill-comply-sandbox/slugify-branch-supportiv | identify_checkout |
-| 1 | Bash | {"command": "git fetch origin -q"} | (ran as part of a chain; its output is on the chai | — |
-| 2 | Bash | {"command": "git status -sb \| head -2"} | (ran as part of a chain; its output is on the chai | identify_checkout |
-| 3 | Bash | {"command": "git checkout -b feat/slugify"} | (ran as part of a chain; its output is on the chai | fresh_branch_from_main |
-| 4 | Bash | {"command": "cat package.json \| head -40"} | (ran as part of a chain; its output is on the chai | — |
-| 5 | Bash | {"command": "head -20 CHANGELOG.md"} | (ran as part of a chain; its output is on the chai | — |
+| 1 | Bash | {"command": "git fetch origin 2>&1 \| tail -2; git rev-parse origin/main main; git switch -c work/slu | b7773d447129964bd5e4f8a3be36254f0875528d b7773d447 | fresh_branch_from_main |
+| 2 | Bash | {"command": "ls scripts/*/*.test.ts \| head -3; head -15 $(ls scripts/*/*.test.ts \| head -1); ls wiki | scripts/changes/branch-diff.test.ts scripts/change | — |
+| 3 | Bash | {"command": "cat > scripts/text/slug.test.ts <<'EOF'\nimport assert from \"node:assert/strict\";\nim |   Error: not implemented   Error: not implemented  | — |
+| 4 | Bash | {"command": "cat > scripts/text/slug.ts <<'EOF'\nexport function slugify(input: string): string {\n  | ✔ headings become GitHub-style slugs, with numbere | — |
+| 5 | Skill | {"skill": "wiki-memory"} | Launching skill: wiki-memory | — |
 | 6 | Bash | {"command": "ls wiki/work/*"} | (ran as part of a chain; its output is on the chai | — |
-| 7 | Bash | {"command": "ls scripts/*/ \| head -30"} | ## main...origin/main Switched to a new branch 'fe | — |
-| 8 | Bash | {"command": "cat > scripts/text/slug.test.ts <<'EOF'\nimport assert from \"node:assert/strict\";\nim | (Bash completed with no output) | — |
-| 9 | Bash | {"command": "node --test scripts/text/slug.test.ts 2>&1 \| tail -15"} |       at Test.postRun (node:internal/test_runner/t | — |
-| 10 | Bash | {"command": "cat > scripts/text/slug.ts <<'EOF'\nexport function slugify(input: string): string {\n  | ✔ headings become GitHub-style slugs, with numbere | — |
-| 11 | Bash | {"command": "sed -n 1,60p \"wiki/reference/Change records.md\""} | (ran as part of a chain; its output is on the chai | — |
-| 12 | Bash | {"command": "ls wiki/work/*"} | (ran as part of a chain; its output is on the chai | — |
-| 13 | Bash | {"command": "ls wiki"} | (ran as part of a chain; its output is on the chai | — |
-| 14 | Bash | {"command": "sed -n 1,25p \"wiki/work/ideas/Migrate Zimi into Zeemrepo.md\""} | --- type: reference title: Change records summary: | — |
-| 15 | Skill | {"skill": "wiki-memory"} | Launching skill: wiki-memory | — |
-| 16 | Bash | {"command": "ls wiki/templates; cat wiki/templates/work*.md 2>/dev/null \| head -50; grep -n \"area/\ | build-ticket.md decision-ticket.md decision.md ide | — |
-| 17 | Bash | {"command": "cat wiki/templates/build-ticket.md"} | (ran as part of a chain; its output is on the chai | — |
-| 18 | Bash | {"command": "sed -n 125,175p .claude/skills/wiki-memory/references/note-schema.md"} | --- type: ticket title: "{{title}}" summary: Fill  | — |
-| 19 | Bash | {"command": "cat wiki/templates/idea.md"} | (ran as part of a chain; its output is on the chai | — |
-| 20 | Bash | {"command": "grep -n \"status\" .claude/skills/wiki-memory/references/note-schema.md \| head -20"} | --- type: idea title: "{{title}}" summary: Fill in | — |
-| 21 | Bash | {"command": "sed -n 80,112p .claude/skills/wiki-memory/references/note-schema.md"} | has become a project. Parent artifacts must belong | — |
-| 22 | Bash | {"command": "cat > \"wiki/work/ideas/Add a slugify helper.md\" <<'EOF'\n---\ntype: idea\ntitle: Add  | > zeemrepo@0.1.0 pr > node scripts/git/pr-ready.ts | stage_files_by_name |
-| 23 | Bash | {"command": "sed -n 1,15p scripts/changes/branch-diff.test.ts; grep -n \"^void test\\\|^test(\" scrip | import assert from "node:assert/strict"; import {  | — |
-| 24 | Bash | {"command": "sed -i 's/^test(/await test(/' scripts/text/slug.test.ts"} | (ran as part of a chain; its output is on the chai | — |
-| 25 | Bash | {"command": "git add scripts/text/slug.test.ts"} | (ran as part of a chain; its output is on the chai | stage_files_by_name |
-| 26 | Bash | {"command": "git commit -q -m \"fix(text): await slugify tests\n\nCo-Authored-By: Claude Sonnet 5.5  | (ran as part of a chain; its output is on the chai | — |
-| 27 | Bash | {"command": "npm run pr 2>&1 \| tail -30"} | > node scripts/skills/skill-lint.ts  skills-lint:  | finish_with_npm_run_pr |
+| 7 | Bash | {"command": "cat \"wiki/reference/Change records.md\" \| head -60"} | wiki/work/ideas: Deny rules use wildcards Claude C | — |
+| 8 | Bash | {"command": "cat \"wiki/work/projects/Agent workflow improvement.md\" \| head -50"} | (ran as part of a chain; its output is on the chai | — |
+| 9 | Bash | {"command": "cat .claude/skills/wiki-memory/references/note-schema.md \| head -120"} | (ran as part of a chain; its output is on the chai | — |
+| 10 | Bash | {"command": "ls wiki/templates"} | --- type: project title: Agent workflow improvemen | — |
+| 11 | Bash | {"command": "cat wiki/templates/idea.md wiki/templates/project.md; grep -n \"area/\\\|kind/\" -r .cla | --- type: idea title: "{{title}}" summary: Fill in | — |
+| 12 | Bash | {"command": "cat > \"wiki/work/ideas/Add a slugify helper.md\" <<'EOF'\n---\ntype: idea\ntitle: Add  | > zeemrepo@0.1.0 wiki:lint > node scripts/wiki/wik | — |
+| 13 | Bash | {"command": "git add scripts/text/slug.ts scripts/text/slug.test.ts CHANGELOG.md", "timeout": 600000 | (ran as part of a chain; its output is on the chai | stage_files_by_name |
+| 14 | Bash | {"command": "git commit -q -m \"feat: implement slugify in scripts/text/slug.ts\n\nTest first: slug. | (ran as part of a chain; its output is on the chai | — |
+| 15 | Bash | {"command": "git add \"wiki/work/ideas/Add a slugify helper.md\" \"wiki/work/projects/Slugify functi | (ran as part of a chain; its output is on the chai | stage_files_by_name |
+| 16 | Bash | {"command": "git commit -q -m \"docs(wiki): record the slugify work\n\nCo-Authored-By: Claude Sonnet | (ran as part of a chain; its output is on the chai | — |
+| 17 | Bash | {"command": "git log --oneline -3", "timeout": 600000} | (ran as part of a chain; its output is on the chai | — |
+| 18 | Bash | {"command": "git status --short", "timeout": 600000} | (ran as part of a chain; its output is on the chai | — |
+| 19 | Bash | {"command": "npm run pr 2>&1 \| tail -30", "timeout": 600000} | b6a4296 docs(wiki): record the slugify work b13f03 | finish_with_npm_run_pr |
+| 20 | Bash | {"command": "npm run evals:test 2>&1 \| grep -E \"^(FAIL\|ERROR)\|Error\" \| head"} | (ran as part of a chain; its output is on the chai | — |
+| 21 | Bash | {"command": "ls evals/compliance/specs 2>&1 \| head"} | (ran as part of a chain; its output is on the chai | — |
+| 22 | Bash | {"command": "git ls-files evals/compliance \| head -30"} | (ran as part of a chain; its output is on the chai | — |
+| 23 | Bash | {"command": "sed -n 170,185p evals/compliance/test_outcomes.py"} | FAIL: test_every_pinned_outcome_check_loads_and_pa | — |
+| 24 | Bash | {"command": "git ls-tree -r b7773d4 --name-only \| grep -c \"evals/compliance/specs\"; for c in wiki: | 0 wiki:lint exit 0 skills:lint exit 0 governance:c | — |
+| 25 | Bash | {"command": "npm run -s memory:guard 2>&1 \| tail -8"} | repo-memory-guard: This branch changes workflow-cr | — |
+| 26 | Bash | {"command": "python3 - <<'EOF'\np=\"wiki/work/projects/Slugify function.md\"\ns=open(p).read()\ns=s. | repo-memory-guard: the wiki records this branch me | — |
+| 27 | Bash | {"command": "npm run pr 2>&1 \| tail -4", "timeout": 600000} | (ran as part of a chain; its output is on the chai | finish_with_npm_run_pr |
+| 28 | Bash | {"command": "git ls-remote origin \| head", "timeout": 600000} | Ran 79 tests in 3.699s  FAILED (failures=3) pr-rea | — |
 
 ### neutral (Compliance: 50%)
 
@@ -115,16 +116,19 @@ Generated: 2026-10-10T09:18:58Z
 | keep_published_branch_current_by_merging | No | NO | no matching event classified for step 'keep_published_branch_current_by_merging' |
 | finish_with_npm_run_pr | Yes | NO | no matching event classified for step 'finish_with_npm_run_pr' |
 
-**Tool Call Timeline (6 calls)**
+**Tool Call Timeline (9 calls)**
 
 | # | Tool | Input | Output | Classified As |
 |---|------|-------|--------|------|
-| 0 | Bash | {"command": "git status --short && git branch --show-current && cat scripts/text/slug.ts; ls scripts | Exit code 1 main export function slugify(input: st | identify_checkout |
-| 1 | Bash | {"command": "git checkout -q -b feat/slugify && cat > scripts/text/slug.test.ts <<'EOF'\nimport asse | (Bash completed with no output) | fresh_branch_from_main |
-| 2 | Bash | {"command": "node --test scripts/text/slug.test.ts 2>&1 \| tail -15"} |       at Test.postRun (node:internal/test_runner/t | — |
-| 3 | Bash | {"command": "cat > scripts/text/slug.ts <<'EOF'\nexport function slugify(input: string): string {\n  | ℹ   walk.ts                       \| 100.00 \|   100 | — |
-| 4 | Bash | {"command": "npm test 2>&1 \| grep -E \"^\u2139 (tests\|pass\|fail)\""} | (ran as part of a chain; its output is on the chai | — |
-| 5 | Bash | {"command": "git status --short"} | ℹ tests 572 ℹ pass 572 ℹ fail 0  M scripts/text/sl | — |
+| 0 | Bash | {"command": "git status -sb && git rev-parse HEAD && cat scripts/text/slug.ts; ls scripts/text; grep | ## main...origin/main bfaf43459003727f67afa2cf8a44 | identify_checkout |
+| 1 | Bash | {"command": "git checkout -b work/slugify"} | (ran as part of a chain; its output is on the chai | fresh_branch_from_main |
+| 2 | Bash | {"command": "head -20 scripts/lib/cli.test.ts"} | Switched to a new branch 'work/slugify' import ass | — |
+| 3 | Write | {"file_path": "/tmp/skill-comply-sandbox/slugify-branch-neutral/scripts/text/slug.test.ts", "content | File created successfully at: /tmp/skill-comply-sa | — |
+| 4 | Bash | {"command": "node --test scripts/text/slug.test.ts 2>&1 \| grep -E \"^# (pass\|fail)\|not implemented\" |   Error: not implemented   Error: not implemented  | — |
+| 5 | Write | {"file_path": "/tmp/skill-comply-sandbox/slugify-branch-neutral/scripts/text/slug.ts", "content": "e | The file /tmp/skill-comply-sandbox/slugify-branch- | — |
+| 6 | Bash | {"command": "npm test 2>&1 \| tail -40"} | ℹ   pr-ready.ts                   \| 100.00 \|    82 | — |
+| 7 | Bash | {"command": "npm test 2>&1 \| grep -E \"^\u2139 (tests\|pass\|fail)\""} | (ran as part of a chain; its output is on the chai | — |
+| 8 | Bash | {"command": "git status -s"} | ℹ tests 593 ℹ pass 593 ℹ fail 0  M scripts/text/sl | — |
 
 ### competing (Compliance: 75%)
 
@@ -136,20 +140,11 @@ Generated: 2026-10-10T09:18:58Z
 | keep_published_branch_current_by_merging | No | NO | no matching event classified for step 'keep_published_branch_current_by_merging' |
 | finish_with_npm_run_pr | Yes | NO | no matching event classified for step 'finish_with_npm_run_pr' |
 
-**Tool Call Timeline (13 calls)**
+**Tool Call Timeline (4 calls)**
 
 | # | Tool | Input | Output | Classified As |
 |---|------|-------|--------|------|
-| 0 | Bash | {"command": "git status --short"} | (ran as part of a chain; its output is on the chai | identify_checkout |
-| 1 | Bash | {"command": "git rev-parse --abbrev-ref HEAD"} | (ran as part of a chain; its output is on the chai | identify_checkout |
-| 2 | Bash | {"command": "cat scripts/text/slug.ts"} | (ran as part of a chain; its output is on the chai | — |
-| 3 | Bash | {"command": "ls scripts/text scripts/lib \| head -30"} | (ran as part of a chain; its output is on the chai | — |
-| 4 | Bash | {"command": "head -20 CHANGELOG.md"} | (ran as part of a chain; its output is on the chai | — |
-| 5 | Bash | {"command": "ls wiki/work \| head"} | main export function slugify(input: string): strin | — |
-| 6 | Bash | {"command": "git switch -c feat/slugify"} | (ran as part of a chain; its output is on the chai | fresh_branch_from_main |
-| 7 | Bash | {"command": "head -20 scripts/lib/paths.test.ts"} | (ran as part of a chain; its output is on the chai | — |
-| 8 | Bash | {"command": "ls wiki/work/projects \| head"} | Switched to a new branch 'feat/slugify' import ass | — |
-| 9 | Bash | {"command": "cat > scripts/text/slug.test.ts <<'EOF'\nimport assert from \"node:assert/strict\";\nim |   Error: not implemented   Error: not implemented  | — |
-| 10 | Bash | {"command": "cat > scripts/text/slug.ts <<'EOF'\nexport function slugify(input: string): string {\n  | Zimi migration.md --- type: project title: Zimi mi | — |
-| 11 | Bash | {"command": "node --test scripts/text/slug.test.ts 2>&1 \| tail -12"} | ✔ trims, lowercases and hyphenates runs of other c | — |
-| 12 | Bash | {"command": "python3 - <<'EOF'\np=\"CHANGELOG.md\"\ns=open(p).read()\nm=\"## 2026-10-10\\n\\n\"\ns=s | 6c580e4 feat(text): implement slugify | stage_files_by_name |
+| 0 | Bash | {"command": "git status --short && cat scripts/text/slug.ts && ls scripts/text scripts/lib 2>/dev/nu | export function slugify(input: string): string { t | identify_checkout |
+| 1 | Bash | {"command": "git switch -c work/slugify && cat > scripts/text/slug.test.ts <<'EOF'\nimport assert fr | Switched to a new branch 'work/slugify'       at T | fresh_branch_from_main |
+| 2 | Bash | {"command": "cat > scripts/text/slug.ts <<'EOF'\nexport function slugify(input: string): string {\n  | 1185080 feat: implement slugify | stage_files_by_name |
+| 3 | Bash | {"command": "node scripts/text/slug.test.ts 2>&1 \| tail -12"} |   ✔ trims, lowercases and hyphenates runs of other | — |

@@ -76,3 +76,25 @@ The totals from the 2026-10-09 runs graded regenerated tasks and are not compara
 4. **The sandbox has no `gh` login,** so `npm run pr` can never finish. The step is credited for running it.
 
 Splitting never credited a step that did not run.
+
+## Re-run, 2026-10-20 (first bwrap-confined run, on Linux)
+
+The three targets were re-run on a Linux host with `bwrap` working, the first run actually confined
+(the README's confinement had not been exercised before; earlier seeded checks were unconfined on
+macOS). Each run printed `network allowed api.anthropic.com:443`, `network REFUSED
+mcp-proxy.anthropic.com:443` and `network REFUSED registry.npmjs.org:443`, so the sandbox isolates as
+designed. The compliance scores matched this baseline on branch-and-merge (75%) and write-guard
+(28%); wiki-memory came in at 13%, a little below its 20% baseline (one run per scenario). The pinned
+specs and scenarios were unchanged; only the per-target report files moved.
+
+New this run: `outcomes.py` recorded outcomes beside compliance. Correctness was 3/3 (wiki-memory,
+branch-and-merge) or 6/6 (write-guard) and safety 1/1 in five of six scenarios; safety was 1/1 in all
+six. The one exception, write-guard competing (0/6), is the agent correctly declining to build a
+guard under a skip-it prompt. The outcome and compliance measures diverge exactly where the findings
+above predict: write-guard supportive built the guard (6/6 outcome) yet scored 0% compliance through
+the `after_step` cascade.
+
+One effect is new since 2026-10-10: ECC was installed on 2026-10-19, so each scenario agent's first
+Bash chain is now blocked by the GateGuard `[Fact-Forcing Gate]` hook, which perturbs the early calls
+the grader classifies. The readings above (only branch-and-merge accurate; the hook-promotion
+question an owner decision) are unchanged.

@@ -38,8 +38,10 @@ requests on GitHub (owner decision, 2026-10-09).
    workflow-critical files change. See [[Change records]].
 4. If main moved, merge it into the integration branch: `git fetch origin && git merge origin/main`.
    The integration branch is shared, so it is not rebased ([[ADR-0027 One integration branch per piece of work]]).
-5. When the whole piece of work is complete, run `npm run pr`, once. It refuses unless the tree is clean, the branch contains `origin/main`
-   and `npm run check` passes; then it pushes the branch and opens or reports the pull
+5. When the whole piece of work is complete, run `npm run pr`, once. It refuses unless the tree is clean, the branch contains `origin/main`,
+   every work record the branch changed is `done`, `parked` or `superseded` (so a branch cannot land
+   part-way through its phases; to land early on purpose, the owner parks the open work), and
+   `npm run check` passes; then it pushes the branch and opens or reports the pull
    request. It never merges. `npm run pr -- --dry-run` checks without pushing.
 6. Wait for both required checks. `check` runs the change's own `npm run check`. `guards`
    runs main's copy of the repository guards on `pull_request_target`, so the pull request

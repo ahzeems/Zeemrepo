@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import platform
 import subprocess
 import sys
 from collections import Counter
@@ -103,6 +104,26 @@ def session_result(stream: str) -> dict[str, object]:
     }
 
 
+def run_context(*, model: str, gen_model: str, repo: Path, ecc: str, git: Sequence[str],
+                run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run) -> dict[str, object]:
+    """What a result depends on, recorded with every attempt: the revision (and whether the tree was
+    dirty), the harness, the models, the ECC pin and the host. `git` is the command prefix, so the host's
+    git runs with the same disarmed config as the sandbox's. A value that cannot be read is UNKNOWN."""
+    def read(argv: list[str], cwd: Path | None = None) -> str:
+        try:
+            done = run(argv, cwd=cwd, capture_output=True, text=True, timeout=30)
+        except (OSError, subprocess.SubprocessError):
+            return "UNKNOWN"
+        return done.stdout.strip() if done.returncode == 0 else "UNKNOWN"
+
+    status = read([*git, "status", "--porcelain"], repo)
+    return {
+        "revision": read([*git, "rev-parse", "HEAD"], repo), "dirty": "UNKNOWN" if status == "UNKNOWN" else status != "",
+        "claude_version": read(["claude", "--version"]), "model": model, "gen_model": gen_model,
+        "ecc": ecc, "host": f"{platform.system()} {platform.release()} {platform.machine()}",
+    }
+
+
 Observe = Callable[[object, "Path | None", str, float, "BaseException | None"], None]
 
 
@@ -181,7 +202,11 @@ def main(argv: Sequence[str]) -> int:
     if len(argv) != 2 or argv[0] != "table":
         print((__doc__ or "").strip().splitlines()[-1], file=sys.stderr)
         return 2
-    records = [json.loads(line) for line in Path(argv[1]).read_text().splitlines() if line.strip()]
+    try:
+        records = [json.loads(line) for line in Path(argv[1]).read_text().splitlines() if line.strip()]
+    except (OSError, ValueError) as error:
+        print(f"outcomes: cannot read {argv[1]}: {error}", file=sys.stderr)
+        return 2
     print(table(records), end="")
     return 0
 

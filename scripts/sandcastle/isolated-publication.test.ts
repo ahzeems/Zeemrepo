@@ -320,14 +320,14 @@ await test("a self-inconsistent receipt refuses even under a valid digest", asyn
 
 await test("a remote branch holding other work is never rewritten", async (t) => {
   const made = await fixture(t);
-  const { run, calls } = runner(made);
+  const { run } = runner(made);
   const other = made.host.git(["commit-tree", `${made.base}^{tree}`, "-p", made.base, "-m", "someone else's work"]);
   made.host.git(["push", "--quiet", made.remote, `${other}:refs/heads/${BRANCH}`]);
-  const result = await go(made, run);
-  assert.equal(result.code, EXIT_REFUSED, result.out);
-  assert.match(result.err, /Refusing to rewrite/);
+  // The pre-push policy now allows rewriting a non-main branch (OWNER DECISION, 2026-10-19: "Allow
+  // on non-main branches"), so the no-rewrite guarantee comes from the push itself: publish never
+  // force-pushes, so git rejects the non-fast-forward update and the other work is left untouched.
+  await assert.rejects(go(made, run), /failed \(exit 1\)|may or may not have reached origin/);
   assert.equal(remoteBranch(made), other, "origin's branch is unchanged");
-  assert.equal(pushes(calls).length, 0);
 });
 
 await test("a rerun reuses the exact open pull request instead of opening another", async (t) => {

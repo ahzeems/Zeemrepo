@@ -194,6 +194,25 @@ await test("an open record whose path has a space, or whose frontmatter cannot b
   }
 });
 
+await test("an open record is refused when npm run pr runs from a subdirectory", (t) => {
+  const repo = fixture(t);
+  repo.write("wiki/work/ideas/Phases.md", workRecord("in-progress"));
+  repo.write("scripts/x.ts", "export {};\n");
+  repo.commit("docs(wiki): phases");
+  const sub = join(repo.dir, "scripts");
+  const fake = runner(repo).run;
+  // git runs where npm run pr was started, as the real runner does; npm and gh stay faked.
+  const run: Run = (command, args, options) => {
+    if (command !== "git") return fake(command, args, options);
+    const result = spawnSync("git", args, { cwd: sub, env: cleanGitEnv, encoding: "utf8" });
+    return { status: result.status, stdout: result.stdout };
+  };
+  const err: string[] = [];
+  const code = main([], { cwd: sub, output: { write: () => undefined, warn: (line) => err.push(line) }, run });
+  assert.equal(code, EXIT_REFUSED);
+  assert.match(err.join("\n"), /Phases\.md is in-progress/);
+});
+
 await test("a work record the branch deleted does not block it", (t) => {
   const repo = fixture(t);
   repo.git(["switch", "--quiet", "main"]);

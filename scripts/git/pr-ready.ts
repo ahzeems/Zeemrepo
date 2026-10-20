@@ -51,12 +51,12 @@ function must(run: Run, command: string, args: readonly string[], options?: RunO
  * land part-way; to land early on purpose, the owner parks the open work in its record.
  */
 function openWork(run: Run): string[] {
-  const changed = must(run, "git", ["diff", "--name-only", "-z", "refs/remotes/origin/main...HEAD", "--", WORK_DIR]).split("\0");
+  // :(top) anchors the pathspec at the repository root, so it matches from any subdirectory, and
+  // --diff-filter=d leaves out records the branch deleted, so a failing git show is a real error.
+  const changed = must(run, "git", ["diff", "--name-only", "-z", "--diff-filter=d", "refs/remotes/origin/main...HEAD", "--", `:(top)${WORK_DIR}`]).split("\0");
   return changed.filter((path) => path.endsWith(".md")).flatMap((path) => {
     // The committed record, so the check does not rest on the clean-tree refusal running first.
-    const committed = run("git", ["show", `HEAD:${path}`]);
-    if (committed.status !== 0) return []; // the branch deleted it
-    const parsed = parseFrontmatter(committed.stdout);
+    const parsed = parseFrontmatter(must(run, "git", ["show", `HEAD:${path}`]));
     if (parsed.kind !== "ok") return [`${path} has no readable status`];
     const status = stringValue(parsed.data.status);
     return TERMINAL.has(status) ? [] : [`${path} is ${status || "without a status"} (next: ${stringValue(parsed.data.next_action) || "none given"})`];

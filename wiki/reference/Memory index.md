@@ -25,6 +25,7 @@ One line per memory note. Add new notes here; work notes need no entry.
 - [[ADR-0025 Agents use a machine account and the owner approves]] - Agents push and open PRs as a machine account that cannot approve its own work; code-owner review is on and no owner credential is on the agents' machine, so only the owner's approval counts.
 - [[ADR-0026 ECC wins over the repository rules]] - ECC is the foundation: where a zeem rule, a repository skill or a wiki page disagrees with ECC, ECC wins, every ECC rule set loads, and nothing in the repository may block the plugin.
 - [[ADR-0027 One integration branch per piece of work]] - A piece of work, however many phases, issues or tickets, lives on one integration branch with one pull request at the end; parallel agents merge local worktree branches into it.
+- [[ADR-0028 Outcome is the measure of record for compliance evals]] - Outcome scores are the compliance evals' measure of record; the skill-comply compliance rate is a strict secondary signal read with its known limits, and ECC's grader and the pinned specs are unchanged.
 
 ## Lessons
 

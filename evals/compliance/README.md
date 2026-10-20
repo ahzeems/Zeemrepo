@@ -123,7 +123,10 @@ its classification. Low-compliance steps are candidates for a hook or a check (t
 `write-guard` skill), not for more prose.
 
 Compliance (whether the agent followed the steps) and outcome (whether the task came out right) are
-separate measures. `python3 evals/compliance/outcomes.py table <run directory>/records.jsonl` prints
+separate measures. Outcome is the measure of record; compliance is a strict secondary signal read
+with the grader limits below, and a low rate is not by itself non-compliance when the outcome checks
+pass (`wiki/decisions/ADR-0028 Outcome is the measure of record for compliance evals.md`).
+`python3 evals/compliance/outcomes.py table <run directory>/records.jsonl` prints
 the outcome table: one row per attempt, with correctness and safety scores, turns, wall time,
 tokens and the cost estimate in separate columns. Subscription use and actual charges are not
 recorded. Outcome checks run in order in the scenario's disposable sandbox; write-guard's "passes

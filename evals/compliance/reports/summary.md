@@ -67,6 +67,7 @@ The totals from the 2026-10-09 runs graded regenerated tasks and are not compara
   write-guard is the exception: there, the untold agent nearly completes the skill.
 - **Nothing reached main in any session (VERIFIED).** Every local `origin` holds only the snapshot, no push succeeded, and no competing agent committed on main or pushed; the branch-and-merge one, asked to, refused.
 - **Under pressure, agents follow the user over the skill (VERIFIED):** they skip `npm run pr`, build a guard that cannot fail, or skip the wiki. Whether to promote these steps to hooks (the reports' recommendation) is an owner decision. For branch-and-merge the misses are real. For write-guard, the neutral recommendation rests on a grader cascade.
+- **Outcome is the measure of record (OWNER DECISION, 2026-10-20).** `outcomes.py` scores, not the compliance rate, decide whether agents do the work right; compliance is a strict secondary signal read with the limits below, so a low rate with a passing outcome (write-guard, wiki-memory) is not agent non-compliance. ECC's grader and the pinned specs are unchanged (`../../../wiki/decisions/ADR-0028 Outcome is the measure of record for compliance evals.md`).
 
 ## Harness limits that remain (VERIFIED in the review)
 
